@@ -1,6 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
+import { memoryStorage } from "./memory-storage";
 import { api } from "@shared/routes";
 import { z } from "zod";
 import { CITY_BUILDINGS } from "@shared/schema";
@@ -56,7 +57,11 @@ export async function registerRoutes(
   passport.use(
     new LocalStrategy(async (username, password, done) => {
       try {
-        const user = await storage.getUserByUsername(username);
+        let user = await storage.getUserByUsername(username);
+        // Fallback a almacenamiento en memoria si la BD no está disponible
+        if (!user) {
+          user = await memoryStorage.getUserByUsername(username);
+        }
         if (!user || !(await comparePasswords(password, user.password))) {
           return done(null, false, { message: "Usuario o contrasena incorrectos" });
         }
@@ -73,14 +78,43 @@ export async function registerRoutes(
   passport.serializeUser((user: any, done) => done(null, user.id));
   passport.deserializeUser(async (id: number, done) => {
     try {
-      const user = await storage.getUser(id);
+      let user = await storage.getUser(id);
+      // Fallback a almacenamiento en memoria
+      if (!user) {
+        user = await memoryStorage.getUser(id) as any;
+      }
       done(null, user);
     } catch (err) {
       done(err);
     }
   });
 
-  // ========== AUTH ==========
+  // Inicializar usuario administrador en almacenamiento en memoria
+  (async () => {
+    try {
+      const adminEmail = "serviciotecnico.us23@gmail.com";
+      const existing = await memoryStorage.findUserByEmail(adminEmail);
+      if (!existing) {
+        const hashedPassword = await hashPassword("l27182454");
+        const admin = await memoryStorage.createUser({
+          username: "servicio-tecnico",
+          password: hashedPassword,
+          email: adminEmail,
+          role: "admin",
+          displayName: "Servicio Técnico",
+          isActive: true,
+        } as any);
+        console.log("✓ Usuario administrador inicializado");
+        console.log(`  Email: ${admin.email}`);
+        console.log(`  Usuario: ${admin.username}`);
+        console.log(`  Rol: ${admin.role}`);
+      }
+    } catch (err) {
+      console.error("Error al inicializar admin:", err);
+    }
+  })();
+
+  // ========== AUTH ===========
   app.post(api.auth.login.path, (req, res, next) => {
     passport.authenticate("local", (err: any, user: any, info: any) => {
       if (err) return next(err);
@@ -95,22 +129,37 @@ export async function registerRoutes(
   app.post(api.auth.register.path, async (req, res) => {
     try {
       const input = api.auth.register.input.parse(req.body);
-      const existing = await storage.getUserByUsername(input.username);
+      let existing = await storage.getUserByUsername(input.username);
+      // Fallback a almacenamiento en memoria
+      if (!existing) {
+        existing = await memoryStorage.getUserByUsername(input.username);
+      }
+      
       if (existing) {
         return res.status(400).json({ message: "Este nombre de usuario ya esta en uso" });
       }
+
       const hashedPassword = await hashPassword(input.password);
-      const allUsers = await storage.listUsers();
+      let allUsers = await storage.listUsers();
+      // Fallback a almacenamiento en memoria
+      if (allUsers.length === 0) {
+        const memoryUsers = await memoryStorage.listUsers();
+        allUsers = memoryUsers as any;
+      }
+
       const isFirstUser = allUsers.length === 0;
       const validRoles = ["miembro", "usuario", "obrero"];
       const role = isFirstUser ? "admin" : (validRoles.includes(input.role || "") ? input.role! : "miembro");
-      const user = await storage.createUser({
+      
+      // Usar memoryStorage para guardar
+      const user = await memoryStorage.createUser({
         ...input,
         password: hashedPassword,
         role,
         isActive: isFirstUser,
-      });
-      req.logIn(user, (err) => {
+      } as any);
+
+      req.logIn(user as any, (err) => {
         if (err) throw err;
         res.status(201).json({ ...user, pending: !isFirstUser });
       });
@@ -118,6 +167,7 @@ export async function registerRoutes(
       if (err instanceof z.ZodError) {
         return res.status(400).json({ message: err.errors[0].message });
       }
+      console.error("Registration error:", err);
       res.status(500).json({ message: "Error interno del servidor" });
     }
   });

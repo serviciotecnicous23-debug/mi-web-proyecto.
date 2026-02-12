@@ -1,0 +1,12 @@
+[
+  {
+    "username": "servicio-tecnico",
+    "password": "68d0109f8531e038a2e4f961108d4db1ea15fab7f5c0dab3076edfac298c6293e0546597b879760ed6087043ef8cb5a75d9d042961d173cae82b7398e812af9e.e5dc0405f14cba96d262842bae80b55b",
+    "email": "serviciotecnico.us23@gmail.com",
+    "role": "admin",
+    "displayName": "Servicio Técnico",
+    "isActive": true,
+    "id": 1,
+    "createdAt": "2026-02-12T18:58:20.964Z"
+  }
+]
