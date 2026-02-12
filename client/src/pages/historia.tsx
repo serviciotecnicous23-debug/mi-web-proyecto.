@@ -1,22 +1,22 @@
-import { Layout } from '../components/Header'
-import { Card } from '../components/ui/Card'
-import { Flame, Target, Eye } from 'lucide-react'
+import { Layout } from "@/components/layout";
+import { Card } from "@/components/ui/card";
+import { Flame, Target, Eye } from "lucide-react";
 
 const timeline = [
-  { year: '2017', title: 'El Llamado', desc: 'Nacimiento del ministerio en Ciudad Bolivar, Venezuela. Un grupo de jovenes apasionados por Dios reciben el mandato de llevar el fuego del evangelio a las naciones.' },
-  { year: '2018-2019', title: 'Expansion Nacional', desc: 'Primeras campanas evangelisticas masivas. Formacion de equipos de evangelismo callejero. Alcance de cientos de vidas en Venezuela.' },
-  { year: '2020-2021', title: 'Nuevos Horizontes', desc: 'Expansion a Peru bajo la cobertura de Mision Peru. Adaptacion a medios digitales durante la pandemia. Radio y transmisiones en vivo.' },
-  { year: '2022-2023', title: 'Traslado a USA', desc: 'Nueva sede en Austin, Texas. Consolidacion del ministerio internacional. Formacion de lideres y estructura organizativa.' },
-  { year: '2024-2025', title: 'Plataforma Digital', desc: 'Lanzamiento de la plataforma ministerial global. Conexion de obreros de todas las naciones. Escuela de ministerio en linea.' },
-]
+  { year: "2017", title: "El Llamado", desc: "Nacimiento del ministerio en Ciudad Bolivar, Venezuela. Un grupo de jovenes apasionados por Dios reciben el mandato de llevar el fuego del evangelio a las naciones." },
+  { year: "2018-2019", title: "Expansion Nacional", desc: "Primeras campanas evangelisticas masivas. Formacion de equipos de evangelismo callejero. Alcance de cientos de vidas en Venezuela." },
+  { year: "2020-2021", title: "Nuevos Horizontes", desc: "Expansion a Peru bajo la cobertura de Mision Peru. Adaptacion a medios digitales durante la pandemia. Radio y transmisiones en vivo." },
+  { year: "2022-2023", title: "Traslado a USA", desc: "Nueva sede en Austin, Texas. Consolidacion del ministerio internacional. Formacion de lideres y estructura organizativa." },
+  { year: "2024-2025", title: "Plataforma Digital", desc: "Lanzamiento de la plataforma ministerial global. Conexion de obreros de todas las naciones. Escuela de ministerio en linea." },
+];
 
 const missionPoints = [
-  'Evangelismo integral en calles y plazas',
-  'Medios digitales y radio',
-  'Campanas y cruzadas',
-  'Obras sociales y ayuda humanitaria',
-  'Capacitacion de obreros',
-]
+  "Evangelismo integral en calles y plazas",
+  "Medios digitales y radio",
+  "Campanas y cruzadas",
+  "Obras sociales y ayuda humanitaria",
+  "Capacitacion de obreros",
+];
 
 export default function Historia() {
   return (
@@ -25,7 +25,7 @@ export default function Historia() {
         <div className="max-w-4xl mx-auto px-4">
           <div className="text-center mb-12">
             <p className="text-sm text-primary font-medium mb-2">Nuestra Historia</p>
-            <h1 className="text-3xl md:text-4xl font-bold mb-4">
+            <h1 className="text-3xl md:text-4xl font-bold mb-4" data-testid="text-history-title">
               Un Legado de Fe y Fuego
             </h1>
             <p className="text-muted-foreground max-w-2xl mx-auto">
@@ -35,7 +35,7 @@ export default function Historia() {
 
           <div className="space-y-8">
             {timeline.map((item, i) => (
-              <div key={item.year} className="flex gap-6">
+              <div key={item.year} className="flex gap-6" data-testid={`timeline-${item.year}`}>
                 <div className="flex flex-col items-center">
                   <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
                     <Flame className="w-5 h-5 text-primary" />
@@ -99,5 +99,5 @@ export default function Historia() {
         </div>
       </section>
     </Layout>
-  )
+  );
 }

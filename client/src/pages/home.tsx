@@ -1,38 +1,38 @@
-import { Layout } from '../components/Header'
-import { Button } from '../components/ui/Button'
-import { Card } from '../components/ui/Card'
-import { Link } from 'wouter'
-import { useAuth } from '../hooks/use-auth'
-import { Flame, Radio, Users, BookOpen, Heart, Globe } from 'lucide-react'
+import { Layout } from "@/components/layout";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Link } from "wouter";
+import { useAuth } from "@/hooks/use-auth";
+import { Flame, Radio, Users, BookOpen, Heart, Globe } from "lucide-react";
 
 const stats = [
-  { label: 'Anos de Servicio', value: '7+' },
-  { label: 'Paises', value: '3' },
-  { label: 'Vidas Impactadas', value: '1000+' },
-  { label: 'Fuego del Espiritu', value: '∞' },
-]
+  { label: "Anos de Servicio", value: "7+" },
+  { label: "Paises", value: "3" },
+  { label: "Vidas Impactadas", value: "1000+" },
+  { label: "Fuego del Espiritu", value: "\u221E" },
+];
 
 const areas = [
-  { icon: Flame, title: 'Evangelismo Callejero', desc: 'Alcanzando vidas en plazas, parques y hogares con el mensaje de salvacion.' },
-  { icon: Radio, title: 'Medios Digitales', desc: 'Radio, podcasts, YouTube y redes sociales llevando el evangelio a todo lugar.' },
-  { icon: Heart, title: 'Obras Sociales', desc: 'Ayuda humanitaria, jornadas comunitarias y apoyo a los necesitados.' },
-  { icon: BookOpen, title: 'Formacion de Lideres', desc: 'Escuela de ministerio, discipulado y capacitacion de obreros fieles.' },
-  { icon: Users, title: 'Retiros y Encuentros', desc: 'Vigilias, campamentos, congresos y tiempos de avivamiento espiritual.' },
-  { icon: Globe, title: 'Misiones Internacionales', desc: 'Expansion del ministerio a nuevas naciones y culturas.' },
-]
+  { icon: Flame, title: "Evangelismo Callejero", desc: "Alcanzando vidas en plazas, parques y hogares con el mensaje de salvacion." },
+  { icon: Radio, title: "Medios Digitales", desc: "Radio, podcasts, YouTube y redes sociales llevando el evangelio a todo lugar." },
+  { icon: Heart, title: "Obras Sociales", desc: "Ayuda humanitaria, jornadas comunitarias y apoyo a los necesitados." },
+  { icon: BookOpen, title: "Formacion de Lideres", desc: "Escuela de ministerio, discipulado y capacitacion de obreros fieles." },
+  { icon: Users, title: "Retiros y Encuentros", desc: "Vigilias, campamentos, congresos y tiempos de avivamiento espiritual." },
+  { icon: Globe, title: "Misiones Internacionales", desc: "Expansion del ministerio a nuevas naciones y culturas." },
+];
 
 export default function Home() {
-  const { user } = useAuth()
+  const { user } = useAuth();
 
   return (
     <Layout>
       <section className="relative overflow-hidden py-24 md:py-36">
         <div className="absolute inset-0 fire-gradient opacity-10 dark:opacity-20" />
         <div className="relative max-w-4xl mx-auto px-4 text-center">
-          <p className="text-sm text-muted-foreground mb-4">
+          <p className="text-sm text-muted-foreground mb-4" data-testid="text-subtitle">
             Desde 2017 - Ciudad Bolivar, Venezuela
           </p>
-          <h1 className="text-4xl md:text-6xl font-bold mb-6">
+          <h1 className="text-4xl md:text-6xl font-bold mb-6" data-testid="text-title">
             <span className="fire-text">AVIVANDO EL FUEGO</span>
           </h1>
           <blockquote className="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto mb-2 italic">
@@ -42,21 +42,21 @@ export default function Home() {
           <div className="flex flex-wrap justify-center gap-3">
             {user ? (
               <Link href="/perfil">
-                <Button size="lg">
+                <Button size="lg" data-testid="button-hero-profile">
                   <Flame className="w-4 h-4 mr-2" />
                   Mi Perfil
                 </Button>
               </Link>
             ) : (
               <Link href="/registro">
-                <Button size="lg">
+                <Button size="lg" data-testid="button-hero-join">
                   <Flame className="w-4 h-4 mr-2" />
                   Unirse al Ministerio
                 </Button>
               </Link>
             )}
             <Link href="/historia">
-              <Button variant="outline" size="lg">
+              <Button variant="outline" size="lg" data-testid="button-hero-vision">
                 Conocer la Vision
               </Button>
             </Link>
@@ -67,7 +67,7 @@ export default function Home() {
       <section className="py-12 border-t">
         <div className="max-w-5xl mx-auto px-4 grid grid-cols-2 md:grid-cols-4 gap-6">
           {stats.map((s) => (
-            <div key={s.label} className="text-center">
+            <div key={s.label} className="text-center" data-testid={`stat-${s.value}`}>
               <p className="text-3xl md:text-4xl font-bold fire-text">{s.value}</p>
               <p className="text-sm text-muted-foreground mt-1">{s.label}</p>
             </div>
@@ -86,7 +86,7 @@ export default function Home() {
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {areas.map((a) => (
-              <Card key={a.title} className="p-6">
+              <Card key={a.title} className="p-6" data-testid={`card-area-${a.title}`}>
                 <a.icon className="w-8 h-8 text-primary mb-3" />
                 <h3 className="font-semibold mb-2">{a.title}</h3>
                 <p className="text-sm text-muted-foreground">{a.desc}</p>
@@ -103,12 +103,12 @@ export default function Home() {
             Estamos buscando obreros apasionados que quieran unirse a esta vision de llevar el fuego del evangelio a las naciones.
           </p>
           <Link href="/registro">
-            <Button size="lg">
+            <Button size="lg" data-testid="button-cta-join">
               Ser Parte del Equipo
             </Button>
           </Link>
         </div>
       </section>
     </Layout>
-  )
+  );
 }

@@ -1,0 +1,149 @@
+{
+  "colorScheme": "dark",
+  "fonts": [
+    {
+      "family": "Inter",
+      "role": "body"
+    },
+    {
+      "family": "Montserrat",
+      "role": "heading"
+    },
+    {
+      "family": "Playfair Display",
+      "role": "display"
+    }
+  ],
+  "colors": {
+    "primary": "#9CA3AF",
+    "accent": "#FB923C",
+    "background": "#0A0A0F",
+    "textPrimary": "#FFFFFF",
+    "link": "#2A2A3A"
+  },
+  "typography": {
+    "fontFamilies": {
+      "primary": "Inter",
+      "heading": "Montserrat"
+    },
+    "fontStacks": {
+      "heading": [
+        "Montserrat",
+        "sans-serif"
+      ],
+      "body": [
+        "Inter",
+        "sans-serif"
+      ],
+      "paragraph": [
+        "Playfair Display",
+        "serif"
+      ]
+    },
+    "fontSizes": {
+      "h1": "96px",
+      "h2": "48px",
+      "body": "24px"
+    }
+  },
+  "spacing": {
+    "baseUnit": 4,
+    "borderRadius": "4px"
+  },
+  "components": {
+    "input": {
+      "background": "#16161B",
+      "textColor": "#FFFFFF",
+      "borderColor": "#232327",
+      "borderRadius": "14px",
+      "borderRadiusCorners": {
+        "topLeft": "14px",
+        "topRight": "14px",
+        "bottomRight": "14px",
+        "bottomLeft": "14px"
+      },
+      "shadow": "none"
+    },
+    "buttonPrimary": {
+      "background": "#0A0A0F",
+      "textColor": "#FB923C",
+      "borderColor": "#823F13",
+      "borderRadius": "8px",
+      "borderRadiusCorners": {
+        "topLeft": "8px",
+        "topRight": "8px",
+        "bottomRight": "8px",
+        "bottomLeft": "8px"
+      },
+      "shadow": "rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0.05) 0px 1px 2px 0px"
+    },
+    "buttonSecondary": {
+      "background": "#101018",
+      "textColor": "#FFFFFF",
+      "borderRadius": "8px",
+      "borderRadiusCorners": {
+        "topLeft": "8px",
+        "topRight": "8px",
+        "bottomRight": "8px",
+        "bottomLeft": "8px"
+      },
+      "shadow": "none"
+    }
+  },
+  "images": {
+    "logo": "File saved at: attached_assets/logo.svg",
+    "favicon": null,
+    "ogImage": null,
+    "logoHref": "File saved at: attached_assets/logoHref.html"
+  },
+  "__framework_hints": [],
+  "__llm_logo_reasoning": {
+    "selectedIndex": 0,
+    "reasoning": "Selected #0 because it is located in the header, is visible, and matches the brand 'Avivando el Fuego'.",
+    "confidence": 0.9,
+    "source": "llm"
+  },
+  "__llm_button_reasoning": {
+    "primary": {
+      "index": 2,
+      "text": "Conocer la Visión",
+      "reasoning": "Button #2 'Conocer la Visión' has a vibrant accent color (#FB923C) which stands out against the dark background, making it the primary CTA."
+    },
+    "secondary": {
+      "index": 0,
+      "text": "Enviar Mensaje",
+      "reasoning": "Button #0 'Enviar Mensaje' has a different background color (#101018) and serves as a secondary action, complementing the primary CTA."
+    },
+    "confidence": 0.9
+  },
+  "personality": {
+    "tone": "professional",
+    "energy": "medium",
+    "targetAudience": "Spanish-speaking evangelical community"
+  },
+  "designSystem": {
+    "framework": "tailwind",
+    "componentLibrary": ""
+  },
+  "confidence": {
+    "buttons": 0.9,
+    "colors": 0.9,
+    "overall": 0.9
+  },
+  "__llm_metadata": {
+    "logoSelection": {
+      "llmCalled": true,
+      "llmSucceeded": true,
+      "finalSource": "llm",
+      "rawLogoSelection": {
+        "selectedLogoIndex": 0,
+        "selectedLogoReasoning": "Selected #0 because it is located in the header, is visible, and matches the brand 'Avivando el Fuego'.",
+        "confidence": 0.9
+      }
+    },
+    "buttonClassification": {
+      "llmCalled": true,
+      "llmSucceeded": true
+    }
+  }
+}

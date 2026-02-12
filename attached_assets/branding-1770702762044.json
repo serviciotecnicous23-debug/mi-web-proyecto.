@@ -1,0 +1,138 @@
+{
+  "colorScheme": "light",
+  "fonts": [
+    {
+      "family": "Arial",
+      "role": "body"
+    },
+    {
+      "family": "Helvetica",
+      "role": "body"
+    },
+    {
+      "family": "Roboto",
+      "role": "body"
+    }
+  ],
+  "colors": {
+    "primary": "#4007A2",
+    "accent": "#006D21",
+    "background": "#FFFFFF",
+    "textPrimary": "#666666",
+    "link": "#006D21"
+  },
+  "typography": {
+    "fontFamilies": {
+      "primary": "Arial",
+      "heading": "Arial"
+    },
+    "fontStacks": {
+      "heading": [
+        "Arial",
+        "sans-serif"
+      ],
+      "body": [
+        "Arial",
+        "Helvetica",
+        "sans-serif"
+      ],
+      "paragraph": [
+        "Arial",
+        "Helvetica",
+        "sans-serif"
+      ]
+    },
+    "fontSizes": {
+      "h1": "13px",
+      "h2": "13px",
+      "body": "13px"
+    }
+  },
+  "spacing": {
+    "baseUnit": 4,
+    "borderRadius": "8px"
+  },
+  "components": {
+    "input": {
+      "background": "transparent",
+      "textColor": "#000000",
+      "borderColor": null,
+      "borderRadius": "0px",
+      "borderRadiusCorners": {
+        "topLeft": "0px",
+        "topRight": "0px",
+        "bottomRight": "0px",
+        "bottomLeft": "0px"
+      },
+      "shadow": "none"
+    },
+    "buttonPrimary": {
+      "background": "#F5F5F5",
+      "textColor": "#666666",
+      "borderColor": "#DDDDDD",
+      "borderRadius": "2px",
+      "borderRadiusCorners": {
+        "topLeft": "2px",
+        "topRight": "2px",
+        "bottomRight": "2px",
+        "bottomLeft": "2px"
+      },
+      "shadow": "none"
+    }
+  },
+  "images": {
+    "favicon": "File saved at: attached_assets/favicon.ico",
+    "ogImage": null
+  },
+  "__framework_hints": [],
+  "__llm_logo_reasoning": {
+    "selectedIndex": -1,
+    "reasoning": "No suitable brand logo was found. The candidates are either too small or not visible, and none clearly represent the brand 'CityVille'.",
+    "confidence": 0.3,
+    "rejected": true,
+    "source": "llm"
+  },
+  "__llm_button_reasoning": {
+    "primary": {
+      "index": 0,
+      "text": "Sign in",
+      "reasoning": "The 'Sign in' button is the only button available, making it the default primary action despite its neutral color."
+    },
+    "secondary": {
+      "index": -1,
+      "text": "N/A",
+      "reasoning": "There is only one button available, so no secondary button can be selected."
+    },
+    "confidence": 0.9
+  },
+  "personality": {
+    "tone": "professional",
+    "energy": "low",
+    "targetAudience": "general users seeking search functionality"
+  },
+  "designSystem": {
+    "framework": "custom",
+    "componentLibrary": ""
+  },
+  "confidence": {
+    "buttons": 0.9,
+    "colors": 0.9,
+    "overall": 0.9
+  },
+  "__llm_metadata": {
+    "logoSelection": {
+      "llmCalled": true,
+      "llmSucceeded": true,
+      "finalSource": "llm",
+      "rawLogoSelection": {
+        "selectedLogoIndex": -1,
+        "selectedLogoReasoning": "No suitable brand logo was found. The candidates are either too small or not visible, and none clearly represent the brand 'CityVille'.",
+        "confidence": 0.3
+      }
+    },
+    "buttonClassification": {
+      "llmCalled": true,
+      "llmSucceeded": true
+    }
+  }
+}

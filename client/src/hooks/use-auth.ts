@@ -1,26 +1,97 @@
-import { useState, useEffect } from 'react'
-
-export type User = {
-  id: number
-  username: string
-  displayName?: string
-  email?: string
-  role: 'user' | 'obrero' | 'admin'
-  avatarUrl?: string
-}
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { api } from "@shared/routes";
+import { type InsertUser } from "@shared/schema";
+import { useToast } from "@/hooks/use-toast";
+import { z } from "zod";
 
 export function useAuth() {
-  const [user, setUser] = useState<User | null>(null)
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
 
-  useEffect(() => {
-    // Stub: En producción, obtendría el usuario de /api/auth/me
-    // Por ahora retorna null (usuario no autenticado)
-  }, [])
+  const { data: user, isLoading, error } = useQuery({
+    queryKey: [api.auth.me.path],
+    queryFn: async () => {
+      const res = await fetch(api.auth.me.path);
+      if (res.status === 401) return null;
+      if (!res.ok) throw new Error("Error al obtener usuario");
+      return res.json();
+    },
+    retry: false,
+  });
 
-  function logout() {
-    setUser(null)
-    // Stub: En producción, llamaría al servidor
-  }
+  const loginMutation = useMutation({
+    mutationFn: async (credentials: z.infer<typeof api.auth.login.input>) => {
+      const res = await fetch(api.auth.login.path, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(credentials),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        throw new Error(data?.message || "Error al iniciar sesion");
+      }
+      return res.json();
+    },
+    onSuccess: (data) => {
+      queryClient.setQueryData([api.auth.me.path], data);
+      toast({ title: "Bienvenido!", description: `Sesion iniciada como ${data.username}` });
+    },
+    onError: (error) => {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    },
+  });
 
-  return { user, logout, isLoading: false }
+  const registerMutation = useMutation({
+    mutationFn: async (data: Partial<InsertUser> & { username: string; password: string }) => {
+      const res = await fetch(api.auth.register.path, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+      const responseData = await res.json();
+      if (!res.ok) {
+        throw new Error(responseData.message || "Error en el registro");
+      }
+      return responseData;
+    },
+    onSuccess: (data) => {
+      queryClient.setQueryData([api.auth.me.path], data);
+      if (data.pending) {
+        toast({
+          title: "Registro exitoso",
+          description: "Tu cuenta esta activa. Un administrador aprobara tu cuenta para acceso completo.",
+        });
+      } else {
+        toast({ title: "Bienvenido!", description: "Cuenta creada exitosamente" });
+      }
+    },
+    onError: (error) => {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const logoutMutation = useMutation({
+    mutationFn: async () => {
+      const res = await fetch(api.auth.logout.path, { method: "POST" });
+      if (!res.ok) throw new Error("Error al cerrar sesion");
+    },
+    onSuccess: () => {
+      queryClient.setQueryData([api.auth.me.path], null);
+      queryClient.clear();
+      toast({ title: "Hasta pronto", description: "Sesion cerrada" });
+    },
+  });
+
+  return {
+    user,
+    isLoading,
+    error,
+    login: loginMutation.mutate,
+    register: registerMutation.mutateAsync,
+    logout: logoutMutation.mutate,
+    isLoggingIn: loginMutation.isPending,
+    isRegistering: registerMutation.isPending,
+    isLoggingOut: logoutMutation.isPending,
+    registerData: registerMutation.data,
+  };
 }
