@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
+import Domino3DScene from "./domino-3d";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -617,8 +618,16 @@ export function DominoFullGame({ onBack }: { onBack: () => void }) {
           </CardContent>
         </Card>
 
+        {/* 3D preview to match premium aesthetic */}
+        <div className="w-full">
+          <Domino3DScene board={[]} hand={createDominoGameState(ruleType, vsAI, playerCount).hands["1"]} showHand={false} />
+        </div>
+
         <Button onClick={startGame} data-testid="button-start-domino" className="w-full">
           <Sparkles className="w-4 h-4 mr-1" /> Comenzar Partida
+        </Button>
+        <Button variant="outline" className="w-full mt-2" onClick={() => { window.location.href = '/juego/domino-premium'; }}>
+          <Users className="w-4 h-4 mr-1" /> Jugar Premium (Multijugador)
         </Button>
       </div>
     );

@@ -22,6 +22,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 import { Chess } from "chess.js";
 import { DominoFullGame } from "@/components/domino-game";
+import GamePreview3D from "@/components/GamePreview3D";
 
 const GAME_ICONS: Record<string, any> = {
   tictactoe: Grid3x3,
@@ -1499,7 +1500,8 @@ export function BoardGamesHub({ onBack }: { onBack: () => void }) {
               data-testid={`card-game-${gt}`}
             >
               <CardContent className="py-4 flex flex-col items-center gap-2 text-center">
-                <GameIcon className="w-10 h-10 text-primary" />
+                <div className="mb-2"><GamePreview3D type={gt} /></div>
+                <GameIcon className="w-6 h-6 text-primary" />
                 <span className="font-semibold text-sm">{info.name}</span>
                 <span className="text-xs text-muted-foreground">{info.description}</span>
               </CardContent>
