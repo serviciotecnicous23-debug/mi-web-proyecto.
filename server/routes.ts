@@ -57,11 +57,15 @@ export async function registerRoutes(
   passport.use(
     new LocalStrategy(async (username, password, done) => {
       try {
-        let user = await storage.getUserByUsername(username);
-        // Fallback a almacenamiento en memoria si la BD no está disponible
-        if (!user) {
+        let user = null;
+        try {
+          user = await storage.getUserByUsername(username);
+        } catch (dbErr) {
+          // Si la BD falla, usar almacenamiento en memoria
+          console.log("Database unavailable, using memory storage");
           user = await memoryStorage.getUserByUsername(username);
         }
+        
         if (!user || !(await comparePasswords(password, user.password))) {
           return done(null, false, { message: "Usuario o contrasena incorrectos" });
         }
@@ -129,22 +133,26 @@ export async function registerRoutes(
   app.post(api.auth.register.path, async (req, res) => {
     try {
       const input = api.auth.register.input.parse(req.body);
-      let existing = await storage.getUserByUsername(input.username);
-      // Fallback a almacenamiento en memoria
-      if (!existing) {
+      let existing = null;
+      try {
+        existing = await storage.getUserByUsername(input.username);
+      } catch (dbErr) {
+        console.log('storage.getUserByUsername failed, using memoryStorage fallback');
         existing = await memoryStorage.getUserByUsername(input.username);
       }
-      
+
       if (existing) {
         return res.status(400).json({ message: "Este nombre de usuario ya esta en uso" });
       }
 
       const hashedPassword = await hashPassword(input.password);
-      let allUsers = await storage.listUsers();
-      // Fallback a almacenamiento en memoria
-      if (allUsers.length === 0) {
-        const memoryUsers = await memoryStorage.listUsers();
-        allUsers = memoryUsers as any;
+
+      let allUsers: any[] = [];
+      try {
+        allUsers = await storage.listUsers();
+      } catch (dbErr) {
+        console.log('storage.listUsers failed, using memoryStorage fallback');
+        allUsers = await memoryStorage.listUsers() as any[];
       }
 
       const isFirstUser = allUsers.length === 0;
