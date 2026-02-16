@@ -3,6 +3,7 @@ import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { Component, type ErrorInfo, type ReactNode } from "react";
 import NotFound from "@/pages/not-found";
 import Home from "@/pages/home";
 import Historia from "@/pages/historia";
@@ -22,7 +23,6 @@ import AulaVirtual from "@/pages/aula";
 import BibliotecaPage from "@/pages/biblioteca";
 import OracionPage from "@/pages/oracion";
 import RegionesPage from "@/pages/regiones";
-import JuegoPage from "@/pages/juego";
 
 function Router() {
   return (
@@ -46,20 +46,72 @@ function Router() {
       <Route path="/biblioteca" component={BibliotecaPage} />
       <Route path="/oracion" component={OracionPage} />
       <Route path="/regiones" component={RegionesPage} />
-      <Route path="/juego" component={JuegoPage} />
       <Route component={NotFound} />
     </Switch>
   );
 }
 
+class ErrorBoundary extends Component<
+  { children: ReactNode },
+  { hasError: boolean; error: Error | null }
+> {
+  constructor(props: { children: ReactNode }) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+
+  static getDerivedStateFromError(error: Error) {
+    return { hasError: true, error };
+  }
+
+  componentDidCatch(error: Error, errorInfo: ErrorInfo) {
+    console.error("Error en la aplicacion:", error, errorInfo);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div style={{ padding: "2rem", textAlign: "center", fontFamily: "sans-serif" }}>
+          <h1 style={{ color: "#e53e3e", fontSize: "1.5rem", marginBottom: "1rem" }}>
+            Algo salio mal
+          </h1>
+          <p style={{ color: "#666", marginBottom: "1rem" }}>
+            {this.state.error?.message || "Error desconocido"}
+          </p>
+          <button
+            onClick={() => {
+              this.setState({ hasError: false, error: null });
+              window.location.href = "/";
+            }}
+            style={{
+              padding: "0.5rem 1.5rem",
+              background: "#e67e22",
+              color: "white",
+              border: "none",
+              borderRadius: "0.375rem",
+              cursor: "pointer",
+              fontSize: "1rem",
+            }}
+          >
+            Volver al Inicio
+          </button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 function App() {
   return (
-    <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
-        <Toaster />
-        <Router />
-      </TooltipProvider>
-    </QueryClientProvider>
+    <ErrorBoundary>
+      <QueryClientProvider client={queryClient}>
+        <TooltipProvider>
+          <Toaster />
+          <Router />
+        </TooltipProvider>
+      </QueryClientProvider>
+    </ErrorBoundary>
   );
 }
 

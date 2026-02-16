@@ -34,6 +34,11 @@ export async function setupVite(server: Server, app: Express) {
   app.use("/{*path}", async (req, res, next) => {
     const url = req.originalUrl;
 
+    // Skip API routes and static file requests
+    if (url.startsWith("/api") || url.match(/\.(js|css|ico|png|jpg|svg|woff2?|ttf|map|json|webp)$/)) {
+      return next();
+    }
+
     try {
       const clientTemplate = path.resolve(
         import.meta.dirname,

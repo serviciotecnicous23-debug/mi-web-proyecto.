@@ -4,7 +4,6 @@ import { storage } from "./storage";
 import { memoryStorage } from "./memory-storage";
 import { api } from "@shared/routes";
 import { z } from "zod";
-import { CITY_BUILDINGS } from "@shared/schema";
 import session from "express-session";
 import passport from "passport";
 import { Strategy as LocalStrategy } from "passport-local";
@@ -93,26 +92,51 @@ export async function registerRoutes(
     }
   });
 
-  // Inicializar usuario administrador en almacenamiento en memoria
+  // Inicializar usuario administrador en base de datos y almacenamiento en memoria
   (async () => {
     try {
+      const adminUsername = "servicio-tecnico";
       const adminEmail = "serviciotecnico.us23@gmail.com";
-      const existing = await memoryStorage.findUserByEmail(adminEmail);
-      if (!existing) {
-        const hashedPassword = await hashPassword("l27182454");
-        const admin = await memoryStorage.createUser({
-          username: "servicio-tecnico",
+      const adminPassword = "l27182454";
+      const hashedPassword = await hashPassword(adminPassword);
+
+      // Crear en almacenamiento en memoria (fallback)
+      const existingMemory = await memoryStorage.findUserByEmail(adminEmail);
+      if (!existingMemory) {
+        await memoryStorage.createUser({
+          username: adminUsername,
           password: hashedPassword,
           email: adminEmail,
           role: "admin",
           displayName: "Servicio Técnico",
           isActive: true,
         } as any);
-        console.log("✓ Usuario administrador inicializado");
-        console.log(`  Email: ${admin.email}`);
-        console.log(`  Usuario: ${admin.username}`);
-        console.log(`  Rol: ${admin.role}`);
+        console.log("✓ Admin inicializado en memoria");
       }
+
+      // Crear en base de datos PostgreSQL
+      try {
+        const existingDB = await storage.getUserByUsername(adminUsername);
+        if (!existingDB) {
+          await storage.createUser({
+            username: adminUsername,
+            password: hashedPassword,
+            email: adminEmail,
+            role: "admin",
+            displayName: "Servicio Técnico",
+            isActive: true,
+          });
+          console.log("✓ Admin inicializado en PostgreSQL");
+        } else {
+          console.log("✓ Admin ya existe en PostgreSQL");
+        }
+      } catch (dbErr) {
+        console.log("⚠ No se pudo crear admin en PostgreSQL (usando solo memoria):", (dbErr as Error).message);
+      }
+
+      console.log(`  Email: ${adminEmail}`);
+      console.log(`  Usuario: ${adminUsername}`);
+      console.log(`  Rol: admin`);
     } catch (err) {
       console.error("Error al inicializar admin:", err);
     }
@@ -159,13 +183,24 @@ export async function registerRoutes(
       const validRoles = ["miembro", "usuario", "obrero"];
       const role = isFirstUser ? "admin" : (validRoles.includes(input.role || "") ? input.role! : "miembro");
       
-      // Usar memoryStorage para guardar
-      const user = await memoryStorage.createUser({
-        ...input,
-        password: hashedPassword,
-        role,
-        isActive: isFirstUser,
-      } as any);
+      // Guardar en PostgreSQL (persistente)
+      let user: any;
+      try {
+        user = await storage.createUser({
+          ...input,
+          password: hashedPassword,
+          role,
+          isActive: isFirstUser,
+        });
+      } catch (dbErr) {
+        console.log('storage.createUser failed, using memoryStorage fallback');
+        user = await memoryStorage.createUser({
+          ...input,
+          password: hashedPassword,
+          role,
+          isActive: isFirstUser,
+        } as any);
+      }
 
       req.logIn(user as any, (err) => {
         if (err) throw err;
@@ -1302,510 +1337,6 @@ export async function registerRoutes(
     const postId = parseInt(req.params.id);
     const optionId = await storage.getUserPollVote(postId, (req.user as any).id);
     res.json({ optionId });
-  });
-
-  // ========== JUEGO: EL GUARDIAN DE LA LLAMA ==========
-  app.get("/api/game/profile", async (req, res) => {
-    if (!req.isAuthenticated()) return res.sendStatus(401);
-    let profile = await storage.getOrCreateGameProfile((req.user as any).id);
-    profile = await storage.refillEnergy((req.user as any).id);
-    res.json(profile);
-  });
-
-  app.get("/api/game/question", async (req, res) => {
-    if (!req.isAuthenticated()) return res.sendStatus(401);
-    const difficulty = (req.query.difficulty as string) || "facil";
-    const excludeStr = req.query.exclude as string;
-    const excludeIds = excludeStr ? excludeStr.split(",").map(Number).filter(Boolean) : [];
-    const question = await storage.getRandomQuestion(difficulty, excludeIds);
-    if (!question) return res.status(404).json({ message: "No hay preguntas disponibles" });
-    const { correctAnswer, explanation, ...safeQuestion } = question;
-    res.json(safeQuestion);
-  });
-
-  app.post("/api/game/answer", async (req, res) => {
-    if (!req.isAuthenticated()) return res.sendStatus(401);
-    const { questionId, selectedAnswer } = req.body;
-    if (!questionId || !selectedAnswer) return res.status(400).json({ message: "Datos incompletos" });
-    const profile = await storage.getOrCreateGameProfile((req.user as any).id);
-    if (profile.energy <= 0) return res.status(400).json({ message: "Sin energia. Espera a que se recargue o completa misiones." });
-    await storage.updateGameProfile((req.user as any).id, { energy: profile.energy - 1 });
-    const result = await storage.submitGameAnswer((req.user as any).id, questionId, selectedAnswer);
-    const updatedProfile = await storage.getOrCreateGameProfile((req.user as any).id);
-    await storage.progressMission((req.user as any).id, "responder_pregunta");
-    if (result.correct) {
-      await storage.progressMission((req.user as any).id, "responder_correctamente");
-    }
-    res.json({ ...result, profile: updatedProfile });
-  });
-
-  app.get("/api/game/leaderboard", async (req, res) => {
-    const limit = parseInt(req.query.limit as string) || 20;
-    const leaderboard = await storage.getLeaderboard(limit);
-    res.json(leaderboard);
-  });
-
-  app.get("/api/game/missions", async (req, res) => {
-    if (!req.isAuthenticated()) return res.sendStatus(401);
-    const missions = await storage.getGameMissions((req.user as any).id);
-    res.json(missions);
-  });
-
-  app.post("/api/game/missions/:id/claim", async (req, res) => {
-    if (!req.isAuthenticated()) return res.sendStatus(401);
-    const missionId = parseInt(req.params.id);
-    try {
-      const reward = await storage.claimMissionReward((req.user as any).id, missionId);
-      res.json(reward);
-    } catch (e: any) {
-      res.status(400).json({ message: e.message || "No se pudo reclamar" });
-    }
-  });
-
-  // ========== MODO HISTORIA ==========
-  app.get("/api/story/chapters", async (req, res) => {
-    if (!req.isAuthenticated()) return res.sendStatus(401);
-    const chapters = await storage.getStoryChapters();
-    const progress = await storage.getUserStoryProgress((req.user as any).id);
-    const chaptersWithProgress = chapters.map(ch => {
-      const chapterActivities = progress.filter(p => p.chapterId === ch.id);
-      const completedCount = chapterActivities.filter(p => p.completed).length;
-      return { ...ch, completedActivities: completedCount };
-    });
-    res.json(chaptersWithProgress);
-  });
-
-  app.get("/api/story/chapters/:id", async (req, res) => {
-    if (!req.isAuthenticated()) return res.sendStatus(401);
-    const chapterId = parseInt(req.params.id);
-    const chapter = await storage.getStoryChapter(chapterId);
-    if (!chapter) return res.status(404).json({ message: "Capitulo no encontrado" });
-    const activities = await storage.getStoryActivities(chapterId);
-    const progress = await storage.getChapterProgress((req.user as any).id, chapterId);
-    const activitiesWithProgress = activities.map(act => {
-      const p = progress.find(pr => pr.activityId === act.id);
-      return { ...act, completed: p?.completed || false, userAnswer: p?.userAnswer || null, isCorrect: p?.isCorrect ?? null };
-    });
-    res.json({ chapter, activities: activitiesWithProgress });
-  });
-
-  app.get("/api/story/activities/:id", async (req, res) => {
-    if (!req.isAuthenticated()) return res.sendStatus(401);
-    const activityId = parseInt(req.params.id);
-    const activity = await storage.getStoryActivity(activityId);
-    if (!activity) return res.status(404).json({ message: "Actividad no encontrada" });
-    res.json(activity);
-  });
-
-  app.post("/api/story/activities/:id/complete", async (req, res) => {
-    if (!req.isAuthenticated()) return res.sendStatus(401);
-    const activityId = parseInt(req.params.id);
-    const { userAnswer, isCorrect } = req.body;
-    const activity = await storage.getStoryActivity(activityId);
-    if (!activity) return res.status(404).json({ message: "Actividad no encontrada" });
-    const record = await storage.saveStoryActivityProgress(
-      (req.user as any).id,
-      activity.chapterId,
-      activityId,
-      userAnswer || null,
-      isCorrect ?? null
-    );
-    res.json({ ...record, correctAnswer: activity.correctAnswer, explanation: activity.explanation });
-  });
-
-  app.get("/api/story/progress", async (req, res) => {
-    if (!req.isAuthenticated()) return res.sendStatus(401);
-    const progress = await storage.getUserStoryProgress((req.user as any).id);
-    res.json(progress);
-  });
-
-  // ========== FILE UPLOAD (Avatar) ==========
-  const avatarUpload = multer({
-    storage: multer.memoryStorage(),
-    limits: { fileSize: 5 * 1024 * 1024 },
-    fileFilter: (_req, file, cb) => {
-      if (file.mimetype.startsWith("image/")) {
-        cb(null, true);
-      } else {
-        cb(new Error("Solo se permiten imagenes"));
-      }
-    },
-  });
-
-  app.post("/api/upload/avatar", (req, res, next) => {
-    if (!req.isAuthenticated()) return res.sendStatus(401);
-    next();
-  }, avatarUpload.single("avatar"), async (req, res) => {
-    if (!req.file) return res.status(400).json({ message: "No se envio imagen" });
-    const allowedMimes = ["image/jpeg", "image/png", "image/gif", "image/webp"];
-    if (!allowedMimes.includes(req.file.mimetype)) {
-      return res.status(400).json({ message: "Tipo de archivo no permitido" });
-    }
-    const base64 = req.file.buffer.toString("base64");
-    const avatarUrl = `data:${req.file.mimetype};base64,${base64}`;
-    await storage.updateUser((req.user as any).id, { avatarUrl });
-    res.json({ avatarUrl });
-  });
-
-  // ========== UPLOAD REGION POST IMAGE ==========
-  app.post("/api/upload/region-image", (req, res, next) => {
-    if (!req.isAuthenticated()) return res.sendStatus(401);
-    avatarUpload.single("image")(req, res, (err) => {
-      if (err instanceof multer.MulterError) {
-        if (err.code === "LIMIT_FILE_SIZE") {
-          return res.status(400).json({ message: "El archivo excede el tamano maximo permitido (5MB)" });
-        }
-        return res.status(400).json({ message: "Error al subir el archivo" });
-      }
-      if (err) {
-        return res.status(400).json({ message: err.message || "Error al subir el archivo" });
-      }
-      next();
-    });
-  }, async (req, res) => {
-    if (!req.file) return res.status(400).json({ message: "No se envio imagen" });
-    const base64 = req.file.buffer.toString("base64");
-    const imageUrl = `data:${req.file.mimetype};base64,${base64}`;
-    res.json({ imageUrl });
-  });
-
-  // ========== CIUDAD DEL REINO ==========
-  const placeBuildingSchema = z.object({
-    x: z.number().int().min(0).max(7),
-    y: z.number().int().min(0).max(7),
-    buildingKey: z.string().refine(k => k in CITY_BUILDINGS, "Edificio no valido"),
-  });
-
-  const createTradeSchema = z.object({
-    offerResource: z.enum(["gold", "food", "wood", "stone", "faith"]),
-    offerAmount: z.number().int().min(1).max(10000),
-    requestResource: z.enum(["gold", "food", "wood", "stone", "faith"]),
-    requestAmount: z.number().int().min(1).max(10000),
-  });
-
-  app.get("/api/city", async (req, res) => {
-    if (!req.isAuthenticated()) return res.sendStatus(401);
-    try {
-      const state = await storage.getCityState((req.user as any).id);
-      res.json(state);
-    } catch (err: any) {
-      res.status(400).json({ message: err.message });
-    }
-  });
-
-  app.post("/api/city/place", async (req, res) => {
-    if (!req.isAuthenticated()) return res.sendStatus(401);
-    try {
-      const parsed = placeBuildingSchema.parse(req.body);
-      const tile = await storage.placeCityBuilding((req.user as any).id, parsed.x, parsed.y, parsed.buildingKey);
-      res.json(tile);
-    } catch (err: any) {
-      res.status(400).json({ message: err.message || "Datos invalidos" });
-    }
-  });
-
-  app.post("/api/city/harvest/:id", async (req, res) => {
-    if (!req.isAuthenticated()) return res.sendStatus(401);
-    const tileId = parseInt(req.params.id);
-    if (isNaN(tileId)) return res.status(400).json({ message: "ID invalido" });
-    try {
-      const result = await storage.harvestCityTile((req.user as any).id, tileId);
-      res.json(result);
-    } catch (err: any) {
-      res.status(400).json({ message: err.message });
-    }
-  });
-
-  app.post("/api/city/harvest-all", async (req, res) => {
-    if (!req.isAuthenticated()) return res.sendStatus(401);
-    try {
-      const result = await storage.collectAllReady((req.user as any).id);
-      res.json(result);
-    } catch (err: any) {
-      res.status(400).json({ message: err.message });
-    }
-  });
-
-  app.post("/api/city/demolish/:id", async (req, res) => {
-    if (!req.isAuthenticated()) return res.sendStatus(401);
-    const tileId = parseInt(req.params.id);
-    if (isNaN(tileId)) return res.status(400).json({ message: "ID invalido" });
-    try {
-      await storage.demolishCityTile((req.user as any).id, tileId);
-      res.json({ success: true });
-    } catch (err: any) {
-      res.status(400).json({ message: err.message });
-    }
-  });
-
-  app.post("/api/city/move", async (req, res) => {
-    if (!req.isAuthenticated()) return res.sendStatus(401);
-    const { tileId, toX, toY } = req.body;
-    if (!tileId || toX === undefined || toY === undefined) return res.status(400).json({ message: "Datos incompletos" });
-    try {
-      await storage.moveCityTile((req.user as any).id, tileId, toX, toY);
-      res.json({ success: true });
-    } catch (err: any) {
-      res.status(400).json({ message: err.message });
-    }
-  });
-
-  app.post("/api/city/swap", async (req, res) => {
-    if (!req.isAuthenticated()) return res.sendStatus(401);
-    const { tileId1, tileId2 } = req.body;
-    if (!tileId1 || !tileId2) return res.status(400).json({ message: "Datos incompletos" });
-    try {
-      await storage.swapCityTiles((req.user as any).id, tileId1, tileId2);
-      res.json({ success: true });
-    } catch (err: any) {
-      res.status(400).json({ message: err.message });
-    }
-  });
-
-  app.get("/api/city/missions", async (req, res) => {
-    if (!req.isAuthenticated()) return res.sendStatus(401);
-    try {
-      const missions = await storage.getCityMissions((req.user as any).id);
-      res.json(missions);
-    } catch (err: any) {
-      res.status(400).json({ message: err.message });
-    }
-  });
-
-  app.post("/api/city/missions/:id/claim", async (req, res) => {
-    if (!req.isAuthenticated()) return res.sendStatus(401);
-    const missionId = parseInt(req.params.id);
-    if (isNaN(missionId)) return res.status(400).json({ message: "ID invalido" });
-    try {
-      const profile = await storage.claimCityMissionReward((req.user as any).id, missionId);
-      res.json(profile);
-    } catch (err: any) {
-      res.status(400).json({ message: err.message });
-    }
-  });
-
-  app.get("/api/city/neighbors", async (req, res) => {
-    if (!req.isAuthenticated()) return res.sendStatus(401);
-    try {
-      const neighbors = await storage.getNeighborCities();
-      res.json(neighbors);
-    } catch (err: any) {
-      res.status(400).json({ message: err.message });
-    }
-  });
-
-  app.get("/api/city/neighbor/:userId", async (req, res) => {
-    if (!req.isAuthenticated()) return res.sendStatus(401);
-    const neighborId = parseInt(req.params.userId);
-    if (isNaN(neighborId)) return res.status(400).json({ message: "ID invalido" });
-    try {
-      const state = await storage.getCityState(neighborId);
-      res.json(state);
-    } catch (err: any) {
-      res.status(400).json({ message: err.message });
-    }
-  });
-
-  app.post("/api/city/help/:tileId", async (req, res) => {
-    if (!req.isAuthenticated()) return res.sendStatus(401);
-    const tileId = parseInt(req.params.tileId);
-    if (isNaN(tileId)) return res.status(400).json({ message: "ID invalido" });
-    try {
-      const help = await storage.helpNeighbor((req.user as any).id, 0, tileId);
-      res.json(help);
-    } catch (err: any) {
-      res.status(400).json({ message: err.message });
-    }
-  });
-
-  app.get("/api/city/trades", async (req, res) => {
-    if (!req.isAuthenticated()) return res.sendStatus(401);
-    try {
-      const trades = await storage.getOpenTrades();
-      res.json(trades);
-    } catch (err: any) {
-      res.status(400).json({ message: err.message });
-    }
-  });
-
-  app.post("/api/city/trades", async (req, res) => {
-    if (!req.isAuthenticated()) return res.sendStatus(401);
-    try {
-      const parsed = createTradeSchema.parse(req.body);
-      if (parsed.offerResource === parsed.requestResource) return res.status(400).json({ message: "No puedes intercambiar el mismo recurso" });
-      const trade = await storage.createCityTrade((req.user as any).id, {
-        fromUserId: (req.user as any).id,
-        offerResource: parsed.offerResource,
-        offerAmount: parsed.offerAmount,
-        requestResource: parsed.requestResource,
-        requestAmount: parsed.requestAmount,
-      });
-      res.json(trade);
-    } catch (err: any) {
-      res.status(400).json({ message: err.message || "Datos invalidos" });
-    }
-  });
-
-  app.post("/api/city/trades/:id/accept", async (req, res) => {
-    if (!req.isAuthenticated()) return res.sendStatus(401);
-    const tradeId = parseInt(req.params.id);
-    if (isNaN(tradeId)) return res.status(400).json({ message: "ID invalido" });
-    try {
-      const trade = await storage.acceptCityTrade((req.user as any).id, tradeId);
-      res.json(trade);
-    } catch (err: any) {
-      res.status(400).json({ message: err.message });
-    }
-  });
-
-  app.post("/api/city/trades/:id/cancel", async (req, res) => {
-    if (!req.isAuthenticated()) return res.sendStatus(401);
-    const tradeId = parseInt(req.params.id);
-    if (isNaN(tradeId)) return res.status(400).json({ message: "ID invalido" });
-    try {
-      await storage.cancelCityTrade((req.user as any).id, tradeId);
-      res.json({ success: true });
-    } catch (err: any) {
-      res.status(400).json({ message: err.message });
-    }
-  });
-
-  // ========== GAME ROOMS / BOARD GAMES ==========
-
-  app.post("/api/game-rooms", async (req, res) => {
-    if (!req.isAuthenticated()) return res.sendStatus(401);
-    const { gameType } = req.body;
-    if (!gameType) return res.status(400).json({ message: "Tipo de juego requerido" });
-    const roomCode = Math.random().toString(36).substring(2, 8).toUpperCase();
-    try {
-      const room = await storage.createGameRoom((req.user as any).id, gameType, roomCode);
-      res.json(room);
-    } catch (err: any) {
-      res.status(400).json({ message: err.message });
-    }
-  });
-
-  app.get("/api/game-rooms", async (req, res) => {
-    if (!req.isAuthenticated()) return res.sendStatus(401);
-    try {
-      const gameType = req.query.gameType as string | undefined;
-      const rooms = await storage.listGameRooms(gameType);
-      res.json(rooms);
-    } catch (err: any) {
-      res.status(500).json({ message: err.message });
-    }
-  });
-
-  app.get("/api/game-rooms/:id", async (req, res) => {
-    if (!req.isAuthenticated()) return res.sendStatus(401);
-    const id = parseInt(req.params.id);
-    if (isNaN(id)) return res.status(400).json({ message: "ID invalido" });
-    try {
-      const room = await storage.getGameRoom(id);
-      if (!room) return res.status(404).json({ message: "Sala no encontrada" });
-      res.json(room);
-    } catch (err: any) {
-      res.status(500).json({ message: err.message });
-    }
-  });
-
-  app.get("/api/game-rooms/code/:code", async (req, res) => {
-    if (!req.isAuthenticated()) return res.sendStatus(401);
-    try {
-      const room = await storage.getGameRoomByCode(req.params.code);
-      if (!room) return res.status(404).json({ message: "Sala no encontrada" });
-      res.json(room);
-    } catch (err: any) {
-      res.status(500).json({ message: err.message });
-    }
-  });
-
-  app.post("/api/game-rooms/:id/join", async (req, res) => {
-    if (!req.isAuthenticated()) return res.sendStatus(401);
-    const id = parseInt(req.params.id);
-    if (isNaN(id)) return res.status(400).json({ message: "ID invalido" });
-    try {
-      const room = await storage.joinGameRoom((req.user as any).id, id);
-      res.json(room);
-    } catch (err: any) {
-      res.status(400).json({ message: err.message });
-    }
-  });
-
-  app.patch("/api/game-rooms/:id/state", async (req, res) => {
-    if (!req.isAuthenticated()) return res.sendStatus(401);
-    const id = parseInt(req.params.id);
-    if (isNaN(id)) return res.status(400).json({ message: "ID invalido" });
-    const { gameState, currentTurn } = req.body;
-    if (gameState === undefined) return res.status(400).json({ message: "Estado requerido" });
-    try {
-      const room = await storage.updateGameState((req.user as any).id, id, typeof gameState === "string" ? gameState : JSON.stringify(gameState), currentTurn ?? null);
-      res.json(room);
-    } catch (err: any) {
-      res.status(400).json({ message: err.message });
-    }
-  });
-
-  app.post("/api/game-rooms/:id/finish", async (req, res) => {
-    if (!req.isAuthenticated()) return res.sendStatus(401);
-    const id = parseInt(req.params.id);
-    if (isNaN(id)) return res.status(400).json({ message: "ID invalido" });
-    const { winnerId, isDraw } = req.body;
-    try {
-      const room = await storage.getGameRoom(id);
-      if (!room) return res.status(404).json({ message: "Sala no encontrada" });
-      const uid = (req.user as any).id;
-      if (room.player1Id !== uid && room.player2Id !== uid) return res.status(403).json({ message: "No eres parte de esta sala" });
-
-      const finished = await storage.finishGame(id, winnerId ?? null, isDraw ?? false);
-
-      if (room.player1Id && room.player2Id) {
-        if (isDraw) {
-          await storage.updateGameStats(room.player1Id, room.gameType, "draw");
-          await storage.updateGameStats(room.player2Id, room.gameType, "draw");
-        } else if (winnerId) {
-          const loserId = winnerId === room.player1Id ? room.player2Id : room.player1Id;
-          await storage.updateGameStats(winnerId, room.gameType, "win");
-          await storage.updateGameStats(loserId, room.gameType, "loss");
-        }
-      }
-
-      res.json(finished);
-    } catch (err: any) {
-      res.status(400).json({ message: err.message });
-    }
-  });
-
-  app.post("/api/game-rooms/:id/leave", async (req, res) => {
-    if (!req.isAuthenticated()) return res.sendStatus(401);
-    const id = parseInt(req.params.id);
-    if (isNaN(id)) return res.status(400).json({ message: "ID invalido" });
-    try {
-      await storage.leaveGameRoom((req.user as any).id, id);
-      res.json({ success: true });
-    } catch (err: any) {
-      res.status(400).json({ message: err.message });
-    }
-  });
-
-  app.get("/api/game-stats", async (req, res) => {
-    if (!req.isAuthenticated()) return res.sendStatus(401);
-    try {
-      const stats = await storage.getGameStats((req.user as any).id);
-      res.json(stats);
-    } catch (err: any) {
-      res.status(500).json({ message: err.message });
-    }
-  });
-
-  app.get("/api/game-leaderboard/:gameType", async (req, res) => {
-    if (!req.isAuthenticated()) return res.sendStatus(401);
-    try {
-      const lb = await storage.getGameLeaderboard(req.params.gameType);
-      res.json(lb);
-    } catch (err: any) {
-      res.status(500).json({ message: err.message });
-    }
   });
 
   return httpServer;

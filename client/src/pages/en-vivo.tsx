@@ -183,12 +183,14 @@ function VideoPlayer({ sourceType, sourceUrl }: { sourceType: string; sourceUrl:
   if (sourceType === "youtube") {
     const videoId = extractYouTubeId(sourceUrl);
     if (!videoId) return <p className="text-center text-sm text-muted-foreground p-8">URL de YouTube no valida</p>;
+    const origin = typeof window !== "undefined" ? window.location.origin : "";
     return (
       <div className="aspect-video w-full rounded-md overflow-hidden bg-black">
         <iframe
-          src={`https://www.youtube.com/embed/${videoId}?autoplay=1&rel=0`}
+          src={`https://www.youtube-nocookie.com/embed/${videoId}?autoplay=1&rel=0&modestbranding=1&origin=${encodeURIComponent(origin)}`}
           className="w-full h-full"
-          allow="autoplay; encrypted-media; picture-in-picture"
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+          referrerPolicy="strict-origin-when-cross-origin"
           allowFullScreen
           title="YouTube Live"
           data-testid="iframe-youtube-player"
