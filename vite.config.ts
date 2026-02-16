@@ -30,6 +30,28 @@ export default defineConfig({
   build: {
     outDir: path.resolve(import.meta.dirname, "dist/public"),
     emptyOutDir: true,
+    // Code-splitting for faster initial page loads
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          // Core React & routing
+          "vendor-react": ["react", "react-dom"],
+          // UI component library
+          "vendor-ui": [
+            "@radix-ui/react-dialog",
+            "@radix-ui/react-dropdown-menu",
+            "@radix-ui/react-tabs",
+            "@radix-ui/react-select",
+            "@radix-ui/react-avatar",
+            "@radix-ui/react-toast",
+            "@radix-ui/react-tooltip",
+          ],
+          // Data fetching
+          "vendor-data": ["@tanstack/react-query", "zod", "react-hook-form"],
+        },
+      },
+    },
+    chunkSizeWarningLimit: 600,
   },
   server: {
     fs: {

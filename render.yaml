@@ -1,14 +1,17 @@
 databases:
   - name: avivandofuego-db
-    plan: free
+    plan: starter
     databaseName: avivandofuego
     user: appuser
+    ipAllowList: [] # Only allow connections from Render services
 
 services:
   - type: web
     name: ministerio-avivando-el-fuego
     runtime: node
-    plan: free
+    plan: starter
+    region: oregon # Closest to US Spanish-speaking community
+    numInstances: 1
     buildCommand: npm install --include=dev && npm run build && npx drizzle-kit push --config=drizzle.config.mjs
     startCommand: npm run start
     envVars:
@@ -26,3 +29,4 @@ services:
         value: "20.11.0"
     autoDeploy: true
     healthCheckPath: /api/hello
+    # Starter plan benefits: always-on, no spin-down, shell access, metrics

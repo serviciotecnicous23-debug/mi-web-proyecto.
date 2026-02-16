@@ -2,6 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { memoryStorage } from "./memory-storage";
+import { pool } from "./db";
 import { api } from "@shared/routes";
 import { z } from "zod";
 import session from "express-session";
@@ -9,12 +10,48 @@ import passport from "passport";
 import { Strategy as LocalStrategy } from "passport-local";
 import { scrypt, randomBytes, timingSafeEqual } from "crypto";
 import { promisify } from "util";
+import pgSession from "connect-pg-simple";
 import MemoryStore from "memorystore";
+import { rateLimit } from "express-rate-limit";
 import multer from "multer";
+import sharp from "sharp";
 import path from "path";
 import fs from "fs";
 
 const scryptAsync = promisify(scrypt);
+
+// ========== IMAGE OPTIMIZATION UTILITY ==========
+// Compresses images before storing as base64 to save database space
+async function optimizeImage(filePath: string, maxWidth = 800, quality = 80): Promise<Buffer> {
+  try {
+    const metadata = await sharp(filePath).metadata();
+    let pipeline = sharp(filePath);
+    
+    // Resize if wider than maxWidth
+    if (metadata.width && metadata.width > maxWidth) {
+      pipeline = pipeline.resize(maxWidth, undefined, { withoutEnlargement: true });
+    }
+    
+    // Convert to WebP for significantly smaller file sizes
+    pipeline = pipeline.webp({ quality });
+    
+    return await pipeline.toBuffer();
+  } catch (err) {
+    // Fallback: read file as-is if sharp fails
+    console.error("Image optimization failed, using original:", err);
+    return fs.readFileSync(filePath);
+  }
+}
+
+// Optimize avatar images - smaller, more aggressive compression
+async function optimizeAvatar(filePath: string): Promise<Buffer> {
+  return optimizeImage(filePath, 400, 75);
+}
+
+// Optimize post/region images - larger, moderate compression
+async function optimizePostImage(filePath: string): Promise<Buffer> {
+  return optimizeImage(filePath, 1200, 80);
+}
 
 // Configurar multer para subida de avatares
 const avatarDir = path.join(process.cwd(), "uploads", "avatars");
@@ -120,17 +157,77 @@ export async function registerRoutes(
 ): Promise<Server> {
   // Health check endpoint (used by Render)
   app.get("/api/hello", (_req, res) => {
-    res.json({ message: "Ministerio Avivando el Fuego API is running" });
+    res.json({ 
+      status: "ok",
+      message: "Ministerio Avivando el Fuego API is running",
+      uptime: Math.floor(process.uptime()),
+      timestamp: new Date().toISOString(),
+    });
   });
 
-  const SessionStore = MemoryStore(session);
+  // ========== RATE LIMITING ==========
+  // Protect auth endpoints from brute force attacks
+  const authLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    max: 20, // 20 attempts per 15 min per IP
+    message: { message: "Demasiados intentos. Intenta de nuevo en 15 minutos." },
+    standardHeaders: true,
+    legacyHeaders: false,
+  });
+
+  // General API rate limiter
+  const apiLimiter = rateLimit({
+    windowMs: 1 * 60 * 1000, // 1 minute
+    max: 120, // 120 requests per minute
+    message: { message: "Demasiadas solicitudes. Intenta de nuevo en un momento." },
+    standardHeaders: true,
+    legacyHeaders: false,
+  });
+
+  // Upload rate limiter (more restrictive)
+  const uploadLimiter = rateLimit({
+    windowMs: 5 * 60 * 1000, // 5 minutes
+    max: 15, // 15 uploads per 5 minutes
+    message: { message: "Limite de subida alcanzado. Espera unos minutos." },
+    standardHeaders: true,
+    legacyHeaders: false,
+  });
+
+  // Apply general rate limiter to all API routes
+  app.use("/api/", apiLimiter);
+
+  // ========== SESSION STORE (PostgreSQL-backed) ==========
+  // Sessions persist across deploys/restarts - users stay logged in
+  const isProduction = process.env.NODE_ENV === "production";
+  const hasDatabase = !!process.env.DATABASE_URL;
+
+  let sessionStore: any;
+  if (hasDatabase) {
+    const PgSessionStore = pgSession(session);
+    sessionStore = new PgSessionStore({
+      pool: pool as any,
+      tableName: "user_sessions",
+      createTableIfMissing: true,
+      pruneSessionInterval: 60 * 15, // Cleanup expired sessions every 15 min
+      ttl: 30 * 24 * 60 * 60, // Sessions last 30 days
+    });
+  } else {
+    const MemStore = MemoryStore(session);
+    sessionStore = new MemStore({ checkPeriod: 86400000 });
+  }
+
   app.use(
     session({
       secret: process.env.SESSION_SECRET || "dev_secret",
       resave: false,
       saveUninitialized: false,
-      store: new SessionStore({ checkPeriod: 86400000 }),
-      cookie: { secure: false },
+      store: sessionStore,
+      cookie: {
+        secure: false, // Render terminates SSL at proxy level
+        httpOnly: true,
+        maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
+        sameSite: "lax",
+      },
     }),
   );
 
@@ -227,7 +324,7 @@ export async function registerRoutes(
   })();
 
   // ========== AUTH ===========
-  app.post(api.auth.login.path, (req, res, next) => {
+  app.post(api.auth.login.path, authLimiter, (req, res, next) => {
     passport.authenticate("local", (err: any, user: any, info: any) => {
       if (err) return next(err);
       if (!user) return res.status(401).json({ message: info?.message || "Error al iniciar sesion" });
@@ -239,7 +336,7 @@ export async function registerRoutes(
     })(req, res, next);
   });
 
-  app.post(api.auth.register.path, async (req, res) => {
+  app.post(api.auth.register.path, authLimiter, async (req, res) => {
     try {
       const input = api.auth.register.input.parse(req.body);
       let existing = null;
@@ -312,13 +409,18 @@ export async function registerRoutes(
   });
 
   // ========== AVATAR UPLOAD ==========
-  app.post("/api/upload/avatar", avatarUpload.single("avatar"), async (req, res) => {
+  app.post("/api/upload/avatar", uploadLimiter, avatarUpload.single("avatar"), async (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
     if (!req.file) return res.status(400).json({ message: "No se envio ninguna imagen" });
     try {
       const userId = (req.user as any).id;
-      const avatarUrl = `/uploads/avatars/${req.file.filename}`;
+      // Optimize image (resize + compress to WebP) then store as base64
+      const optimized = await optimizeAvatar(req.file.path);
+      const base64 = optimized.toString("base64");
+      const avatarUrl = `data:image/webp;base64,${base64}`;
       await storage.updateUser(userId, { avatarUrl } as any);
+      // Delete temp file
+      try { fs.unlinkSync(req.file.path); } catch (_) {}
       res.json({ avatarUrl });
     } catch (err) {
       console.error("Avatar upload error:", err);
@@ -327,11 +429,15 @@ export async function registerRoutes(
   });
 
   // ========== REGION IMAGE UPLOAD ==========
-  app.post("/api/upload/region-image", regionUpload.single("image"), async (req, res) => {
+  app.post("/api/upload/region-image", uploadLimiter, regionUpload.single("image"), async (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
     if (!req.file) return res.status(400).json({ message: "No se envio ninguna imagen" });
     try {
-      const imageUrl = `/uploads/regions/${req.file.filename}`;
+      // Optimize image then store as base64 data URL
+      const optimized = await optimizePostImage(req.file.path);
+      const base64 = optimized.toString("base64");
+      const imageUrl = `data:image/webp;base64,${base64}`;
+      try { fs.unlinkSync(req.file.path); } catch (_) {}
       res.json({ imageUrl });
     } catch (err) {
       console.error("Region image upload error:", err);
@@ -340,14 +446,21 @@ export async function registerRoutes(
   });
 
   // ========== LIBRARY FILE UPLOAD ==========
-  app.post("/api/upload/library-file", libraryUpload.single("file"), async (req, res) => {
+  app.post("/api/upload/library-file", uploadLimiter, libraryUpload.single("file"), async (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
     if (!(req.user as any).isActive) return res.sendStatus(403);
     if (!req.file) return res.status(400).json({ message: "No se envio ningun archivo" });
     try {
-      const fileUrl = `/uploads/library/${req.file.filename}`;
+      // Convert to base64 for persistent storage in DB
+      const fileBuffer = fs.readFileSync(req.file.path);
+      const base64 = fileBuffer.toString("base64");
+      const mimeType = req.file.mimetype || "application/octet-stream";
+      const fileData = `data:${mimeType};base64,${base64}`;
+      // Delete physical file
+      try { fs.unlinkSync(req.file.path); } catch (_) {}
       res.json({
-        fileUrl,
+        fileUrl: "",
+        fileData,
         fileName: req.file.originalname,
         fileSize: req.file.size,
       });
@@ -1530,11 +1643,15 @@ export async function registerRoutes(
     },
   });
 
-  app.post("/api/upload/post-image", postImageUpload.single("image"), async (req, res) => {
+  app.post("/api/upload/post-image", uploadLimiter, postImageUpload.single("image"), async (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
     if (!req.file) return res.status(400).json({ message: "No se envio ninguna imagen" });
     try {
-      const imageUrl = `/uploads/posts/${req.file.filename}`;
+      // Optimize image then store as base64 data URL
+      const optimized = await optimizePostImage(req.file.path);
+      const base64 = optimized.toString("base64");
+      const imageUrl = `data:image/webp;base64,${base64}`;
+      try { fs.unlinkSync(req.file.path); } catch (_) {}
       res.json({ imageUrl });
     } catch (err) {
       console.error("Post image upload error:", err);

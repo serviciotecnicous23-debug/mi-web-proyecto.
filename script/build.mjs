@@ -28,6 +28,7 @@ async function buildApp() {
       "bufferutil",
       "utf-8-validate",
       "lightningcss",
+      "sharp",
       "@babel/core",
       "@babel/preset-typescript",
       "vite",

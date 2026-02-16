@@ -871,6 +871,7 @@ function ResourcesTab() {
   const [description, setDescription] = useState("");
   const [resourceCategory, setResourceCategory] = useState("general");
   const [fileUrl, setFileUrl] = useState("");
+  const [fileDataBase64, setFileDataBase64] = useState<string | null>(null);
   const [uploadMode, setUploadMode] = useState<"enlace" | "archivo">("enlace");
   const [uploadingFile, setUploadingFile] = useState(false);
   const [uploadedFileName, setUploadedFileName] = useState("");
@@ -899,7 +900,8 @@ function ResourcesTab() {
         throw new Error(err.message || "Error al subir archivo");
       }
       const data = await res.json();
-      setFileUrl(data.fileUrl);
+      setFileDataBase64(data.fileData || null);
+      setFileUrl(data.fileData ? "uploaded" : data.fileUrl);
       setUploadedFileName(file.name);
       setUploadedFileSize(file.size);
       toast({ title: "Archivo subido", description: file.name });
@@ -911,21 +913,24 @@ function ResourcesTab() {
   };
 
   const handleShare = () => {
-    if (!title.trim() || !fileUrl.trim()) return;
+    if (!title.trim()) return;
+    if (uploadMode === "enlace" && !fileUrl.trim()) return;
+    if (uploadMode === "archivo" && !fileDataBase64) return;
     createResource.mutate({
       title: title.trim(),
       description: description.trim() || null,
       resourceType: uploadMode === "archivo" ? "documento" : "enlace",
-      fileUrl: fileUrl.trim(),
+      fileUrl: uploadMode === "enlace" ? fileUrl.trim() : null,
       fileName: uploadMode === "archivo" ? uploadedFileName : null,
       fileSize: uploadMode === "archivo" ? uploadedFileSize : null,
-      fileData: null,
+      fileData: uploadMode === "archivo" ? fileDataBase64 : null,
       category: resourceCategory,
     }, {
       onSuccess: () => {
         setTitle("");
         setDescription("");
         setFileUrl("");
+        setFileDataBase64(null);
         setUploadedFileName("");
         setUploadedFileSize(null);
         setResourceCategory("general");
@@ -994,7 +999,7 @@ function ResourcesTab() {
                 type="button"
                 size="sm"
                 variant={uploadMode === "enlace" ? "default" : "outline"}
-                onClick={() => { setUploadMode("enlace"); setFileUrl(""); setUploadedFileName(""); setUploadedFileSize(null); }}
+                onClick={() => { setUploadMode("enlace"); setFileUrl(""); setFileDataBase64(null); setUploadedFileName(""); setUploadedFileSize(null); }}
               >
                 <FileText className="w-4 h-4 mr-1" /> Enlace / URL
               </Button>
@@ -1002,7 +1007,7 @@ function ResourcesTab() {
                 type="button"
                 size="sm"
                 variant={uploadMode === "archivo" ? "default" : "outline"}
-                onClick={() => { setUploadMode("archivo"); setFileUrl(""); }}
+                onClick={() => { setUploadMode("archivo"); setFileUrl(""); setFileDataBase64(null); }}
               >
                 <Upload className="w-4 h-4 mr-1" /> Subir Archivo
               </Button>
@@ -1031,7 +1036,7 @@ function ResourcesTab() {
                       <p className="text-sm font-medium truncate">{uploadedFileName}</p>
                       {uploadedFileSize && <p className="text-xs text-muted-foreground">{formatFileSize(uploadedFileSize)}</p>}
                     </div>
-                    <Button size="sm" variant="ghost" onClick={() => { setFileUrl(""); setUploadedFileName(""); setUploadedFileSize(null); }}>
+                    <Button size="sm" variant="ghost" onClick={() => { setFileUrl(""); setFileDataBase64(null); setUploadedFileName(""); setUploadedFileSize(null); }}>
                       <Trash2 className="w-4 h-4" />
                     </Button>
                   </div>
@@ -1064,7 +1069,7 @@ function ResourcesTab() {
               </SelectContent>
             </Select>
             <div className="flex items-center gap-2">
-              <Button size="sm" onClick={handleShare} disabled={!title.trim() || !fileUrl.trim() || createResource.isPending} data-testid="button-submit-resource">
+              <Button size="sm" onClick={handleShare} disabled={!title.trim() || (uploadMode === "enlace" ? !fileUrl.trim() : !fileDataBase64) || createResource.isPending} data-testid="button-submit-resource">
                 {createResource.isPending ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <Send className="w-4 h-4 mr-1" />}
                 Compartir
               </Button>
@@ -1118,11 +1123,27 @@ function ResourcesTab() {
                       <Heart className={`w-4 h-4 mr-1 ${r.isLiked ? "fill-red-500 text-red-500" : ""}`} />
                       {r.likeCount}
                     </Button>
-                    {r.fileUrl && (
-                      <Button variant="ghost" size="sm" asChild>
-                        <a href={r.fileUrl} target="_blank" rel="noopener noreferrer" data-testid={`link-resource-${r.id}`}>
-                          <Download className="w-4 h-4 mr-1" /> {r.resourceType === "documento" ? "Descargar" : "Ver"}
-                        </a>
+                    {(r.fileUrl || r.fileData) && (
+                      <Button variant="ghost" size="sm" asChild={!r.fileData}>
+                        {r.fileData ? (
+                          <span
+                            className="cursor-pointer"
+                            onClick={() => {
+                              // Download from base64 data stored in DB
+                              const link = document.createElement("a");
+                              link.href = r.fileData;
+                              link.download = r.fileName || "archivo";
+                              link.click();
+                            }}
+                            data-testid={`link-resource-${r.id}`}
+                          >
+                            <Download className="w-4 h-4 mr-1" /> {r.resourceType === "documento" ? "Descargar" : "Ver"}
+                          </span>
+                        ) : (
+                          <a href={r.fileUrl} target="_blank" rel="noopener noreferrer" data-testid={`link-resource-${r.id}`}>
+                            <Download className="w-4 h-4 mr-1" /> {r.resourceType === "documento" ? "Descargar" : "Ver"}
+                          </a>
+                        )}
                       </Button>
                     )}
                     {(user?.role === "admin" || r.userId === user?.id) && (

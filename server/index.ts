@@ -3,6 +3,8 @@ import { registerRoutes } from "./routes";
 import { serveStatic } from "./static";
 import { createServer } from "http";
 import path from "path";
+import compression from "compression";
+import helmet from "helmet";
 
 const app = express();
 const httpServer = createServer(app);
@@ -13,8 +15,32 @@ declare module "http" {
   }
 }
 
+// ========== COMPRESSION (gzip) ==========
+// Reduces response sizes by ~70%, much faster page loads
+app.use(compression());
+
+// ========== SECURITY HEADERS (helmet) ==========
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'"],
+      styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
+      fontSrc: ["'self'", "https://fonts.gstatic.com", "data:"],
+      imgSrc: ["'self'", "data:", "blob:", "https:"],
+      connectSrc: ["'self'", "https:", "wss:"],
+      mediaSrc: ["'self'", "https:", "blob:"],
+      frameSrc: ["'self'", "https://www.youtube.com", "https://youtube.com", "https://player.vimeo.com"],
+    },
+  },
+  crossOriginEmbedderPolicy: false, // Allow embedding YouTube/Vimeo
+}));
+
 // Servir archivos estáticos de uploads (avatares, regiones, biblioteca, etc.)
-app.use("/uploads", express.static(path.join(process.cwd(), "uploads")));
+app.use("/uploads", express.static(path.join(process.cwd(), "uploads"), {
+  maxAge: "7d", // Cache uploaded files for 7 days
+  etag: true,
+}));
 
 app.use(
   express.json({
