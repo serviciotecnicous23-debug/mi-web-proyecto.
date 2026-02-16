@@ -203,11 +203,27 @@ export async function registerRoutes(
 
   let sessionStore: any;
   if (hasDatabase) {
+    // Create session table manually (connect-pg-simple's createTableIfMissing
+    // tries to read a .sql file that doesn't exist in the esbuild bundle)
+    try {
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS "user_sessions" (
+          "sid" varchar NOT NULL COLLATE "default",
+          "sess" json NOT NULL,
+          "expire" timestamp(6) NOT NULL,
+          CONSTRAINT "user_sessions_pkey" PRIMARY KEY ("sid")
+        );
+        CREATE INDEX IF NOT EXISTS "IDX_user_sessions_expire" ON "user_sessions" ("expire");
+      `);
+    } catch (err) {
+      console.error("Error creating session table:", err);
+    }
+
     const PgSessionStore = pgSession(session);
     sessionStore = new PgSessionStore({
       pool: pool as any,
       tableName: "user_sessions",
-      createTableIfMissing: true,
+      createTableIfMissing: false,
       pruneSessionInterval: 60 * 15, // Cleanup expired sessions every 15 min
       ttl: 30 * 24 * 60 * 60, // Sessions last 30 days
     });
