@@ -7,7 +7,7 @@ import {
   readingClubPosts, readingClubComments, readingClubPostLikes, libraryResources, libraryResourceLikes,
   notifications, prayerActivities, regionPosts,
   regionPostReactions, regionPostPolls, regionPostPollOptions, regionPostPollVotes,
-  eventRsvps,
+  eventRsvps, prayerAttendees,
   type User, type InsertUser, type UpdateUser,
   type Message, type InsertMessage,
   type MemberPost,
@@ -171,6 +171,13 @@ export interface IStorage {
   createPrayerActivity(userId: number, data: InsertPrayerActivity): Promise<PrayerActivity>;
   listPrayerActivities(): Promise<(PrayerActivity & { user: { username: string; displayName: string | null } })[]>;
   deletePrayerActivity(id: number): Promise<void>;
+
+  // Prayer Attendees
+  upsertPrayerAttendee(activityId: number, userId: number, status: string): Promise<any>;
+  getPrayerAttendee(activityId: number, userId: number): Promise<any>;
+  listPrayerAttendees(activityId: number): Promise<any[]>;
+  cancelPrayerAttendance(activityId: number, userId: number): Promise<void>;
+  getPrayerAttendeeCount(activityId: number): Promise<number>;
 
   createRegionPost(userId: number, data: InsertRegionPost): Promise<RegionPost>;
   listRegionPosts(region?: string): Promise<(RegionPost & { user: { username: string; displayName: string | null; avatarUrl: string | null; country: string | null } })[]>;
@@ -1236,7 +1243,74 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deletePrayerActivity(id: number): Promise<void> {
+    // Delete attendees first
+    await db.delete(prayerAttendees).where(eq(prayerAttendees.activityId, id));
     await db.delete(prayerActivities).where(eq(prayerActivities.id, id));
+  }
+
+  async upsertPrayerAttendee(activityId: number, userId: number, status: string): Promise<any> {
+    const [existing] = await db.select().from(prayerAttendees)
+      .where(and(eq(prayerAttendees.activityId, activityId), eq(prayerAttendees.userId, userId)));
+    
+    if (existing) {
+      const [updated] = await db.update(prayerAttendees)
+        .set({ status })
+        .where(eq(prayerAttendees.id, existing.id))
+        .returning();
+      return updated;
+    }
+    
+    const [created] = await db.insert(prayerAttendees).values({
+      activityId,
+      userId,
+      status,
+    }).returning();
+    return created;
+  }
+
+  async getPrayerAttendee(activityId: number, userId: number): Promise<any> {
+    const [att] = await db.select().from(prayerAttendees)
+      .where(and(eq(prayerAttendees.activityId, activityId), eq(prayerAttendees.userId, userId)));
+    return att || null;
+  }
+
+  async listPrayerAttendees(activityId: number): Promise<any[]> {
+    const rows = await db
+      .select({
+        id: prayerAttendees.id,
+        activityId: prayerAttendees.activityId,
+        userId: prayerAttendees.userId,
+        status: prayerAttendees.status,
+        createdAt: prayerAttendees.createdAt,
+        username: users.username,
+        displayName: users.displayName,
+        avatarUrl: users.avatarUrl,
+      })
+      .from(prayerAttendees)
+      .innerJoin(users, eq(prayerAttendees.userId, users.id))
+      .where(eq(prayerAttendees.activityId, activityId))
+      .orderBy(desc(prayerAttendees.createdAt));
+    
+    return rows.map(r => ({
+      id: r.id,
+      activityId: r.activityId,
+      userId: r.userId,
+      status: r.status,
+      createdAt: r.createdAt,
+      user: { id: r.userId, username: r.username, displayName: r.displayName, avatarUrl: r.avatarUrl },
+    }));
+  }
+
+  async cancelPrayerAttendance(activityId: number, userId: number): Promise<void> {
+    await db.delete(prayerAttendees)
+      .where(and(eq(prayerAttendees.activityId, activityId), eq(prayerAttendees.userId, userId)));
+  }
+
+  async getPrayerAttendeeCount(activityId: number): Promise<number> {
+    const [result] = await db.select({ count: sql<number>`count(*)::int` })
+      .from(prayerAttendees)
+      .where(and(eq(prayerAttendees.activityId, activityId), eq(prayerAttendees.status, "asistire")));
+    return result?.count || 0;
   }
 
   async createRegionPost(userId: number, data: InsertRegionPost): Promise<RegionPost> {

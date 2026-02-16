@@ -1610,6 +1610,55 @@ export async function registerRoutes(
     res.json({ success: true });
   });
 
+  // ========== ASISTENCIA A ACTIVIDADES DE ORACION ==========
+  app.get(api.prayerAttendees.list.path, async (req, res) => {
+    const activityId = parseInt(req.params.activityId);
+    const attendees = await storage.listPrayerAttendees(activityId);
+    const count = await storage.getPrayerAttendeeCount(activityId);
+    res.json({ attendees, count });
+  });
+
+  app.get(api.prayerAttendees.myAttendance.path, async (req, res) => {
+    if (!req.isAuthenticated()) return res.json(null);
+    const activityId = parseInt(req.params.activityId);
+    const attendance = await storage.getPrayerAttendee(activityId, (req.user as any).id);
+    res.json(attendance || null);
+  });
+
+  app.post(api.prayerAttendees.upsert.path, async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    try {
+      const activityId = parseInt(req.params.activityId);
+      const activities = await storage.listPrayerActivities();
+      const activity = activities.find(a => a.id === activityId);
+      if (!activity) return res.sendStatus(404);
+      const input = api.prayerAttendees.upsert.input.parse({ ...req.body, activityId });
+      const attendance = await storage.upsertPrayerAttendee(activityId, (req.user as any).id, input);
+
+      if (input.status !== "no_asistire") {
+        await storage.createNotification({
+          userId: (req.user as any).id,
+          type: "oracion",
+          title: `Confirmación: ${activity.title}`,
+          content: `Te has confirmado para la actividad de oración "${activity.title}".${activity.meetingUrl ? ' Enlace: ' + activity.meetingUrl : ''}`,
+          link: "/oracion",
+        });
+      }
+
+      res.json(attendance);
+    } catch (err) {
+      if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });
+      res.sendStatus(500);
+    }
+  });
+
+  app.delete(api.prayerAttendees.cancel.path, async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    const activityId = parseInt(req.params.activityId);
+    await storage.cancelPrayerAttendance(activityId, (req.user as any).id);
+    res.sendStatus(200);
+  });
+
   // ========== REGIONES DEL MINISTERIO ==========
   app.get(api.ministryRegions.list.path, async (_req, res) => {
     const regions = await storage.listMinistryRegions();

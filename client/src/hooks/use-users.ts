@@ -337,6 +337,78 @@ export function useCancelRsvp() {
   });
 }
 
+// ========== PRAYER ATTENDANCE ==========
+
+export function usePrayerAttendees(activityId: number) {
+  return useQuery({
+    queryKey: [api.prayerAttendees.list.path, activityId],
+    queryFn: async () => {
+      const url = buildUrl(api.prayerAttendees.list.path, { activityId });
+      const res = await fetch(url);
+      if (!res.ok) throw new Error("Error al obtener asistentes");
+      return res.json();
+    },
+    enabled: !!activityId,
+  });
+}
+
+export function useMyPrayerAttendance(activityId: number) {
+  return useQuery({
+    queryKey: [api.prayerAttendees.myAttendance.path, activityId],
+    queryFn: async () => {
+      const url = buildUrl(api.prayerAttendees.myAttendance.path, { activityId });
+      const res = await fetch(url);
+      if (!res.ok) throw new Error("Error");
+      return res.json();
+    },
+    enabled: !!activityId,
+  });
+}
+
+export function useAttendPrayer() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  return useMutation({
+    mutationFn: async ({ activityId, status }: { activityId: number; status?: string }) => {
+      const url = buildUrl(api.prayerAttendees.upsert.path, { activityId });
+      const res = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ activityId, status: status || "confirmado" }),
+      });
+      if (!res.ok) throw new Error("Error al confirmar asistencia");
+      return res.json();
+    },
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: [api.prayerAttendees.list.path, variables.activityId] });
+      queryClient.invalidateQueries({ queryKey: [api.prayerAttendees.myAttendance.path, variables.activityId] });
+      queryClient.invalidateQueries({ queryKey: [api.notifications.list.path] });
+      queryClient.invalidateQueries({ queryKey: [api.notifications.unreadCount.path] });
+      const statusMsg = variables.status === "no_asistire" ? "Has indicado que no asistirás" : variables.status === "tal_vez" ? "Has indicado que tal vez asistirás" : "Has confirmado tu asistencia";
+      toast({ title: "Asistencia registrada", description: statusMsg });
+    },
+    onError: (error) => { toast({ title: "Error", description: error.message, variant: "destructive" }); },
+  });
+}
+
+export function useCancelPrayerAttendance() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  return useMutation({
+    mutationFn: async (activityId: number) => {
+      const url = buildUrl(api.prayerAttendees.cancel.path, { activityId });
+      const res = await fetch(url, { method: "DELETE" });
+      if (!res.ok) throw new Error("Error al cancelar asistencia");
+    },
+    onSuccess: (_data, activityId) => {
+      queryClient.invalidateQueries({ queryKey: [api.prayerAttendees.list.path, activityId] });
+      queryClient.invalidateQueries({ queryKey: [api.prayerAttendees.myAttendance.path, activityId] });
+      toast({ title: "Asistencia cancelada" });
+    },
+    onError: (error) => { toast({ title: "Error", description: error.message, variant: "destructive" }); },
+  });
+}
+
 export function useSiteContent(key: string) {
   return useQuery({
     queryKey: [api.siteContent.get.path, key],

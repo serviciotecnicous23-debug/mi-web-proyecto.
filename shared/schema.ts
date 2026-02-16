@@ -685,6 +685,24 @@ export const insertPrayerActivitySchema = z.object({
 export type PrayerActivity = typeof prayerActivities.$inferSelect;
 export type InsertPrayerActivity = z.infer<typeof insertPrayerActivitySchema>;
 
+// ========== ASISTENCIA A ORACION ==========
+
+export const prayerAttendees = pgTable("prayer_attendees", {
+  id: serial("id").primaryKey(),
+  activityId: integer("activity_id").notNull().references(() => prayerActivities.id),
+  userId: integer("user_id").notNull().references(() => users.id),
+  status: text("status").notNull().default("confirmado"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertPrayerAttendeeSchema = z.object({
+  activityId: z.number(),
+  status: z.enum(["confirmado", "tal_vez", "no_asistire"]).optional(),
+});
+
+export type PrayerAttendee = typeof prayerAttendees.$inferSelect;
+export type InsertPrayerAttendee = z.infer<typeof insertPrayerAttendeeSchema>;
+
 // ========== PUBLICACIONES REGIONALES ==========
 
 export const regionPosts = pgTable("region_posts", {

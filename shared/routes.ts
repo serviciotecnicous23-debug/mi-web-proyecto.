@@ -16,7 +16,7 @@ import {
   insertReadingClubPostSchema, insertReadingClubCommentSchema,
   insertLibraryResourceSchema,
   insertPrayerActivitySchema, insertRegionPostSchema,
-  insertNotificationSchema,
+  insertNotificationSchema, insertPrayerAttendeeSchema,
   insertMinistryRegionSchema, updateMinistryRegionSchema,
   insertTeamMemberSchema, updateTeamMemberSchema,
   insertPostCommentSchema, insertDirectMessageSchema,
@@ -230,6 +230,12 @@ export const api = {
     list: { method: "GET" as const, path: "/api/prayer-activities" as const },
     create: { method: "POST" as const, path: "/api/prayer-activities" as const, input: insertPrayerActivitySchema },
     delete: { method: "DELETE" as const, path: "/api/prayer-activities/:id" as const },
+  },
+  prayerAttendees: {
+    list: { method: "GET" as const, path: "/api/prayer-activities/:activityId/attendees" as const },
+    myAttendance: { method: "GET" as const, path: "/api/prayer-activities/:activityId/my-attendance" as const },
+    upsert: { method: "POST" as const, path: "/api/prayer-activities/:activityId/attend" as const, input: insertPrayerAttendeeSchema },
+    cancel: { method: "DELETE" as const, path: "/api/prayer-activities/:activityId/attend" as const },
   },
   regionPosts: {
     list: { method: "GET" as const, path: "/api/region-posts" as const },

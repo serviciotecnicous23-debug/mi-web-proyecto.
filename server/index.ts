@@ -30,10 +30,24 @@ app.use(helmet({
       imgSrc: ["'self'", "data:", "blob:", "https:"],
       connectSrc: ["'self'", "https:", "wss:"],
       mediaSrc: ["'self'", "https:", "blob:"],
-      frameSrc: ["'self'", "https://www.youtube.com", "https://youtube.com", "https://player.vimeo.com"],
+      frameSrc: [
+        "'self'",
+        "https://www.youtube.com",
+        "https://youtube.com",
+        "https://www.youtube-nocookie.com",
+        "https://player.vimeo.com",
+        "https://www.facebook.com",
+        "https://web.facebook.com",
+        "https://zoom.us",
+        "https://*.zoom.us",
+        "https://meet.google.com",
+        "https://teams.microsoft.com",
+        "https://www.tiktok.com",
+      ],
     },
   },
-  crossOriginEmbedderPolicy: false, // Allow embedding YouTube/Vimeo
+  crossOriginEmbedderPolicy: false, // Allow embedding YouTube/Vimeo/Facebook
+  crossOriginResourcePolicy: false,
 }));
 
 // Servir archivos estáticos de uploads (avatares, regiones, biblioteca, etc.)
