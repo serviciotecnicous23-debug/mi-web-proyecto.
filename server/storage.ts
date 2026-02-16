@@ -7,15 +7,6 @@ import {
   readingClubPosts, readingClubComments, readingClubPostLikes, libraryResources, libraryResourceLikes,
   notifications, prayerActivities, regionPosts,
   regionPostReactions, regionPostPolls, regionPostPollOptions, regionPostPollVotes,
-  gameQuestions, gameProfiles, gameAnswers, gameMissions, userMissions,
-  storyChapters, storyActivities, storyProgress,
-  cityProfiles, cityTiles, cityMissions, userCityMissions, cityHelps, cityTrades,
-  gameRooms, gameStats,
-  type StoryChapter, type StoryActivity, type StoryProgressRecord,
-  type CityProfile, type CityTile, type CityMission, type UserCityMission, type CityHelp, type CityTrade,
-  type InsertCityTile, type InsertCityTrade,
-  type GameRoom, type GameStat,
-  CITY_BUILDINGS, CITY_LEVEL_XP,
   type User, type InsertUser, type UpdateUser,
   type Message, type InsertMessage,
   type MemberPost,
@@ -41,7 +32,6 @@ import {
   type PrayerActivity, type InsertPrayerActivity,
   type RegionPost, type InsertRegionPost,
   type RegionPostPoll, type RegionPostPollOption, type RegionPostPollVote, type RegionPostReaction,
-  type GameQuestion, type GameProfile, type GameAnswer, type GameMission, type UserMission,
   ministryRegions, teamMembers,
   type MinistryRegion, type InsertMinistryRegion, type UpdateMinistryRegion,
   type TeamMember, type InsertTeamMember, type UpdateTeamMember,
@@ -197,56 +187,6 @@ export interface IStorage {
   getRegionPostPoll(postId: number): Promise<{ poll: RegionPostPoll; options: (RegionPostPollOption & { voteCount: number })[] } | null>;
   voteRegionPostPoll(optionId: number, userId: number): Promise<{ success: boolean }>;
   getUserPollVote(postId: number, userId: number): Promise<number | null>;
-
-  getOrCreateGameProfile(userId: number): Promise<GameProfile>;
-  updateGameProfile(userId: number, updates: Partial<GameProfile>): Promise<GameProfile>;
-  getRandomQuestion(difficulty: string, excludeIds?: number[]): Promise<GameQuestion | null>;
-  submitGameAnswer(userId: number, questionId: number, selectedAnswer: string): Promise<{ correct: boolean; pointsEarned: number; explanation: string | null }>;
-  getLeaderboard(limit?: number): Promise<{ userId: number; username: string; displayName: string | null; avatarUrl: string | null; totalPoints: number; level: number; correctAnswers: number }[]>;
-  getGameMissions(userId: number): Promise<(GameMission & { progress: number; isCompleted: boolean })[]>;
-  progressMission(userId: number, actionType: string): Promise<void>;
-  claimMissionReward(userId: number, missionId: number): Promise<{ energy: number; points: number }>;
-  refillEnergy(userId: number): Promise<GameProfile>;
-
-  getStoryChapters(): Promise<StoryChapter[]>;
-  getStoryChapter(id: number): Promise<StoryChapter | null>;
-  getStoryActivities(chapterId: number): Promise<StoryActivity[]>;
-  getStoryActivity(id: number): Promise<StoryActivity | null>;
-  getUserStoryProgress(userId: number): Promise<StoryProgressRecord[]>;
-  getChapterProgress(userId: number, chapterId: number): Promise<StoryProgressRecord[]>;
-  saveStoryActivityProgress(userId: number, chapterId: number, activityId: number, userAnswer: string | null, isCorrect: boolean | null): Promise<StoryProgressRecord>;
-
-  getOrCreateCityProfile(userId: number): Promise<CityProfile>;
-  getCityTiles(userId: number): Promise<CityTile[]>;
-  getCityState(userId: number): Promise<{ profile: CityProfile; tiles: CityTile[]; missions: any[] }>;
-  placeCityBuilding(userId: number, x: number, y: number, buildingKey: string): Promise<CityTile>;
-  harvestCityTile(userId: number, tileId: number): Promise<{ tile: CityTile; resourceGained: string; amountGained: number }>;
-  collectAllReady(userId: number): Promise<{ collected: number; resources: Record<string, number> }>;
-  demolishCityTile(userId: number, tileId: number): Promise<void>;
-  moveCityTile(userId: number, tileId: number, toX: number, toY: number): Promise<void>;
-  swapCityTiles(userId: number, tileId1: number, tileId2: number): Promise<void>;
-  getCityMissions(userId: number): Promise<(CityMission & { progress: number; isCompleted: boolean; isClaimed: boolean })[]>;
-  updateCityMissionProgress(userId: number, missionType: string, targetKey: string | null): Promise<void>;
-  claimCityMissionReward(userId: number, missionId: number): Promise<CityProfile>;
-  getNeighborCities(): Promise<(CityProfile & { username: string; displayName: string | null; tileCount: number })[]>;
-  helpNeighbor(helperId: number, ownerId: number, tileId: number): Promise<CityHelp>;
-  createCityTrade(fromUserId: number, data: InsertCityTrade): Promise<CityTrade>;
-  acceptCityTrade(userId: number, tradeId: number): Promise<CityTrade>;
-  cancelCityTrade(userId: number, tradeId: number): Promise<void>;
-  getOpenTrades(): Promise<(CityTrade & { fromUsername: string })[]>;
-  checkLevelUp(userId: number): Promise<CityProfile>;
-
-  createGameRoom(userId: number, gameType: string, roomCode: string): Promise<GameRoom>;
-  joinGameRoom(userId: number, roomId: number): Promise<GameRoom>;
-  getGameRoom(roomId: number): Promise<GameRoom | null>;
-  getGameRoomByCode(code: string): Promise<GameRoom | null>;
-  listGameRooms(gameType?: string): Promise<(GameRoom & { player1Name: string; player2Name: string | null })[]>;
-  updateGameState(userId: number, roomId: number, gameState: string, currentTurn: number | null): Promise<GameRoom>;
-  finishGame(roomId: number, winnerId: number | null, isDraw: boolean): Promise<GameRoom>;
-  leaveGameRoom(userId: number, roomId: number): Promise<void>;
-  getGameStats(userId: number): Promise<GameStat[]>;
-  updateGameStats(userId: number, gameType: string, result: "win" | "loss" | "draw"): Promise<GameStat>;
-  getGameLeaderboard(gameType: string): Promise<(GameStat & { username: string; displayName: string | null })[]>;
 }
 
 export class DatabaseStorage implements IStorage {

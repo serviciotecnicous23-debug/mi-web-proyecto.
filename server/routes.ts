@@ -11,8 +11,31 @@ import { scrypt, randomBytes, timingSafeEqual } from "crypto";
 import { promisify } from "util";
 import MemoryStore from "memorystore";
 import multer from "multer";
+import path from "path";
+import fs from "fs";
 
 const scryptAsync = promisify(scrypt);
+
+// Configurar multer para subida de avatares
+const avatarDir = path.join(process.cwd(), "uploads", "avatars");
+if (!fs.existsSync(avatarDir)) {
+  fs.mkdirSync(avatarDir, { recursive: true });
+}
+const avatarStorage = multer.diskStorage({
+  destination: (_req, _file, cb) => cb(null, avatarDir),
+  filename: (req, _file, cb) => {
+    const ext = path.extname(_file.originalname).toLowerCase() || ".jpg";
+    cb(null, `avatar-${(req.user as any)?.id || "unknown"}-${Date.now()}${ext}`);
+  },
+});
+const avatarUpload = multer({
+  storage: avatarStorage,
+  limits: { fileSize: 5 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    if (file.mimetype.startsWith("image/")) cb(null, true);
+    else cb(new Error("Solo se permiten imagenes"));
+  },
+});
 
 async function hashPassword(password: string) {
   const salt = randomBytes(16).toString("hex");
@@ -149,7 +172,8 @@ export async function registerRoutes(
       if (!user) return res.status(401).json({ message: info?.message || "Error al iniciar sesion" });
       req.logIn(user, (err) => {
         if (err) return next(err);
-        res.json(user);
+        const { password, ...safeUser } = user;
+        res.json(safeUser);
       });
     })(req, res, next);
   });
@@ -204,7 +228,8 @@ export async function registerRoutes(
 
       req.logIn(user as any, (err) => {
         if (err) throw err;
-        res.status(201).json({ ...user, pending: !isFirstUser });
+        const { password: _, ...safeUser } = user as any;
+        res.status(201).json({ ...safeUser, pending: !isFirstUser });
       });
     } catch (err) {
       if (err instanceof z.ZodError) {
@@ -221,7 +246,23 @@ export async function registerRoutes(
 
   app.get(api.auth.me.path, (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
-    res.json(req.user);
+    const { password, ...safeUser } = req.user as any;
+    res.json(safeUser);
+  });
+
+  // ========== AVATAR UPLOAD ==========
+  app.post("/api/upload/avatar", avatarUpload.single("avatar"), async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    if (!req.file) return res.status(400).json({ message: "No se envio ninguna imagen" });
+    try {
+      const userId = (req.user as any).id;
+      const avatarUrl = `/uploads/avatars/${req.file.filename}`;
+      await storage.updateUser(userId, { avatarUrl } as any);
+      res.json({ avatarUrl });
+    } catch (err) {
+      console.error("Avatar upload error:", err);
+      res.status(500).json({ message: "Error al subir imagen" });
+    }
   });
 
   // ========== USER PROFILE ==========

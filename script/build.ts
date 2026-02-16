@@ -1,30 +1,63 @@
-import { build } from "vite";
+import * as esbuild from "esbuild";
+import { execSync } from "child_process";
 import path from "path";
 import { fileURLToPath } from "url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(__dirname, "..");
 
-const isProduction = process.env.NODE_ENV === "production";
-
 async function buildApp() {
-  try {
-    console.log("Building application...");
-    
-    // Import the config dynamically
-    const config = (await import(path.resolve(root, "vite.config.ts"))).default;
-    
-    // Build with Vite
-    await build({
-      ...config,
-      mode: isProduction ? "production" : "development",
-    });
+  console.log("=== Building Client (Vite) ===");
+  execSync("npx vite build", {
+    cwd: root,
+    stdio: "inherit",
+    env: { ...process.env, NODE_ENV: "production" },
+  });
 
-    console.log("Build complete!");
-  } catch (error) {
-    console.error("Build failed:", error);
-    process.exit(1);
-  }
+  console.log("\n=== Building Server (esbuild) ===");
+  await esbuild.build({
+    entryPoints: [path.resolve(root, "server/index.ts")],
+    bundle: true,
+    platform: "node",
+    target: "node20",
+    format: "cjs",
+    outfile: path.resolve(root, "dist/index.cjs"),
+    external: [
+      "pg-native",
+      "better-sqlite3",
+      "bufferutil",
+      "utf-8-validate",
+      "lightningcss",
+      "@babel/core",
+      "@babel/preset-typescript",
+      "vite",
+      "@vitejs/plugin-react",
+      "@replit/vite-plugin-runtime-error-modal",
+      "@replit/vite-plugin-cartographer",
+      "@replit/vite-plugin-dev-banner",
+      "../vite.config",
+      "../vite.config.ts",
+    ],
+    define: {
+      "import.meta.dirname": "__dirname",
+      "import.meta.url": "__filename",
+    },
+    alias: {
+      "@shared": path.resolve(root, "shared"),
+    },
+    sourcemap: true,
+    minify: false,
+    loader: {
+      ".ts": "ts",
+    },
+  });
+
+  console.log("\n=== Build Complete! ===");
+  console.log("  Client: dist/public/");
+  console.log("  Server: dist/index.cjs");
 }
 
-buildApp();
+buildApp().catch((err) => {
+  console.error("Build failed:", err);
+  process.exit(1);
+});
