@@ -899,7 +899,7 @@ function ResourcesTab() {
         throw new Error(err.message || "Error al subir archivo");
       }
       const data = await res.json();
-      setFileUrl(data.url);
+      setFileUrl(data.fileUrl);
       setUploadedFileName(file.name);
       setUploadedFileSize(file.size);
       toast({ title: "Archivo subido", description: file.name });

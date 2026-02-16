@@ -32,6 +32,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 export default function Profile() {
   const { user, isLoading } = useAuth();
   const [, setLocation] = useLocation();
+  const defaultTab = new URLSearchParams(window.location.search).get("tab") === "amigos" ? "amigos" : "perfil";
   const updateMutation = useUpdateUser();
   const formInitialized = useRef(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -226,7 +227,7 @@ export default function Profile() {
       <div className="max-w-4xl mx-auto px-4 py-8">
         <h1 className="text-3xl font-bold mb-8" data-testid="text-profile-title">Mi Perfil</h1>
 
-        <Tabs defaultValue="perfil" className="space-y-6">
+        <Tabs defaultValue={defaultTab} className="space-y-6">
           <TabsList>
             <TabsTrigger value="perfil">Perfil</TabsTrigger>
             <TabsTrigger value="amigos">

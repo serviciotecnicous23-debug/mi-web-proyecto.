@@ -3,6 +3,7 @@ import { useAuth } from "@/hooks/use-auth";
 import {
   LogOut,
   User,
+  Users,
   Shield,
   Flame,
   Menu,
@@ -177,6 +178,12 @@ export function Navbar() {
                   <Link href="/perfil" className="cursor-pointer">
                     <User className="mr-2 h-4 w-4" />
                     Mi Perfil
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link href="/perfil?tab=amigos" className="cursor-pointer">
+                    <Users className="mr-2 h-4 w-4" />
+                    Amigos
                   </Link>
                 </DropdownMenuItem>
                 <DropdownMenuItem asChild>

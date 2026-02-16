@@ -260,13 +260,13 @@ export default function Equipo() {
       </section>
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent>
+        <DialogContent className="max-h-[90vh] flex flex-col">
           <DialogHeader>
             <DialogTitle>
               {editingMember ? "Editar Miembro" : "Agregar Miembro"}
             </DialogTitle>
           </DialogHeader>
-          <div className="space-y-4 py-4">
+          <div className="space-y-4 py-4 overflow-y-auto flex-1 pr-2">
             {/* User selection for linking to registered users */}
             {isAdmin && !editingMember && (
               <div className="space-y-2">

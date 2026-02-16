@@ -61,7 +61,7 @@ export const memoryStorage = {
   },
 
   getUserByUsername: async (username: string): Promise<StoredUser | null> => {
-    return users.find(u => u.username === username) || null;
+    return users.find(u => u.username.toLowerCase() === username.toLowerCase()) || null;
   },
 
   listUsers: async (): Promise<StoredUser[]> => {
