@@ -15,6 +15,7 @@ import {
   Bell,
   Heart,
   Globe,
+  Mail,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -199,6 +200,12 @@ export function Navbar() {
                   </Link>
                 </DropdownMenuItem>
                 <DropdownMenuItem asChild>
+                  <Link href="/mensajes" className="cursor-pointer">
+                    <Mail className="mr-2 h-4 w-4" />
+                    Mensajes
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
                   <Link href="/biblioteca" className="cursor-pointer">
                     <Library className="mr-2 h-4 w-4" />
                     Biblioteca
@@ -310,6 +317,11 @@ export function Navbar() {
               <Link href="/comunidad" onClick={() => setMenuOpen(false)}>
                 <Button variant="ghost" className="w-full justify-start" size="sm" data-testid="link-mobile-comunidad">
                   <MessageSquare className="w-4 h-4 mr-1" /> Comunidad
+                </Button>
+              </Link>
+              <Link href="/mensajes" onClick={() => setMenuOpen(false)}>
+                <Button variant="ghost" className="w-full justify-start" size="sm" data-testid="link-mobile-mensajes">
+                  <Mail className="w-4 h-4 mr-1" /> Mensajes
                 </Button>
               </Link>
               <Link href="/biblioteca" onClick={() => setMenuOpen(false)}>

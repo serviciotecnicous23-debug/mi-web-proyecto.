@@ -46,6 +46,7 @@ export const memberPosts = pgTable("member_posts", {
   id: serial("id").primaryKey(),
   userId: integer("user_id").notNull().references(() => users.id),
   content: text("content").notNull(),
+  imageUrl: text("image_url"),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -151,6 +152,7 @@ export const insertMessageSchema = createInsertSchema(messages);
 
 export const insertMemberPostSchema = createInsertSchema(memberPosts).pick({
   content: true,
+  imageUrl: true,
 });
 
 export const insertEventSchema = createInsertSchema(events).pick({
@@ -785,6 +787,43 @@ export const BIBLE_CHAPTERS: Record<string, number> = {
   "Santiago": 5, "1 Pedro": 5, "2 Pedro": 3, "1 Juan": 5, "2 Juan": 1,
   "3 Juan": 1, "Judas": 1, "Apocalipsis": 22,
 };
+
+// ========== COMENTARIOS EN PUBLICACIONES ==========
+
+export const postComments = pgTable("post_comments", {
+  id: serial("id").primaryKey(),
+  postId: integer("post_id").notNull().references(() => memberPosts.id),
+  userId: integer("user_id").notNull().references(() => users.id),
+  content: text("content").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertPostCommentSchema = z.object({
+  postId: z.number(),
+  content: z.string().min(1),
+});
+
+export type PostComment = typeof postComments.$inferSelect;
+export type InsertPostComment = z.infer<typeof insertPostCommentSchema>;
+
+// ========== MENSAJES DIRECTOS ==========
+
+export const directMessages = pgTable("direct_messages", {
+  id: serial("id").primaryKey(),
+  senderId: integer("sender_id").notNull().references(() => users.id),
+  receiverId: integer("receiver_id").notNull().references(() => users.id),
+  content: text("content").notNull(),
+  isRead: boolean("is_read").notNull().default(false),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertDirectMessageSchema = z.object({
+  receiverId: z.number(),
+  content: z.string().min(1),
+});
+
+export type DirectMessage = typeof directMessages.$inferSelect;
+export type InsertDirectMessage = z.infer<typeof insertDirectMessageSchema>;
 
 // ========== AMISTADES ==========
 

@@ -212,6 +212,9 @@ export default function Profile() {
       formData.append("avatar", file);
       const res = await fetch("/api/upload/avatar", { method: "POST", body: formData });
       if (!res.ok) throw new Error("Error al subir imagen");
+      const data = await res.json();
+      // Update user cache immediately with new avatar URL
+      queryClient.setQueryData(["/api/user"], (old: any) => old ? { ...old, avatarUrl: data.avatarUrl } : old);
       queryClient.invalidateQueries({ queryKey: ["/api/user"] });
       toast({ title: "Foto actualizada", description: "Tu foto de perfil ha sido actualizada." });
     } catch {

@@ -23,6 +23,7 @@ import AulaVirtual from "@/pages/aula";
 import BibliotecaPage from "@/pages/biblioteca";
 import OracionPage from "@/pages/oracion";
 import RegionesPage from "@/pages/regiones";
+import MensajesPage from "@/pages/mensajes";
 
 function Router() {
   return (
@@ -46,6 +47,7 @@ function Router() {
       <Route path="/biblioteca" component={BibliotecaPage} />
       <Route path="/oracion" component={OracionPage} />
       <Route path="/regiones" component={RegionesPage} />
+      <Route path="/mensajes" component={MensajesPage} />
       <Route component={NotFound} />
     </Switch>
   );

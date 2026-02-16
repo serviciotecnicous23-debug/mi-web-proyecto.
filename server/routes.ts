@@ -508,7 +508,7 @@ export async function registerRoutes(
     if (!(req.user as any).isActive) return res.sendStatus(403);
     try {
       const input = api.posts.create.input.parse(req.body);
-      const post = await storage.createMemberPost((req.user as any).id, input.content);
+      const post = await storage.createMemberPost((req.user as any).id, input.content, input.imageUrl);
       res.status(201).json(post);
     } catch (err) {
       if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });
@@ -518,8 +518,14 @@ export async function registerRoutes(
 
   app.delete(api.posts.delete.path, async (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
-    if (!isAdmin(req)) return res.sendStatus(403);
-    await storage.deleteMemberPost(parseInt(req.params.id));
+    const postId = parseInt(req.params.id);
+    const post = await storage.getMemberPost(postId);
+    if (!post) return res.sendStatus(404);
+    // Allow owner or admin to delete
+    if (post.userId !== (req.user as any).id && !isAdmin(req)) {
+      return res.sendStatus(403);
+    }
+    await storage.deleteMemberPost(postId);
     res.sendStatus(200);
   });
 
@@ -1500,6 +1506,119 @@ export async function registerRoutes(
     if (!req.isAuthenticated()) return res.sendStatus(401);
     if (!isAdmin(req)) return res.sendStatus(403);
     await storage.deleteTeamMember(parseInt(req.params.id));
+    res.json({ success: true });
+  });
+
+  // ========== POST IMAGE UPLOAD ==========
+  const postImgDir = path.join(process.cwd(), "uploads", "posts");
+  if (!fs.existsSync(postImgDir)) {
+    fs.mkdirSync(postImgDir, { recursive: true });
+  }
+  const postImageStorage = multer.diskStorage({
+    destination: (_req, _file, cb) => cb(null, postImgDir),
+    filename: (req, _file, cb) => {
+      const ext = path.extname(_file.originalname).toLowerCase() || ".jpg";
+      cb(null, `post-${(req.user as any)?.id || "unknown"}-${Date.now()}${ext}`);
+    },
+  });
+  const postImageUpload = multer({
+    storage: postImageStorage,
+    limits: { fileSize: 5 * 1024 * 1024 },
+    fileFilter: (_req, file, cb) => {
+      if (file.mimetype.startsWith("image/")) cb(null, true);
+      else cb(new Error("Solo se permiten imagenes"));
+    },
+  });
+
+  app.post("/api/upload/post-image", postImageUpload.single("image"), async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    if (!req.file) return res.status(400).json({ message: "No se envio ninguna imagen" });
+    try {
+      const imageUrl = `/uploads/posts/${req.file.filename}`;
+      res.json({ imageUrl });
+    } catch (err) {
+      console.error("Post image upload error:", err);
+      res.status(500).json({ message: "Error al subir imagen" });
+    }
+  });
+
+  // ========== POST COMMENTS ==========
+  app.get(api.postComments.list.path, async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    const postId = parseInt(req.params.postId);
+    const comments = await storage.listPostComments(postId);
+    res.json(comments);
+  });
+
+  app.post(api.postComments.create.path, async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    if (!(req.user as any).isActive) return res.sendStatus(403);
+    try {
+      const postId = parseInt(req.params.postId);
+      const input = api.postComments.create.input.parse({ ...req.body, postId });
+      const comment = await storage.createPostComment((req.user as any).id, input);
+      res.status(201).json(comment);
+    } catch (err) {
+      if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });
+      res.sendStatus(500);
+    }
+  });
+
+  app.delete(api.postComments.delete.path, async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    const commentId = parseInt(req.params.id);
+    const comment = await storage.getPostComment(commentId);
+    if (!comment) return res.sendStatus(404);
+    // Allow owner or admin to delete
+    if (comment.userId !== (req.user as any).id && !isAdmin(req)) {
+      return res.sendStatus(403);
+    }
+    await storage.deletePostComment(commentId);
+    res.sendStatus(200);
+  });
+
+  // ========== DIRECT MESSAGES ==========
+  app.get(api.directMessages.conversations.path, async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    const conversations = await storage.listConversations((req.user as any).id);
+    res.json(conversations);
+  });
+
+  app.get(api.directMessages.unreadCount.path, async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    const count = await storage.getUnreadDirectMessageCount((req.user as any).id);
+    res.json({ count });
+  });
+
+  app.get(api.directMessages.list.path, async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    const otherUserId = parseInt(req.params.userId);
+    const messages = await storage.listDirectMessages((req.user as any).id, otherUserId);
+    // Mark messages as read
+    await storage.markDirectMessagesRead((req.user as any).id, otherUserId);
+    res.json(messages);
+  });
+
+  app.post(api.directMessages.send.path, async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    if (!(req.user as any).isActive) return res.sendStatus(403);
+    try {
+      const input = api.directMessages.send.input.parse(req.body);
+      if (input.receiverId === (req.user as any).id) {
+        return res.status(400).json({ message: "No puedes enviarte mensajes a ti mismo" });
+      }
+      const msg = await storage.sendDirectMessage((req.user as any).id, input);
+      res.status(201).json(msg);
+    } catch (err) {
+      if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });
+      res.sendStatus(500);
+    }
+  });
+
+  app.patch(api.directMessages.markRead.path, async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    const otherUserId = parseInt(req.params.userId);
+    await storage.markDirectMessagesRead((req.user as any).id, otherUserId);
     res.json({ success: true });
   });
 

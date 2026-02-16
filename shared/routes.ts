@@ -19,6 +19,7 @@ import {
   insertNotificationSchema,
   insertMinistryRegionSchema, updateMinistryRegionSchema,
   insertTeamMemberSchema, updateTeamMemberSchema,
+  insertPostCommentSchema, insertDirectMessageSchema,
 } from "./schema";
 
 export { insertUserSchema, updateUserSchema, users };
@@ -249,6 +250,18 @@ export const api = {
     reject: { method: "PATCH" as const, path: "/api/friends/:id/reject" as const },
     remove: { method: "DELETE" as const, path: "/api/friends/:id" as const },
     search: { method: "GET" as const, path: "/api/friends/search" as const },
+  },
+  postComments: {
+    list: { method: "GET" as const, path: "/api/posts/:postId/comments" as const },
+    create: { method: "POST" as const, path: "/api/posts/:postId/comments" as const, input: insertPostCommentSchema },
+    delete: { method: "DELETE" as const, path: "/api/post-comments/:id" as const },
+  },
+  directMessages: {
+    conversations: { method: "GET" as const, path: "/api/messages/conversations" as const },
+    list: { method: "GET" as const, path: "/api/messages/:userId" as const },
+    send: { method: "POST" as const, path: "/api/messages" as const, input: insertDirectMessageSchema },
+    markRead: { method: "PATCH" as const, path: "/api/messages/:userId/read" as const },
+    unreadCount: { method: "GET" as const, path: "/api/messages/unread-count" as const },
   },
 };
 

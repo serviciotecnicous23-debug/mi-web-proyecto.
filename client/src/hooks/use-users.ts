@@ -160,8 +160,8 @@ export function useCreateMemberPost() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
   return useMutation({
-    mutationFn: async (content: string) => {
-      const res = await fetch(api.posts.create.path, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ content }) });
+    mutationFn: async ({ content, imageUrl }: { content: string; imageUrl?: string | null }) => {
+      const res = await fetch(api.posts.create.path, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ content, imageUrl }) });
       if (!res.ok) throw new Error("Error al publicar mensaje");
       return res.json();
     },
@@ -1266,5 +1266,116 @@ export function useAdminUserDetail(userId: number | null) {
       return res.json();
     },
     enabled: !!userId,
+  });
+}
+
+// ========== POST COMMENTS ==========
+export function usePostComments(postId: number) {
+  return useQuery({
+    queryKey: [api.postComments.list.path, postId],
+    queryFn: async () => {
+      const url = buildUrl(api.postComments.list.path, { postId });
+      const res = await fetch(url);
+      if (!res.ok) throw new Error("Error al obtener comentarios");
+      return res.json();
+    },
+    enabled: !!postId,
+  });
+}
+
+export function useCreatePostComment() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  return useMutation({
+    mutationFn: async ({ postId, content }: { postId: number; content: string }) => {
+      const url = buildUrl(api.postComments.create.path, { postId });
+      const res = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ postId, content }),
+      });
+      if (!res.ok) throw new Error("Error al comentar");
+      return res.json();
+    },
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: [api.postComments.list.path, variables.postId] });
+      toast({ title: "Comentario publicado" });
+    },
+    onError: (error) => { toast({ title: "Error", description: error.message, variant: "destructive" }); },
+  });
+}
+
+export function useDeletePostComment() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  return useMutation({
+    mutationFn: async ({ id, postId }: { id: number; postId: number }) => {
+      const url = buildUrl(api.postComments.delete.path, { id });
+      const res = await fetch(url, { method: "DELETE" });
+      if (!res.ok) throw new Error("Error al eliminar comentario");
+    },
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: [api.postComments.list.path, variables.postId] });
+      toast({ title: "Comentario eliminado" });
+    },
+    onError: (error) => { toast({ title: "Error", description: error.message, variant: "destructive" }); },
+  });
+}
+
+// ========== DIRECT MESSAGES ==========
+export function useConversations() {
+  return useQuery({
+    queryKey: [api.directMessages.conversations.path],
+    queryFn: async () => {
+      const res = await fetch(api.directMessages.conversations.path);
+      if (!res.ok) throw new Error("Error al obtener conversaciones");
+      return res.json();
+    },
+    refetchInterval: 10000,
+  });
+}
+
+export function useDirectMessages(userId: number | null) {
+  return useQuery({
+    queryKey: [api.directMessages.list.path, userId],
+    queryFn: async () => {
+      const url = buildUrl(api.directMessages.list.path, { userId: userId! });
+      const res = await fetch(url);
+      if (!res.ok) throw new Error("Error al obtener mensajes");
+      return res.json();
+    },
+    enabled: !!userId,
+    refetchInterval: 5000,
+  });
+}
+
+export function useSendDirectMessage() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ receiverId, content }: { receiverId: number; content: string }) => {
+      const res = await fetch(api.directMessages.send.path, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ receiverId, content }),
+      });
+      if (!res.ok) throw new Error("Error al enviar mensaje");
+      return res.json();
+    },
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: [api.directMessages.list.path, variables.receiverId] });
+      queryClient.invalidateQueries({ queryKey: [api.directMessages.conversations.path] });
+    },
+  });
+}
+
+export function useUnreadMessageCount() {
+  return useQuery({
+    queryKey: [api.directMessages.unreadCount.path],
+    queryFn: async () => {
+      const res = await fetch(api.directMessages.unreadCount.path);
+      if (!res.ok) throw new Error("Error");
+      return res.json();
+    },
+    refetchInterval: 15000,
   });
 }
