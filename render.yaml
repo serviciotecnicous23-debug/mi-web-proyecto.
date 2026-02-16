@@ -9,7 +9,7 @@ services:
     name: ministerio-avivando-el-fuego
     runtime: node
     plan: free
-    buildCommand: npm install && npm run build
+    buildCommand: npm install --include=dev && npm run build
     startCommand: npm run start
     envVars:
       - key: NODE_ENV
@@ -22,5 +22,7 @@ services:
         generateValue: true
       - key: PORT
         value: "10000"
+      - key: NODE_VERSION
+        value: "20.11.0"
     autoDeploy: true
     healthCheckPath: /api/hello
