@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Layout } from "@/components/layout";
-import { useEvents, useCreateEvent, useUpdateEvent, useDeleteEvent } from "@/hooks/use-users";
+import { useEvents, useCreateEvent, useUpdateEvent, useDeleteEvent, useEventRsvps, useMyEventRsvp, useRsvpEvent, useCancelRsvp } from "@/hooks/use-users";
 import { useAuth } from "@/hooks/use-auth";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -15,7 +15,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { Loader2, Calendar, MapPin, Clock, Plus, Pencil, Trash2 } from "lucide-react";
+import { Loader2, Calendar, MapPin, Clock, Plus, Pencil, Trash2, Users, CheckCircle, HelpCircle, XCircle, ExternalLink, Video, Bell, BellOff, Link2 } from "lucide-react";
 import type { Event } from "@shared/schema";
 
 function formatDate(dateStr: string) {
@@ -58,6 +58,8 @@ const emptyForm = {
   eventDate: "",
   eventEndDate: "",
   location: "",
+  meetingUrl: "",
+  meetingPlatform: "",
 };
 
 export default function Eventos() {
@@ -70,6 +72,7 @@ export default function Eventos() {
   const [createOpen, setCreateOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [editingEvent, setEditingEvent] = useState<Event | null>(null);
+  const [detailEvent, setDetailEvent] = useState<Event | null>(null);
   const [form, setForm] = useState(emptyForm);
 
   const upcoming = events?.filter((e: Event) => isUpcoming(e.eventDate as any)) || [];
@@ -94,6 +97,8 @@ export default function Eventos() {
       eventDate: toDatetimeLocal(event.eventDate as any),
       eventEndDate: toDatetimeLocal(event.eventEndDate as any),
       location: event.location,
+      meetingUrl: (event as any).meetingUrl || "",
+      meetingPlatform: (event as any).meetingPlatform || "",
     });
     setEditingEvent(event);
     setEditOpen(true);
@@ -108,6 +113,8 @@ export default function Eventos() {
         eventDate: form.eventDate,
         eventEndDate: form.eventEndDate || null,
         location: form.location,
+        meetingUrl: form.meetingUrl || null,
+        meetingPlatform: form.meetingPlatform || null,
         isPublished: true,
       },
       {
@@ -130,6 +137,8 @@ export default function Eventos() {
           eventDate: form.eventDate,
           eventEndDate: form.eventEndDate || null,
           location: form.location,
+          meetingUrl: form.meetingUrl || null,
+          meetingPlatform: form.meetingPlatform || null,
         },
       },
       {
@@ -200,6 +209,8 @@ export default function Eventos() {
                       canManage={canManage(event)}
                       onEdit={() => handleEditOpen(event)}
                       onDelete={() => handleDelete(event)}
+                      onViewDetails={() => setDetailEvent(event)}
+                      user={user}
                     />
                   ))}
                 </div>
@@ -221,6 +232,8 @@ export default function Eventos() {
                       canManage={canManage(event)}
                       onEdit={() => handleEditOpen(event)}
                       onDelete={() => handleDelete(event)}
+                      onViewDetails={() => setDetailEvent(event)}
+                      user={user}
                     />
                   ))}
                 </div>
@@ -254,6 +267,15 @@ export default function Eventos() {
         isPending={updateEvent.isPending}
         submitLabel="Guardar"
       />
+
+      {detailEvent && (
+        <EventDetailDialog
+          event={detailEvent}
+          open={!!detailEvent}
+          onOpenChange={(open) => { if (!open) setDetailEvent(null); }}
+          user={user}
+        />
+      )}
     </Layout>
   );
 }
@@ -279,7 +301,7 @@ function EventFormDialog({
 }) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent data-testid="dialog-event-form">
+      <DialogContent data-testid="dialog-event-form" className="max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
         </DialogHeader>
@@ -334,6 +356,33 @@ function EventFormDialog({
               data-testid="input-event-location"
             />
           </div>
+          <div>
+            <Label htmlFor="event-meeting-url">Enlace de Reunion (Zoom, Google Meet, etc.) - opcional</Label>
+            <Input
+              id="event-meeting-url"
+              value={form.meetingUrl}
+              onChange={(e) => setForm({ ...form, meetingUrl: e.target.value })}
+              placeholder="https://zoom.us/j/..."
+              data-testid="input-event-meeting-url"
+            />
+          </div>
+          <div>
+            <Label htmlFor="event-meeting-platform">Plataforma</Label>
+            <select
+              id="event-meeting-platform"
+              value={form.meetingPlatform}
+              onChange={(e) => setForm({ ...form, meetingPlatform: e.target.value })}
+              className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+              data-testid="select-event-meeting-platform"
+            >
+              <option value="">Selecciona una plataforma</option>
+              <option value="zoom">Zoom</option>
+              <option value="google_meet">Google Meet</option>
+              <option value="teams">Microsoft Teams</option>
+              <option value="presencial">Presencial</option>
+              <option value="otro">Otro</option>
+            </select>
+          </div>
         </div>
         <DialogFooter>
           <Button
@@ -350,23 +399,228 @@ function EventFormDialog({
   );
 }
 
+function EventRsvpButton({ event, user }: { event: Event; user: any }) {
+  const rsvpEvent = useRsvpEvent();
+  const cancelRsvp = useCancelRsvp();
+  const { data: myRsvp } = useMyEventRsvp(event.id);
+  const { data: rsvpData } = useEventRsvps(event.id);
+
+  if (!user) return null;
+
+  const isPast = new Date(event.eventDate as any) < new Date();
+  if (isPast) return null;
+
+  const attendeeCount = rsvpData?.count || 0;
+  const currentStatus = myRsvp?.status;
+
+  return (
+    <div className="flex flex-col gap-2 mt-3">
+      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+        <Users className="h-3.5 w-3.5" />
+        <span>{attendeeCount} {attendeeCount === 1 ? "confirmado" : "confirmados"}</span>
+      </div>
+      <div className="flex flex-wrap gap-2">
+        <Button
+          size="sm"
+          variant={currentStatus === "confirmado" ? "default" : "outline"}
+          onClick={() => rsvpEvent.mutate({ eventId: event.id, status: "confirmado" })}
+          disabled={rsvpEvent.isPending}
+          className="gap-1"
+        >
+          <CheckCircle className="h-3.5 w-3.5" />
+          Asistire
+        </Button>
+        <Button
+          size="sm"
+          variant={currentStatus === "tal_vez" ? "default" : "outline"}
+          onClick={() => rsvpEvent.mutate({ eventId: event.id, status: "tal_vez" })}
+          disabled={rsvpEvent.isPending}
+          className="gap-1"
+        >
+          <HelpCircle className="h-3.5 w-3.5" />
+          Tal vez
+        </Button>
+        <Button
+          size="sm"
+          variant={currentStatus === "no_asistire" ? "destructive" : "outline"}
+          onClick={() => rsvpEvent.mutate({ eventId: event.id, status: "no_asistire" })}
+          disabled={rsvpEvent.isPending}
+          className="gap-1"
+        >
+          <XCircle className="h-3.5 w-3.5" />
+          No asistire
+        </Button>
+        {currentStatus && (
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={() => cancelRsvp.mutate(event.id)}
+            disabled={cancelRsvp.isPending}
+            className="gap-1 text-muted-foreground"
+          >
+            Cancelar
+          </Button>
+        )}
+      </div>
+      {currentStatus === "confirmado" && (
+        <div className="flex items-center gap-1.5 text-xs text-green-600 dark:text-green-400">
+          <Bell className="h-3 w-3" />
+          Recordatorio activado. Recibiras una notificacion.
+        </div>
+      )}
+    </div>
+  );
+}
+
+function EventDetailDialog({
+  event,
+  open,
+  onOpenChange,
+  user,
+}: {
+  event: Event;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  user: any;
+}) {
+  const { data: rsvpData } = useEventRsvps(event.id);
+  const meetingUrl = (event as any).meetingUrl;
+  const meetingPlatform = (event as any).meetingPlatform;
+
+  const platformLabels: Record<string, string> = {
+    zoom: "Zoom",
+    google_meet: "Google Meet",
+    teams: "Microsoft Teams",
+    presencial: "Presencial",
+    otro: "Enlace",
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto" data-testid="dialog-event-detail">
+        <DialogHeader>
+          <DialogTitle className="text-xl">{event.title}</DialogTitle>
+        </DialogHeader>
+
+        <div className="space-y-4">
+          {/* Date & Time */}
+          <div className="flex items-center gap-2 text-sm">
+            <Calendar className="h-4 w-4 text-primary" />
+            <span className="font-medium">{formatDate(event.eventDate as any)}</span>
+          </div>
+          <div className="flex items-center gap-2 text-sm">
+            <Clock className="h-4 w-4 text-primary" />
+            <span>
+              {formatTime(event.eventDate as any)}
+              {event.eventEndDate && ` - ${formatTime(event.eventEndDate as any)}`}
+            </span>
+          </div>
+
+          {/* Location */}
+          <div className="flex items-center gap-2 text-sm">
+            <MapPin className="h-4 w-4 text-primary" />
+            <span>{event.location}</span>
+          </div>
+
+          {/* Meeting Link */}
+          {meetingUrl && (
+            <div className="bg-primary/5 dark:bg-primary/10 rounded-lg p-4 space-y-2">
+              <div className="flex items-center gap-2 text-sm font-medium">
+                <Video className="h-4 w-4 text-primary" />
+                <span>{platformLabels[meetingPlatform] || "Enlace de Reunion"}</span>
+              </div>
+              <a
+                href={meetingUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 text-sm text-primary hover:underline break-all"
+              >
+                <Link2 className="h-3.5 w-3.5 flex-shrink-0" />
+                {meetingUrl}
+                <ExternalLink className="h-3 w-3 flex-shrink-0" />
+              </a>
+              <Button
+                size="sm"
+                className="w-full mt-2 gap-2"
+                onClick={() => window.open(meetingUrl, "_blank")}
+              >
+                <Video className="h-4 w-4" />
+                Unirse a la Reunion
+              </Button>
+            </div>
+          )}
+
+          {/* Description */}
+          <div>
+            <h4 className="text-sm font-medium mb-1">Descripcion</h4>
+            <p className="text-sm text-muted-foreground whitespace-pre-wrap">{event.description}</p>
+          </div>
+
+          {/* RSVP Section */}
+          {user && new Date(event.eventDate as any) >= new Date() && (
+            <div className="border-t pt-4">
+              <h4 className="text-sm font-medium mb-2 flex items-center gap-2">
+                <Users className="h-4 w-4 text-primary" />
+                Confirmar Asistencia
+              </h4>
+              <EventRsvpButton event={event} user={user} />
+            </div>
+          )}
+
+          {/* Attendees list */}
+          {rsvpData?.rsvps && rsvpData.rsvps.length > 0 && (
+            <div className="border-t pt-4">
+              <h4 className="text-sm font-medium mb-3 flex items-center gap-2">
+                <Users className="h-4 w-4 text-primary" />
+                Asistentes ({rsvpData.count} confirmados)
+              </h4>
+              <div className="space-y-2 max-h-40 overflow-y-auto">
+                {rsvpData.rsvps.map((rsvp: any) => (
+                  <div key={rsvp.id} className="flex items-center gap-2 text-sm">
+                    {rsvp.user?.avatarUrl ? (
+                      <img src={rsvp.user.avatarUrl} alt="" className="w-6 h-6 rounded-full object-cover" />
+                    ) : (
+                      <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center text-xs font-medium text-primary">
+                        {(rsvp.user?.displayName || rsvp.user?.username || "?")[0].toUpperCase()}
+                      </div>
+                    )}
+                    <span>{rsvp.user?.displayName || rsvp.user?.username}</span>
+                    <Badge variant={rsvp.status === "confirmado" ? "default" : rsvp.status === "tal_vez" ? "secondary" : "outline"} className="ml-auto text-[10px]">
+                      {rsvp.status === "confirmado" ? "Confirmado" : rsvp.status === "tal_vez" ? "Tal vez" : "No asistira"}
+                    </Badge>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 function EventCard({
   event,
   variant,
   canManage,
   onEdit,
   onDelete,
+  onViewDetails,
+  user,
 }: {
   event: Event;
   variant: "upcoming" | "past";
   canManage: boolean;
   onEdit: () => void;
   onDelete: () => void;
+  onViewDetails: () => void;
+  user: any;
 }) {
   const isPastEvent = variant === "past";
+  const meetingUrl = (event as any).meetingUrl;
 
   return (
-    <Card className={isPastEvent ? "opacity-70" : ""} data-testid={`card-event-${event.id}`}>
+    <Card className={isPastEvent ? "opacity-70" : "hover:shadow-md transition-shadow"} data-testid={`card-event-${event.id}`}>
       <CardContent className="pt-6">
         <div className="flex flex-col md:flex-row gap-4">
           <div className="flex-shrink-0 text-center md:text-left md:min-w-[100px]">
@@ -379,12 +633,22 @@ function EventCard({
           </div>
           <div className="flex-1">
             <div className="flex items-start justify-between gap-2 flex-wrap">
-              <h3 className="text-lg font-bold" data-testid={`text-event-title-${event.id}`}>
+              <h3
+                className="text-lg font-bold cursor-pointer hover:text-primary transition-colors"
+                onClick={onViewDetails}
+                data-testid={`text-event-title-${event.id}`}
+              >
                 {event.title}
               </h3>
               <div className="flex items-center gap-2 flex-wrap">
                 {!isPastEvent && (
                   <Badge variant="default">Proximo</Badge>
+                )}
+                {meetingUrl && (
+                  <Badge variant="secondary" className="gap-1">
+                    <Video className="h-3 w-3" />
+                    Virtual
+                  </Badge>
                 )}
                 {canManage && (
                   <>
@@ -398,7 +662,7 @@ function EventCard({
                 )}
               </div>
             </div>
-            <p className="text-sm text-muted-foreground mt-2 whitespace-pre-wrap">{event.description}</p>
+            <p className="text-sm text-muted-foreground mt-2 whitespace-pre-wrap line-clamp-2">{event.description}</p>
             <div className="flex flex-wrap gap-4 mt-3">
               <div className="flex items-center gap-1 text-sm text-muted-foreground">
                 <Calendar className="h-3.5 w-3.5" />
@@ -415,6 +679,30 @@ function EventCard({
                 <MapPin className="h-3.5 w-3.5" />
                 <span>{event.location}</span>
               </div>
+            </div>
+
+            {/* RSVP for upcoming events */}
+            {!isPastEvent && user && (
+              <EventRsvpButton event={event} user={user} />
+            )}
+
+            {/* View Details Button */}
+            <div className="mt-3">
+              <Button size="sm" variant="outline" onClick={onViewDetails} className="gap-1">
+                <ExternalLink className="h-3.5 w-3.5" />
+                Ver Detalles
+              </Button>
+              {meetingUrl && !isPastEvent && (
+                <Button
+                  size="sm"
+                  variant="default"
+                  className="gap-1 ml-2"
+                  onClick={() => window.open(meetingUrl, "_blank")}
+                >
+                  <Video className="h-3.5 w-3.5" />
+                  Unirse
+                </Button>
+              )}
             </div>
           </div>
         </div>

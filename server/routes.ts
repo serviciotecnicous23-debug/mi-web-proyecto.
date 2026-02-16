@@ -711,6 +711,58 @@ export async function registerRoutes(
     res.sendStatus(200);
   });
 
+  // ========== EVENT RSVPS ==========
+  app.get(api.eventRsvps.list.path, async (req, res) => {
+    const eventId = parseInt(req.params.eventId);
+    const rsvps = await storage.listEventRsvps(eventId);
+    const count = await storage.getEventRsvpCount(eventId);
+    res.json({ rsvps, count });
+  });
+
+  app.get(api.eventRsvps.myRsvp.path, async (req, res) => {
+    if (!req.isAuthenticated()) return res.json(null);
+    const eventId = parseInt(req.params.eventId);
+    const rsvp = await storage.getEventRsvp(eventId, (req.user as any).id);
+    res.json(rsvp || null);
+  });
+
+  app.post(api.eventRsvps.upsert.path, async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    try {
+      const eventId = parseInt(req.params.eventId);
+      const event = await storage.getEvent(eventId);
+      if (!event) return res.sendStatus(404);
+      const input = api.eventRsvps.upsert.input.parse({ ...req.body, eventId });
+      const rsvp = await storage.upsertEventRsvp(eventId, (req.user as any).id, input);
+      
+      // Create reminder notification for the user
+      if (input.status !== "no_asistire") {
+        const eventDate = new Date(event.eventDate as any);
+        const formattedDate = eventDate.toLocaleDateString("es-ES", { weekday: "long", day: "numeric", month: "long" });
+        const formattedTime = eventDate.toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" });
+        await storage.createNotification({
+          userId: (req.user as any).id,
+          type: "evento_recordatorio",
+          title: `Recordatorio: ${event.title}`,
+          content: `Te has confirmado para "${event.title}" el ${formattedDate} a las ${formattedTime}. Ubicacion: ${event.location}${event.meetingUrl ? '. Enlace: ' + event.meetingUrl : ''}`,
+          link: "/eventos",
+        });
+      }
+      
+      res.json(rsvp);
+    } catch (err) {
+      if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });
+      res.sendStatus(500);
+    }
+  });
+
+  app.delete(api.eventRsvps.cancel.path, async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    const eventId = parseInt(req.params.eventId);
+    await storage.cancelEventRsvp(eventId, (req.user as any).id);
+    res.sendStatus(200);
+  });
+
   // ========== SITE CONTENT ==========
   app.get(api.siteContent.list.path, async (_req, res) => {
     res.json(await storage.listSiteContent());

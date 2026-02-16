@@ -57,9 +57,20 @@ export const events = pgTable("events", {
   eventDate: timestamp("event_date").notNull(),
   eventEndDate: timestamp("event_end_date"),
   location: text("location").notNull(),
+  meetingUrl: text("meeting_url"),
+  meetingPlatform: text("meeting_platform"),
   imageUrl: text("image_url"),
   isPublished: boolean("is_published").notNull().default(true),
   createdBy: integer("created_by").references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const eventRsvps = pgTable("event_rsvps", {
+  id: serial("id").primaryKey(),
+  eventId: integer("event_id").notNull().references(() => events.id),
+  userId: integer("user_id").notNull().references(() => users.id),
+  status: text("status").notNull().default("confirmado"),
+  reminder: boolean("reminder").notNull().default(true),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -159,14 +170,24 @@ export const insertEventSchema = createInsertSchema(events).pick({
   title: true,
   description: true,
   location: true,
+  meetingUrl: true,
+  meetingPlatform: true,
   imageUrl: true,
   isPublished: true,
 }).extend({
   eventDate: z.string(),
   eventEndDate: z.string().optional().nullable(),
+  meetingUrl: z.string().optional().nullable(),
+  meetingPlatform: z.string().optional().nullable(),
 });
 
 export const updateEventSchema = insertEventSchema.partial();
+
+export const insertEventRsvpSchema = z.object({
+  eventId: z.number(),
+  status: z.enum(["confirmado", "tal_vez", "no_asistire"]).optional(),
+  reminder: z.boolean().optional(),
+});
 
 export const updateSiteContentSchema = z.object({
   title: z.string().optional().nullable(),
@@ -231,6 +252,8 @@ export type InsertMemberPost = z.infer<typeof insertMemberPostSchema>;
 export type Event = typeof events.$inferSelect;
 export type InsertEvent = z.infer<typeof insertEventSchema>;
 export type UpdateEvent = z.infer<typeof updateEventSchema>;
+export type EventRsvp = typeof eventRsvps.$inferSelect;
+export type InsertEventRsvp = z.infer<typeof insertEventRsvpSchema>;
 export type SiteContent = typeof siteContent.$inferSelect;
 export type UpdateSiteContent = z.infer<typeof updateSiteContentSchema>;
 export type Course = typeof courses.$inferSelect;

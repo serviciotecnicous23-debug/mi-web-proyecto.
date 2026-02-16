@@ -2,7 +2,7 @@ import { z } from "zod";
 import {
   insertUserSchema, updateUserSchema, users, changePasswordSchema,
   insertMessageSchema, insertMemberPostSchema,
-  insertEventSchema, updateEventSchema, updateSiteContentSchema,
+  insertEventSchema, updateEventSchema, insertEventRsvpSchema, updateSiteContentSchema,
   insertCourseSchema, updateCourseSchema,
   insertCourseMaterialSchema, updateCourseMaterialSchema,
   insertCourseSessionSchema, updateCourseSessionSchema,
@@ -106,6 +106,12 @@ export const api = {
     create: { method: "POST" as const, path: "/api/events" as const, input: insertEventSchema },
     update: { method: "PATCH" as const, path: "/api/events/:id" as const, input: updateEventSchema },
     delete: { method: "DELETE" as const, path: "/api/events/:id" as const },
+  },
+  eventRsvps: {
+    list: { method: "GET" as const, path: "/api/events/:eventId/rsvps" as const },
+    myRsvp: { method: "GET" as const, path: "/api/events/:eventId/my-rsvp" as const },
+    upsert: { method: "POST" as const, path: "/api/events/:eventId/rsvp" as const, input: insertEventRsvpSchema },
+    cancel: { method: "DELETE" as const, path: "/api/events/:eventId/rsvp" as const },
   },
   siteContent: {
     get: { method: "GET" as const, path: "/api/content/:key" as const },

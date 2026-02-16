@@ -251,7 +251,7 @@ function VideoPlayer({ sourceType, sourceUrl }: { sourceType: string; sourceUrl:
 }
 
 export default function EnVivo() {
-  const { data: config, isLoading } = useLiveStreamConfig();
+  const { data: config, isLoading, isError } = useLiveStreamConfig();
 
   const isLive = config?.isLive && config?.sourceType !== "radio" && config?.sourceUrl;
   const showRadio = !isLive || config?.sourceType === "radio";
@@ -287,6 +287,14 @@ export default function EnVivo() {
                       <div className="flex flex-col items-center gap-2 text-muted-foreground">
                         <Signal className="w-8 h-8 animate-pulse" />
                         <p className="text-sm">Conectando...</p>
+                      </div>
+                    </div>
+                  ) : isError ? (
+                    <div className="aspect-video flex items-center justify-center bg-muted rounded-md">
+                      <div className="flex flex-col items-center gap-2 text-muted-foreground">
+                        <Radio className="w-10 h-10 text-primary" />
+                        <p className="font-bold text-lg">Radio Avivando el Fuego</p>
+                        <p className="text-sm text-center max-w-xs">La senal esta disponible. Vuelve pronto para escuchar nuestra programacion en vivo.</p>
                       </div>
                     </div>
                   ) : isLive ? (

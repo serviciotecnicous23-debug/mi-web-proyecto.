@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api, buildUrl } from "@shared/routes";
-import { type UpdateUser, type InsertEvent, type UpdateEvent, type UpdateSiteContent, type InsertCourse, type UpdateCourse, type InsertCourseMaterial, type UpdateCourseMaterial, type InsertCourseSession, type UpdateCourseSession, type UpdateEnrollment, type UpdateTeacherRequest, type InsertCourseAnnouncement, type UpdateCourseAnnouncement, type InsertCourseSchedule, type UpdateCourseSchedule, type InsertBibleHighlight, type InsertBibleNote, type InsertReadingPlan, type InsertReadingPlanItem, type InsertReadingClubPost, type InsertReadingClubComment, type InsertLibraryResource } from "@shared/schema";
+import { type UpdateUser, type InsertEvent, type UpdateEvent, type InsertEventRsvp, type UpdateSiteContent, type InsertCourse, type UpdateCourse, type InsertCourseMaterial, type UpdateCourseMaterial, type InsertCourseSession, type UpdateCourseSession, type UpdateEnrollment, type UpdateTeacherRequest, type InsertCourseAnnouncement, type UpdateCourseAnnouncement, type InsertCourseSchedule, type UpdateCourseSchedule, type InsertBibleHighlight, type InsertBibleNote, type InsertReadingPlan, type InsertReadingPlanItem, type InsertReadingClubPost, type InsertReadingClubComment, type InsertLibraryResource } from "@shared/schema";
 import { useToast } from "@/hooks/use-toast";
 
 export function useUser(id: number) {
@@ -260,6 +260,78 @@ export function useDeleteEvent() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [api.events.list.path] });
       toast({ title: "Evento eliminado" });
+    },
+    onError: (error) => { toast({ title: "Error", description: error.message, variant: "destructive" }); },
+  });
+}
+
+// ========== EVENT RSVPS ==========
+
+export function useEventRsvps(eventId: number) {
+  return useQuery({
+    queryKey: [api.eventRsvps.list.path, eventId],
+    queryFn: async () => {
+      const url = buildUrl(api.eventRsvps.list.path, { eventId });
+      const res = await fetch(url);
+      if (!res.ok) throw new Error("Error al obtener confirmaciones");
+      return res.json();
+    },
+    enabled: !!eventId,
+  });
+}
+
+export function useMyEventRsvp(eventId: number) {
+  return useQuery({
+    queryKey: [api.eventRsvps.myRsvp.path, eventId],
+    queryFn: async () => {
+      const url = buildUrl(api.eventRsvps.myRsvp.path, { eventId });
+      const res = await fetch(url);
+      if (!res.ok) throw new Error("Error");
+      return res.json();
+    },
+    enabled: !!eventId,
+  });
+}
+
+export function useRsvpEvent() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  return useMutation({
+    mutationFn: async ({ eventId, status, reminder }: { eventId: number; status?: string; reminder?: boolean }) => {
+      const url = buildUrl(api.eventRsvps.upsert.path, { eventId });
+      const res = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ eventId, status: status || "confirmado", reminder: reminder ?? true }),
+      });
+      if (!res.ok) throw new Error("Error al confirmar asistencia");
+      return res.json();
+    },
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: [api.eventRsvps.list.path, variables.eventId] });
+      queryClient.invalidateQueries({ queryKey: [api.eventRsvps.myRsvp.path, variables.eventId] });
+      queryClient.invalidateQueries({ queryKey: [api.notifications.list.path] });
+      queryClient.invalidateQueries({ queryKey: [api.notifications.unreadCount.path] });
+      const statusMsg = variables.status === "no_asistire" ? "Has indicado que no asistiras" : variables.status === "tal_vez" ? "Has indicado que tal vez asistiras" : "Has confirmado tu asistencia";
+      toast({ title: "Asistencia registrada", description: statusMsg });
+    },
+    onError: (error) => { toast({ title: "Error", description: error.message, variant: "destructive" }); },
+  });
+}
+
+export function useCancelRsvp() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  return useMutation({
+    mutationFn: async (eventId: number) => {
+      const url = buildUrl(api.eventRsvps.cancel.path, { eventId });
+      const res = await fetch(url, { method: "DELETE" });
+      if (!res.ok) throw new Error("Error al cancelar confirmacion");
+    },
+    onSuccess: (_data, eventId) => {
+      queryClient.invalidateQueries({ queryKey: [api.eventRsvps.list.path, eventId] });
+      queryClient.invalidateQueries({ queryKey: [api.eventRsvps.myRsvp.path, eventId] });
+      toast({ title: "Confirmacion cancelada" });
     },
     onError: (error) => { toast({ title: "Error", description: error.message, variant: "destructive" }); },
   });
@@ -1228,10 +1300,15 @@ export function useLiveStreamConfig() {
     queryKey: [api.admin.getLiveStream.path],
     queryFn: async () => {
       const res = await fetch(api.admin.getLiveStream.path);
-      if (!res.ok) throw new Error("Error al obtener configuracion");
+      if (!res.ok) {
+        // Return default config on error instead of throwing
+        return { sourceType: "radio", sourceUrl: "", radioUrl: "", title: "", isLive: false };
+      }
       return res.json();
     },
     refetchInterval: 15000,
+    retry: 2,
+    staleTime: 10000,
   });
 }
 

@@ -7,10 +7,12 @@ import {
   readingClubPosts, readingClubComments, readingClubPostLikes, libraryResources, libraryResourceLikes,
   notifications, prayerActivities, regionPosts,
   regionPostReactions, regionPostPolls, regionPostPollOptions, regionPostPollVotes,
+  eventRsvps,
   type User, type InsertUser, type UpdateUser,
   type Message, type InsertMessage,
   type MemberPost,
   type Event, type InsertEvent, type UpdateEvent,
+  type EventRsvp, type InsertEventRsvp,
   type SiteContent, type UpdateSiteContent,
   type Course, type InsertCourse, type UpdateCourse,
   type CourseMaterial, type InsertCourseMaterial, type UpdateCourseMaterial,
@@ -67,6 +69,13 @@ export interface IStorage {
   listPublishedEvents(): Promise<Event[]>;
   updateEvent(id: number, updates: UpdateEvent): Promise<Event | undefined>;
   deleteEvent(id: number): Promise<void>;
+
+  // Event RSVPs
+  upsertEventRsvp(eventId: number, userId: number, data: InsertEventRsvp): Promise<EventRsvp>;
+  getEventRsvp(eventId: number, userId: number): Promise<EventRsvp | undefined>;
+  listEventRsvps(eventId: number): Promise<(EventRsvp & { user: { id: number; username: string; displayName: string | null; avatarUrl: string | null } })[]>;
+  cancelEventRsvp(eventId: number, userId: number): Promise<void>;
+  getEventRsvpCount(eventId: number): Promise<number>;
 
   getSiteContent(key: string): Promise<SiteContent | undefined>;
   listSiteContent(): Promise<SiteContent[]>;
@@ -355,6 +364,8 @@ export class DatabaseStorage implements IStorage {
       eventDate: new Date(event.eventDate),
       eventEndDate: event.eventEndDate ? new Date(event.eventEndDate) : null,
       location: event.location,
+      meetingUrl: event.meetingUrl || null,
+      meetingPlatform: event.meetingPlatform || null,
       imageUrl: event.imageUrl || null,
       isPublished: event.isPublished ?? true,
       createdBy: event.createdBy,
@@ -389,7 +400,78 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteEvent(id: number): Promise<void> {
+    // Delete RSVPs first
+    await db.delete(eventRsvps).where(eq(eventRsvps.eventId, id));
     await db.delete(events).where(eq(events.id, id));
+  }
+
+  async upsertEventRsvp(eventId: number, userId: number, data: InsertEventRsvp): Promise<EventRsvp> {
+    // Check if RSVP already exists
+    const [existing] = await db.select().from(eventRsvps)
+      .where(and(eq(eventRsvps.eventId, eventId), eq(eventRsvps.userId, userId)));
+    
+    if (existing) {
+      const [updated] = await db.update(eventRsvps)
+        .set({ status: data.status || "confirmado", reminder: data.reminder ?? true })
+        .where(eq(eventRsvps.id, existing.id))
+        .returning();
+      return updated;
+    }
+    
+    const [created] = await db.insert(eventRsvps).values({
+      eventId,
+      userId,
+      status: data.status || "confirmado",
+      reminder: data.reminder ?? true,
+    }).returning();
+    return created;
+  }
+
+  async getEventRsvp(eventId: number, userId: number): Promise<EventRsvp | undefined> {
+    const [rsvp] = await db.select().from(eventRsvps)
+      .where(and(eq(eventRsvps.eventId, eventId), eq(eventRsvps.userId, userId)));
+    return rsvp;
+  }
+
+  async listEventRsvps(eventId: number): Promise<(EventRsvp & { user: { id: number; username: string; displayName: string | null; avatarUrl: string | null } })[]> {
+    const rows = await db
+      .select({
+        id: eventRsvps.id,
+        eventId: eventRsvps.eventId,
+        userId: eventRsvps.userId,
+        status: eventRsvps.status,
+        reminder: eventRsvps.reminder,
+        createdAt: eventRsvps.createdAt,
+        username: users.username,
+        displayName: users.displayName,
+        avatarUrl: users.avatarUrl,
+      })
+      .from(eventRsvps)
+      .innerJoin(users, eq(eventRsvps.userId, users.id))
+      .where(eq(eventRsvps.eventId, eventId))
+      .orderBy(desc(eventRsvps.createdAt));
+    
+    return rows.map(r => ({
+      id: r.id,
+      eventId: r.eventId,
+      userId: r.userId,
+      status: r.status,
+      reminder: r.reminder,
+      createdAt: r.createdAt,
+      user: { id: r.userId, username: r.username, displayName: r.displayName, avatarUrl: r.avatarUrl },
+    }));
+  }
+
+  async cancelEventRsvp(eventId: number, userId: number): Promise<void> {
+    await db.delete(eventRsvps)
+      .where(and(eq(eventRsvps.eventId, eventId), eq(eventRsvps.userId, userId)));
+  }
+
+  async getEventRsvpCount(eventId: number): Promise<number> {
+    const [result] = await db.select({ count: sql<number>`count(*)::int` })
+      .from(eventRsvps)
+      .where(and(eq(eventRsvps.eventId, eventId), eq(eventRsvps.status, "confirmado")));
+    return result?.count || 0;
   }
 
   async getSiteContent(key: string): Promise<SiteContent | undefined> {
