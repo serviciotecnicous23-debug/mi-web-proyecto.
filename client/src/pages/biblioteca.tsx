@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Layout } from "@/components/layout";
 import { useAuth } from "@/hooks/use-auth";
 import { Link } from "wouter";
@@ -871,21 +871,54 @@ function ResourcesTab() {
   const [description, setDescription] = useState("");
   const [resourceCategory, setResourceCategory] = useState("general");
   const [fileUrl, setFileUrl] = useState("");
+  const [uploadMode, setUploadMode] = useState<"enlace" | "archivo">("enlace");
+  const [uploadingFile, setUploadingFile] = useState(false);
+  const [uploadedFileName, setUploadedFileName] = useState("");
+  const [uploadedFileSize, setUploadedFileSize] = useState<number | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const { data: resources = [], isLoading } = useLibraryResources(category, searchTerm);
   const createResource = useCreateLibraryResource();
   const deleteResource = useDeleteLibraryResource();
   const toggleLike = useToggleLibraryResourceLike();
 
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 20 * 1024 * 1024) {
+      toast({ title: "Archivo muy grande", description: "El tamaño máximo es 20MB.", variant: "destructive" });
+      return;
+    }
+    setUploadingFile(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      const res = await fetch("/api/upload/library-file", { method: "POST", body: formData, credentials: "include" });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ message: "Error al subir archivo" }));
+        throw new Error(err.message || "Error al subir archivo");
+      }
+      const data = await res.json();
+      setFileUrl(data.url);
+      setUploadedFileName(file.name);
+      setUploadedFileSize(file.size);
+      toast({ title: "Archivo subido", description: file.name });
+    } catch (err: any) {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    } finally {
+      setUploadingFile(false);
+    }
+  };
+
   const handleShare = () => {
     if (!title.trim() || !fileUrl.trim()) return;
     createResource.mutate({
       title: title.trim(),
       description: description.trim() || null,
-      resourceType: "enlace",
+      resourceType: uploadMode === "archivo" ? "documento" : "enlace",
       fileUrl: fileUrl.trim(),
-      fileName: null,
-      fileSize: null,
+      fileName: uploadMode === "archivo" ? uploadedFileName : null,
+      fileSize: uploadMode === "archivo" ? uploadedFileSize : null,
       fileData: null,
       category: resourceCategory,
     }, {
@@ -893,10 +926,19 @@ function ResourcesTab() {
         setTitle("");
         setDescription("");
         setFileUrl("");
+        setUploadedFileName("");
+        setUploadedFileSize(null);
         setResourceCategory("general");
+        setUploadMode("enlace");
         setShowUpload(false);
       },
     });
+  };
+
+  const formatFileSize = (bytes: number) => {
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
   };
 
   return (
@@ -945,12 +987,72 @@ function ResourcesTab() {
               onChange={(e) => setDescription(e.target.value)}
               data-testid="input-resource-description"
             />
-            <Input
-              placeholder="URL del recurso (enlace a PDF, video, etc.)"
-              value={fileUrl}
-              onChange={(e) => setFileUrl(e.target.value)}
-              data-testid="input-resource-url"
-            />
+
+            {/* Toggle between URL and file upload */}
+            <div className="flex gap-2">
+              <Button
+                type="button"
+                size="sm"
+                variant={uploadMode === "enlace" ? "default" : "outline"}
+                onClick={() => { setUploadMode("enlace"); setFileUrl(""); setUploadedFileName(""); setUploadedFileSize(null); }}
+              >
+                <FileText className="w-4 h-4 mr-1" /> Enlace / URL
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant={uploadMode === "archivo" ? "default" : "outline"}
+                onClick={() => { setUploadMode("archivo"); setFileUrl(""); }}
+              >
+                <Upload className="w-4 h-4 mr-1" /> Subir Archivo
+              </Button>
+            </div>
+
+            {uploadMode === "enlace" ? (
+              <Input
+                placeholder="URL del recurso (enlace a PDF, video, etc.)"
+                value={fileUrl}
+                onChange={(e) => setFileUrl(e.target.value)}
+                data-testid="input-resource-url"
+              />
+            ) : (
+              <div className="space-y-2">
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  className="hidden"
+                  accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.jpg,.jpeg,.png,.gif,.webp"
+                  onChange={handleFileUpload}
+                />
+                {uploadedFileName ? (
+                  <div className="flex items-center gap-2 p-3 rounded-lg bg-muted/50 border">
+                    <FileText className="w-5 h-5 text-primary flex-shrink-0" />
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-medium truncate">{uploadedFileName}</p>
+                      {uploadedFileSize && <p className="text-xs text-muted-foreground">{formatFileSize(uploadedFileSize)}</p>}
+                    </div>
+                    <Button size="sm" variant="ghost" onClick={() => { setFileUrl(""); setUploadedFileName(""); setUploadedFileSize(null); }}>
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
+                  </div>
+                ) : (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="w-full h-20 border-dashed"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={uploadingFile}
+                  >
+                    {uploadingFile ? (
+                      <><Loader2 className="w-5 h-5 mr-2 animate-spin" /> Subiendo archivo...</>
+                    ) : (
+                      <><Upload className="w-5 h-5 mr-2" /> Seleccionar archivo (PDF, Word, Excel, PPT, max 20MB)</>
+                    )}
+                  </Button>
+                )}
+              </div>
+            )}
+
             <Select value={resourceCategory} onValueChange={setResourceCategory}>
               <SelectTrigger data-testid="select-new-resource-category">
                 <SelectValue />
@@ -962,7 +1064,8 @@ function ResourcesTab() {
               </SelectContent>
             </Select>
             <div className="flex items-center gap-2">
-              <Button size="sm" onClick={handleShare} disabled={!title.trim() || !fileUrl.trim()} data-testid="button-submit-resource">
+              <Button size="sm" onClick={handleShare} disabled={!title.trim() || !fileUrl.trim() || createResource.isPending} data-testid="button-submit-resource">
+                {createResource.isPending ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <Send className="w-4 h-4 mr-1" />}
                 Compartir
               </Button>
               <Button size="sm" variant="ghost" onClick={() => setShowUpload(false)} data-testid="button-cancel-resource">
@@ -1018,7 +1121,7 @@ function ResourcesTab() {
                     {r.fileUrl && (
                       <Button variant="ghost" size="sm" asChild>
                         <a href={r.fileUrl} target="_blank" rel="noopener noreferrer" data-testid={`link-resource-${r.id}`}>
-                          <Download className="w-4 h-4 mr-1" /> Ver
+                          <Download className="w-4 h-4 mr-1" /> {r.resourceType === "documento" ? "Descargar" : "Ver"}
                         </a>
                       </Button>
                     )}

@@ -139,7 +139,13 @@ export const updateUserSchema = createInsertSchema(users).pick({
   country: true,
   phone: true,
   email: true,
+  username: true,
 }).partial();
+
+export const changePasswordSchema = z.object({
+  currentPassword: z.string().min(1, "La contraseña actual es requerida"),
+  newPassword: z.string().min(6, "La nueva contraseña debe tener al menos 6 caracteres"),
+});
 
 export const insertMessageSchema = createInsertSchema(messages);
 
@@ -392,6 +398,7 @@ export type UpdateMinistryRegion = z.infer<typeof updateMinistryRegionSchema>;
 
 export const teamMembers = pgTable("team_members", {
   id: serial("id").primaryKey(),
+  userId: integer("user_id").references(() => users.id),
   name: text("name").notNull(),
   role: text("role").notNull(),
   description: text("description"),
@@ -404,6 +411,7 @@ export const teamMembers = pgTable("team_members", {
 });
 
 export const insertTeamMemberSchema = createInsertSchema(teamMembers).pick({
+  userId: true,
   name: true,
   role: true,
   description: true,
@@ -777,3 +785,21 @@ export const BIBLE_CHAPTERS: Record<string, number> = {
   "Santiago": 5, "1 Pedro": 5, "2 Pedro": 3, "1 Juan": 5, "2 Juan": 1,
   "3 Juan": 1, "Judas": 1, "Apocalipsis": 22,
 };
+
+// ========== AMISTADES ==========
+
+export const friendships = pgTable("friendships", {
+  id: serial("id").primaryKey(),
+  requesterId: integer("requester_id").notNull().references(() => users.id),
+  addresseeId: integer("addressee_id").notNull().references(() => users.id),
+  status: text("status").notNull().default("pending"), // pending, accepted, rejected
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const FRIENDSHIP_STATUSES = {
+  pending: "Pendiente",
+  accepted: "Aceptado",
+  rejected: "Rechazado",
+} as const;
+
+export type Friendship = typeof friendships.$inferSelect;

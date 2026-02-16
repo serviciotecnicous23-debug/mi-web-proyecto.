@@ -37,6 +37,62 @@ const avatarUpload = multer({
   },
 });
 
+// Configurar multer para imágenes de regiones
+const regionImgDir = path.join(process.cwd(), "uploads", "regions");
+if (!fs.existsSync(regionImgDir)) {
+  fs.mkdirSync(regionImgDir, { recursive: true });
+}
+const regionStorage = multer.diskStorage({
+  destination: (_req, _file, cb) => cb(null, regionImgDir),
+  filename: (req, _file, cb) => {
+    const ext = path.extname(_file.originalname).toLowerCase() || ".jpg";
+    cb(null, `region-${(req.user as any)?.id || "unknown"}-${Date.now()}${ext}`);
+  },
+});
+const regionUpload = multer({
+  storage: regionStorage,
+  limits: { fileSize: 5 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    if (file.mimetype.startsWith("image/")) cb(null, true);
+    else cb(new Error("Solo se permiten imagenes"));
+  },
+});
+
+// Configurar multer para archivos de biblioteca (PDF, docs, etc.)
+const libraryDir = path.join(process.cwd(), "uploads", "library");
+if (!fs.existsSync(libraryDir)) {
+  fs.mkdirSync(libraryDir, { recursive: true });
+}
+const libraryStorage = multer.diskStorage({
+  destination: (_req, _file, cb) => cb(null, libraryDir),
+  filename: (req, _file, cb) => {
+    const ext = path.extname(_file.originalname).toLowerCase();
+    cb(null, `doc-${(req.user as any)?.id || "unknown"}-${Date.now()}${ext}`);
+  },
+});
+const ALLOWED_LIBRARY_TYPES = [
+  "application/pdf",
+  "application/msword",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  "application/vnd.ms-excel",
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  "application/vnd.ms-powerpoint",
+  "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+  "text/plain",
+  "image/jpeg",
+  "image/png",
+  "image/gif",
+  "image/webp",
+];
+const libraryUpload = multer({
+  storage: libraryStorage,
+  limits: { fileSize: 20 * 1024 * 1024 }, // 20MB max
+  fileFilter: (_req, file, cb) => {
+    if (ALLOWED_LIBRARY_TYPES.includes(file.mimetype)) cb(null, true);
+    else cb(new Error("Tipo de archivo no permitido. Se permiten: PDF, Word, Excel, PowerPoint, texto e imagenes."));
+  },
+});
+
 async function hashPassword(password: string) {
   const salt = randomBytes(16).toString("hex");
   const buf = (await scryptAsync(password, salt, 64)) as Buffer;
@@ -267,6 +323,138 @@ export async function registerRoutes(
     } catch (err) {
       console.error("Avatar upload error:", err);
       res.status(500).json({ message: "Error al subir imagen" });
+    }
+  });
+
+  // ========== REGION IMAGE UPLOAD ==========
+  app.post("/api/upload/region-image", regionUpload.single("image"), async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    if (!req.file) return res.status(400).json({ message: "No se envio ninguna imagen" });
+    try {
+      const imageUrl = `/uploads/regions/${req.file.filename}`;
+      res.json({ imageUrl });
+    } catch (err) {
+      console.error("Region image upload error:", err);
+      res.status(500).json({ message: "Error al subir imagen" });
+    }
+  });
+
+  // ========== LIBRARY FILE UPLOAD ==========
+  app.post("/api/upload/library-file", libraryUpload.single("file"), async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    if (!(req.user as any).isActive) return res.sendStatus(403);
+    if (!req.file) return res.status(400).json({ message: "No se envio ningun archivo" });
+    try {
+      const fileUrl = `/uploads/library/${req.file.filename}`;
+      res.json({
+        fileUrl,
+        fileName: req.file.originalname,
+        fileSize: req.file.size,
+      });
+    } catch (err) {
+      console.error("Library file upload error:", err);
+      res.status(500).json({ message: "Error al subir archivo" });
+    }
+  });
+
+  // ========== CHANGE PASSWORD ==========
+  app.post("/api/users/change-password", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    try {
+      const { currentPassword, newPassword } = req.body;
+      if (!currentPassword || !newPassword) {
+        return res.status(400).json({ message: "Ambas contraseñas son requeridas" });
+      }
+      if (newPassword.length < 6) {
+        return res.status(400).json({ message: "La nueva contraseña debe tener al menos 6 caracteres" });
+      }
+      const userId = (req.user as any).id;
+      const user = await storage.getUser(userId);
+      if (!user) return res.sendStatus(404);
+      const isValid = await comparePasswords(currentPassword, user.password);
+      if (!isValid) {
+        return res.status(400).json({ message: "La contraseña actual es incorrecta" });
+      }
+      const hashedNew = await hashPassword(newPassword);
+      await storage.updateUser(userId, { password: hashedNew } as any);
+      res.json({ message: "Contraseña actualizada exitosamente" });
+    } catch (err) {
+      console.error("Change password error:", err);
+      res.status(500).json({ message: "Error al cambiar contraseña" });
+    }
+  });
+
+  // ========== FRIENDS SYSTEM ==========
+  app.get("/api/friends", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    const userId = (req.user as any).id;
+    const friends = await storage.listFriends(userId);
+    res.json(friends);
+  });
+
+  app.get("/api/friends/requests", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    const userId = (req.user as any).id;
+    const requests = await storage.listFriendRequests(userId);
+    res.json(requests);
+  });
+
+  app.get("/api/friends/search", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    const userId = (req.user as any).id;
+    const q = (req.query.q as string) || "";
+    const users = await storage.searchUsersForFriends(userId, q);
+    res.json(users);
+  });
+
+  app.post("/api/friends/request", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    const userId = (req.user as any).id;
+    const { addresseeId } = req.body;
+    if (!addresseeId || addresseeId === userId) {
+      return res.status(400).json({ message: "ID de usuario invalido" });
+    }
+    try {
+      const friendship = await storage.sendFriendRequest(userId, addresseeId);
+      res.status(201).json(friendship);
+    } catch (err: any) {
+      res.status(400).json({ message: err.message || "Error al enviar solicitud" });
+    }
+  });
+
+  app.patch("/api/friends/:id/accept", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    const userId = (req.user as any).id;
+    const friendshipId = parseInt(req.params.id);
+    try {
+      const result = await storage.acceptFriendRequest(friendshipId, userId);
+      res.json(result);
+    } catch (err: any) {
+      res.status(400).json({ message: err.message || "Error al aceptar solicitud" });
+    }
+  });
+
+  app.patch("/api/friends/:id/reject", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    const userId = (req.user as any).id;
+    const friendshipId = parseInt(req.params.id);
+    try {
+      const result = await storage.rejectFriendRequest(friendshipId, userId);
+      res.json(result);
+    } catch (err: any) {
+      res.status(400).json({ message: err.message || "Error al rechazar solicitud" });
+    }
+  });
+
+  app.delete("/api/friends/:id", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    const userId = (req.user as any).id;
+    const friendshipId = parseInt(req.params.id);
+    try {
+      await storage.removeFriend(friendshipId, userId);
+      res.json({ success: true });
+    } catch (err: any) {
+      res.status(400).json({ message: err.message || "Error al eliminar amigo" });
     }
   });
 

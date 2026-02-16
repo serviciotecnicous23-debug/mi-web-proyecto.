@@ -1,6 +1,6 @@
 import { z } from "zod";
 import {
-  insertUserSchema, updateUserSchema, users,
+  insertUserSchema, updateUserSchema, users, changePasswordSchema,
   insertMessageSchema, insertMemberPostSchema,
   insertEventSchema, updateEventSchema, updateSiteContentSchema,
   insertCourseSchema, updateCourseSchema,
@@ -80,6 +80,11 @@ export const api = {
       method: "PATCH" as const,
       path: "/api/users/:id" as const,
       input: updateUserSchema,
+    },
+    changePassword: {
+      method: "POST" as const,
+      path: "/api/users/change-password" as const,
+      input: changePasswordSchema,
     },
   },
   contact: {
@@ -235,6 +240,15 @@ export const api = {
     create: { method: "POST" as const, path: "/api/team-members" as const, input: insertTeamMemberSchema },
     update: { method: "PATCH" as const, path: "/api/team-members/:id" as const, input: updateTeamMemberSchema },
     delete: { method: "DELETE" as const, path: "/api/team-members/:id" as const },
+  },
+  friends: {
+    list: { method: "GET" as const, path: "/api/friends" as const },
+    requests: { method: "GET" as const, path: "/api/friends/requests" as const },
+    send: { method: "POST" as const, path: "/api/friends/request" as const },
+    accept: { method: "PATCH" as const, path: "/api/friends/:id/accept" as const },
+    reject: { method: "PATCH" as const, path: "/api/friends/:id/reject" as const },
+    remove: { method: "DELETE" as const, path: "/api/friends/:id" as const },
+    search: { method: "GET" as const, path: "/api/friends/search" as const },
   },
 };
 

@@ -6,7 +6,7 @@ import type { TeamMember } from "@shared/schema";
 import { Layout } from "@/components/layout";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -19,10 +19,10 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Link } from "wouter";
-import { Settings, Pencil, Trash2, Plus, Loader2, Save, Users } from "lucide-react";
+import { Settings, Pencil, Trash2, Plus, Loader2, Save, Users, Search, UserCheck } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
-const emptyForm = { name: "", role: "", description: "", verse: "", initials: "" };
+const emptyForm = { name: "", role: "", description: "", verse: "", initials: "", userId: null as number | null };
 
 export default function Equipo() {
   const { user } = useAuth();
@@ -34,9 +34,27 @@ export default function Equipo() {
   const [editingMember, setEditingMember] = useState<TeamMember | null>(null);
   const [deleteConfirmId, setDeleteConfirmId] = useState<number | null>(null);
   const [form, setForm] = useState(emptyForm);
+  const [userSearch, setUserSearch] = useState("");
+  const [selectedUser, setSelectedUser] = useState<any>(null);
 
   const { data: teamMembers, isLoading } = useQuery<TeamMember[]>({
     queryKey: ["/api/team-members"],
+  });
+
+  // Fetch registered users for admin selection
+  const { data: registeredUsers = [] } = useQuery<any[]>({
+    queryKey: ["/api/admin/users"],
+    enabled: isAdmin && dialogOpen,
+  });
+
+  // Filter users by search and exclude already-in-team users
+  const existingUserIds = new Set((teamMembers || []).map((m: any) => m.userId).filter(Boolean));
+  const filteredUsers = registeredUsers.filter((u: any) => {
+    if (editingMember?.userId === u.id) return true; // allow re-selecting current user
+    if (existingUserIds.has(u.id)) return false;
+    if (!userSearch.trim()) return false;
+    const q = userSearch.toLowerCase();
+    return (u.displayName || "").toLowerCase().includes(q) || u.username.toLowerCase().includes(q);
   });
 
   const createMutation = useMutation({
@@ -87,6 +105,8 @@ export default function Equipo() {
   function openAddDialog() {
     setEditingMember(null);
     setForm(emptyForm);
+    setSelectedUser(null);
+    setUserSearch("");
     setDialogOpen(true);
   }
 
@@ -98,8 +118,22 @@ export default function Equipo() {
       description: member.description || "",
       verse: member.verse || "",
       initials: member.initials || "",
+      userId: (member as any).userId || null,
     });
+    setSelectedUser(null);
+    setUserSearch("");
     setDialogOpen(true);
+  }
+
+  function selectUser(u: any) {
+    setSelectedUser(u);
+    setForm({
+      ...form,
+      name: u.displayName || u.username,
+      initials: (u.displayName || u.username).slice(0, 2).toUpperCase(),
+      userId: u.id,
+    });
+    setUserSearch("");
   }
 
   function handleSubmit() {
@@ -166,6 +200,9 @@ export default function Equipo() {
                 <Card key={member.id} className="p-6" data-testid={`card-leader-${member.id}`}>
                   <div className="flex items-start gap-4">
                     <Avatar className="h-14 w-14">
+                      {(member as any).user?.avatarUrl && (
+                        <AvatarImage src={(member as any).user.avatarUrl} alt={member.name} />
+                      )}
                       <AvatarFallback className="bg-primary/10 text-primary font-bold">
                         {member.initials || member.name.slice(0, 2).toUpperCase()}
                       </AvatarFallback>
@@ -230,6 +267,64 @@ export default function Equipo() {
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-4">
+            {/* User selection for linking to registered users */}
+            {isAdmin && !editingMember && (
+              <div className="space-y-2">
+                <Label>Vincular a Usuario Registrado (opcional)</Label>
+                {selectedUser ? (
+                  <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50 border">
+                    <Avatar className="h-8 w-8">
+                      {selectedUser.avatarUrl && <AvatarImage src={selectedUser.avatarUrl} />}
+                      <AvatarFallback className="bg-primary/10 text-primary text-xs">
+                        {(selectedUser.displayName || selectedUser.username).slice(0, 2).toUpperCase()}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium">{selectedUser.displayName || selectedUser.username}</p>
+                      <p className="text-xs text-muted-foreground">@{selectedUser.username}</p>
+                    </div>
+                    <Button size="sm" variant="ghost" onClick={() => { setSelectedUser(null); setForm({ ...form, userId: null }); }}>
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    <div className="relative">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                      <Input
+                        className="pl-9"
+                        placeholder="Buscar usuario por nombre..."
+                        value={userSearch}
+                        onChange={(e) => setUserSearch(e.target.value)}
+                      />
+                    </div>
+                    {filteredUsers.length > 0 && (
+                      <div className="border rounded-lg max-h-40 overflow-y-auto">
+                        {filteredUsers.slice(0, 8).map((u: any) => (
+                          <button
+                            key={u.id}
+                            type="button"
+                            className="w-full flex items-center gap-3 p-2 hover:bg-muted/50 transition-colors text-left"
+                            onClick={() => selectUser(u)}
+                          >
+                            <Avatar className="h-8 w-8">
+                              {u.avatarUrl && <AvatarImage src={u.avatarUrl} />}
+                              <AvatarFallback className="bg-primary/10 text-primary text-xs">
+                                {(u.displayName || u.username).slice(0, 2).toUpperCase()}
+                              </AvatarFallback>
+                            </Avatar>
+                            <div className="min-w-0">
+                              <p className="text-sm font-medium truncate">{u.displayName || u.username}</p>
+                              <p className="text-xs text-muted-foreground">@{u.username}</p>
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
             <div className="space-y-2">
               <Label htmlFor="member-name">Nombre</Label>
               <Input

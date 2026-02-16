@@ -13,7 +13,7 @@ declare module "http" {
   }
 }
 
-// Servir archivos estáticos de uploads (avatares, etc.)
+// Servir archivos estáticos de uploads (avatares, regiones, biblioteca, etc.)
 app.use("/uploads", express.static(path.join(process.cwd(), "uploads")));
 
 app.use(

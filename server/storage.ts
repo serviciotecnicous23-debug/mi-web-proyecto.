@@ -35,6 +35,7 @@ import {
   ministryRegions, teamMembers,
   type MinistryRegion, type InsertMinistryRegion, type UpdateMinistryRegion,
   type TeamMember, type InsertTeamMember, type UpdateTeamMember,
+  friendships, type Friendship,
 } from "@shared/schema";
 import { eq, desc, asc, and, ilike, or, sql, inArray, ne } from "drizzle-orm";
 
@@ -187,6 +188,15 @@ export interface IStorage {
   getRegionPostPoll(postId: number): Promise<{ poll: RegionPostPoll; options: (RegionPostPollOption & { voteCount: number })[] } | null>;
   voteRegionPostPoll(optionId: number, userId: number): Promise<{ success: boolean }>;
   getUserPollVote(postId: number, userId: number): Promise<number | null>;
+
+  // Friends
+  listFriends(userId: number): Promise<any[]>;
+  listFriendRequests(userId: number): Promise<any[]>;
+  searchUsersForFriends(userId: number, query: string): Promise<any[]>;
+  sendFriendRequest(requesterId: number, addresseeId: number): Promise<any>;
+  acceptFriendRequest(friendshipId: number, userId: number): Promise<any>;
+  rejectFriendRequest(friendshipId: number, userId: number): Promise<any>;
+  removeFriend(friendshipId: number, userId: number): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1162,8 +1172,20 @@ export class DatabaseStorage implements IStorage {
     await db.delete(ministryRegions).where(eq(ministryRegions.id, id));
   }
 
-  async listTeamMembers(): Promise<TeamMember[]> {
-    return db.select().from(teamMembers).orderBy(asc(teamMembers.sortOrder), asc(teamMembers.name));
+  async listTeamMembers(): Promise<any[]> {
+    const rows = await db.select({
+      member: teamMembers,
+      user: {
+        id: users.id,
+        username: users.username,
+        displayName: users.displayName,
+        avatarUrl: users.avatarUrl,
+      },
+    })
+    .from(teamMembers)
+    .leftJoin(users, eq(teamMembers.userId, users.id))
+    .orderBy(asc(teamMembers.sortOrder), asc(teamMembers.name));
+    return rows.map(r => ({ ...r.member, user: r.user }));
   }
 
   async createTeamMember(data: InsertTeamMember): Promise<TeamMember> {
@@ -2125,6 +2147,192 @@ export class DatabaseStorage implements IStorage {
       .innerJoin(users, eq(gameStats.userId, users.id))
       .where(eq(gameStats.gameType, gameType))
       .orderBy(desc(gameStats.wins));
+  }
+
+  // ========== FRIENDS SYSTEM ==========
+  async listFriends(userId: number): Promise<any[]> {
+    const results = await db.select({
+      id: friendships.id,
+      requesterId: friendships.requesterId,
+      addresseeId: friendships.addresseeId,
+      status: friendships.status,
+      createdAt: friendships.createdAt,
+    }).from(friendships)
+      .where(
+        and(
+          eq(friendships.status, "accepted"),
+          or(
+            eq(friendships.requesterId, userId),
+            eq(friendships.addresseeId, userId)
+          )
+        )
+      );
+
+    // Get friend user details
+    const friendIds = results.map(r =>
+      r.requesterId === userId ? r.addresseeId : r.requesterId
+    );
+
+    if (friendIds.length === 0) return [];
+
+    const friendUsers = await db.select({
+      id: users.id,
+      username: users.username,
+      displayName: users.displayName,
+      avatarUrl: users.avatarUrl,
+      country: users.country,
+      cargo: users.cargo,
+      role: users.role,
+    }).from(users).where(inArray(users.id, friendIds));
+
+    return results.map(r => {
+      const friendId = r.requesterId === userId ? r.addresseeId : r.requesterId;
+      const friend = friendUsers.find(u => u.id === friendId);
+      return { ...r, friend };
+    });
+  }
+
+  async listFriendRequests(userId: number): Promise<any[]> {
+    const results = await db.select({
+      id: friendships.id,
+      requesterId: friendships.requesterId,
+      addresseeId: friendships.addresseeId,
+      status: friendships.status,
+      createdAt: friendships.createdAt,
+    }).from(friendships)
+      .where(
+        and(
+          eq(friendships.addresseeId, userId),
+          eq(friendships.status, "pending")
+        )
+      );
+
+    const requesterIds = results.map(r => r.requesterId);
+    if (requesterIds.length === 0) return [];
+
+    const requesters = await db.select({
+      id: users.id,
+      username: users.username,
+      displayName: users.displayName,
+      avatarUrl: users.avatarUrl,
+      country: users.country,
+    }).from(users).where(inArray(users.id, requesterIds));
+
+    return results.map(r => ({
+      ...r,
+      requester: requesters.find(u => u.id === r.requesterId),
+    }));
+  }
+
+  async searchUsersForFriends(userId: number, query: string): Promise<any[]> {
+    const allUsers = await db.select({
+      id: users.id,
+      username: users.username,
+      displayName: users.displayName,
+      avatarUrl: users.avatarUrl,
+      country: users.country,
+    }).from(users)
+      .where(
+        and(
+          ne(users.id, userId),
+          eq(users.isActive, true),
+          query ? or(
+            ilike(users.username, `%${query}%`),
+            ilike(users.displayName, `%${query}%`)
+          ) : undefined
+        )
+      )
+      .limit(20);
+
+    // Get existing friendships for this user
+    const existing = await db.select({
+      id: friendships.id,
+      requesterId: friendships.requesterId,
+      addresseeId: friendships.addresseeId,
+      status: friendships.status,
+    }).from(friendships)
+      .where(
+        or(
+          eq(friendships.requesterId, userId),
+          eq(friendships.addresseeId, userId)
+        )
+      );
+
+    return allUsers.map(u => {
+      const friendship = existing.find(f =>
+        (f.requesterId === userId && f.addresseeId === u.id) ||
+        (f.addresseeId === userId && f.requesterId === u.id)
+      );
+      return {
+        ...u,
+        friendshipStatus: friendship?.status || null,
+        friendshipId: friendship?.id || null,
+      };
+    });
+  }
+
+  async sendFriendRequest(requesterId: number, addresseeId: number): Promise<any> {
+    // Check if friendship already exists
+    const [existing] = await db.select().from(friendships)
+      .where(
+        or(
+          and(eq(friendships.requesterId, requesterId), eq(friendships.addresseeId, addresseeId)),
+          and(eq(friendships.requesterId, addresseeId), eq(friendships.addresseeId, requesterId))
+        )
+      );
+
+    if (existing) {
+      if (existing.status === "accepted") throw new Error("Ya son amigos");
+      if (existing.status === "pending") throw new Error("Ya existe una solicitud pendiente");
+      // If rejected, update to pending
+      const [updated] = await db.update(friendships)
+        .set({ status: "pending", requesterId, addresseeId })
+        .where(eq(friendships.id, existing.id))
+        .returning();
+      return updated;
+    }
+
+    const [friendship] = await db.insert(friendships)
+      .values({ requesterId, addresseeId, status: "pending" })
+      .returning();
+    return friendship;
+  }
+
+  async acceptFriendRequest(friendshipId: number, userId: number): Promise<any> {
+    const [friendship] = await db.select().from(friendships)
+      .where(and(eq(friendships.id, friendshipId), eq(friendships.addresseeId, userId)));
+    if (!friendship) throw new Error("Solicitud no encontrada");
+    if (friendship.status !== "pending") throw new Error("Solicitud ya procesada");
+
+    const [updated] = await db.update(friendships)
+      .set({ status: "accepted" })
+      .where(eq(friendships.id, friendshipId))
+      .returning();
+    return updated;
+  }
+
+  async rejectFriendRequest(friendshipId: number, userId: number): Promise<any> {
+    const [friendship] = await db.select().from(friendships)
+      .where(and(eq(friendships.id, friendshipId), eq(friendships.addresseeId, userId)));
+    if (!friendship) throw new Error("Solicitud no encontrada");
+
+    const [updated] = await db.update(friendships)
+      .set({ status: "rejected" })
+      .where(eq(friendships.id, friendshipId))
+      .returning();
+    return updated;
+  }
+
+  async removeFriend(friendshipId: number, userId: number): Promise<void> {
+    const [friendship] = await db.select().from(friendships)
+      .where(
+        and(
+          eq(friendships.id, friendshipId),
+          or(eq(friendships.requesterId, userId), eq(friendships.addresseeId, userId))
+        )
+      );
+    if (!friendship) throw new Error("Amistad no encontrada");
+    await db.delete(friendships).where(eq(friendships.id, friendshipId));
   }
 }
 
