@@ -9,7 +9,7 @@ services:
     name: ministerio-avivando-el-fuego
     runtime: node
     plan: free
-    buildCommand: npm install --include=dev && npm run build && npx drizzle-kit push
+    buildCommand: npm install --include=dev && npm run build && npx drizzle-kit push --config=drizzle.config.mjs
     startCommand: npm run start
     envVars:
       - key: NODE_ENV

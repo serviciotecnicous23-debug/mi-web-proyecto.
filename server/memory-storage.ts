@@ -1,9 +1,8 @@
 import path from "path";
 import fs from "fs";
-import { fileURLToPath } from "url";
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const dataDir = path.join(__dirname, "..", "data");
+const currentDir = typeof __dirname !== "undefined" ? __dirname : path.dirname(new URL(import.meta.url).pathname);
+const dataDir = path.join(currentDir, "..", "data");
 const usersFile = path.join(dataDir, "users.json");
 
 // Asegurar que existe la carpeta data

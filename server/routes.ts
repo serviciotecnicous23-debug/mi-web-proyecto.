@@ -62,6 +62,11 @@ export async function registerRoutes(
   httpServer: Server,
   app: Express,
 ): Promise<Server> {
+  // Health check endpoint (used by Render)
+  app.get("/api/hello", (_req, res) => {
+    res.json({ message: "Ministerio Avivando el Fuego API is running" });
+  });
+
   const SessionStore = MemoryStore(session);
   app.use(
     session({

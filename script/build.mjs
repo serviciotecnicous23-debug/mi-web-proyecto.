@@ -40,7 +40,10 @@ async function buildApp() {
     ],
     define: {
       "import.meta.dirname": "__dirname",
-      "import.meta.url": "__filename",
+      "import.meta.url": "import_meta_url",
+    },
+    banner: {
+      js: 'const import_meta_url = "file://" + __filename;',
     },
     alias: {
       "@shared": path.resolve(root, "shared"),
