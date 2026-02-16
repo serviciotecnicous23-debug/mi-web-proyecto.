@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { Layout } from "@/components/layout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { useLiveStreamConfig } from "@/hooks/use-users";
 import {
   Radio, Mic, Calendar, Video, Volume2, VolumeX,
-  Play, Pause, Tv, Signal, Music, ExternalLink,
+  Play, Pause, Tv, Signal, Music, ExternalLink, AlertTriangle,
 } from "lucide-react";
 import { SiYoutube, SiFacebook, SiTiktok } from "react-icons/si";
 
@@ -21,19 +21,49 @@ function extractYouTubeId(url: string): string | null {
   try {
     const patterns = [
       /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/|youtube\.com\/live\/)([a-zA-Z0-9_-]{11})/,
-      /youtube\.com\/(?:channel|c)\/[^/]+\/live/,
     ];
     for (const p of patterns) {
       const m = url.match(p);
       if (m && m[1]) return m[1];
     }
-    if (url.match(/youtube\.com/) && url.match(/live/)) {
+    if (url.match(/youtube\.com/)) {
       const parsed = new URL(url);
       const v = parsed.searchParams.get("v");
       if (v) return v;
     }
   } catch {
     return null;
+  }
+  return null;
+}
+
+function extractYouTubeChannelId(url: string): string | null {
+  try {
+    const m = url.match(/youtube\.com\/(?:channel|c)\/([^/\?]+)/);
+    if (m && m[1]) return m[1];
+  } catch {
+    return null;
+  }
+  return null;
+}
+
+// Build the best YouTube embed URL from any YouTube link
+function buildYouTubeEmbedUrl(sourceUrl: string): { embedUrl: string; watchUrl: string } | null {
+  // Try video ID first
+  const videoId = extractYouTubeId(sourceUrl);
+  if (videoId) {
+    return {
+      embedUrl: `https://www.youtube.com/embed/${videoId}?autoplay=1&rel=0&modestbranding=1`,
+      watchUrl: `https://www.youtube.com/watch?v=${videoId}`,
+    };
+  }
+  // Try channel live stream
+  const channelId = extractYouTubeChannelId(sourceUrl);
+  if (channelId) {
+    return {
+      embedUrl: `https://www.youtube.com/embed/live_stream?channel=${channelId}&autoplay=1`,
+      watchUrl: sourceUrl,
+    };
   }
   return null;
 }
@@ -179,22 +209,103 @@ function RadioPlayer({ url, title }: { url: string; title?: string }) {
   );
 }
 
-function VideoPlayer({ sourceType, sourceUrl }: { sourceType: string; sourceUrl: string }) {
-  if (sourceType === "youtube") {
-    const videoId = extractYouTubeId(sourceUrl);
-    if (!videoId) return <p className="text-center text-sm text-muted-foreground p-8">URL de YouTube no valida</p>;
+function YouTubePlayer({ sourceUrl }: { sourceUrl: string }) {
+  const [embedError, setEmbedError] = useState(false);
+  const iframeRef = useRef<HTMLIFrameElement>(null);
+
+  const ytData = buildYouTubeEmbedUrl(sourceUrl);
+  if (!ytData) {
     return (
-      <div className="aspect-video w-full rounded-md overflow-hidden bg-black">
-        <iframe
-          src={`https://www.youtube.com/embed/${videoId}?autoplay=1&rel=0&modestbranding=1`}
-          className="w-full h-full"
-          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-          allowFullScreen
-          title="YouTube Live"
-          data-testid="iframe-youtube-player"
-        />
+      <div className="aspect-video w-full rounded-md overflow-hidden bg-black flex flex-col items-center justify-center gap-4 p-6">
+        <AlertTriangle className="w-12 h-12 text-yellow-400" />
+        <p className="text-white text-center font-medium">URL de YouTube no válida</p>
+        <Button variant="outline" className="border-white/30 text-white" onClick={() => window.open(sourceUrl, "_blank")}>
+          <ExternalLink className="w-4 h-4 mr-2" /> Abrir enlace original
+        </Button>
       </div>
     );
+  }
+
+  // Detect errors: YouTube embed errors show as very small document or trigger postMessage
+  useEffect(() => {
+    const handleMessage = (event: MessageEvent) => {
+      // YouTube player API sends error events via postMessage
+      if (event.origin?.includes("youtube.com") && typeof event.data === "string") {
+        try {
+          const data = JSON.parse(event.data);
+          if (data?.event === "onError" || data?.info?.playerError || data?.errorCode === 150 || data?.errorCode === 153) {
+            setEmbedError(true);
+          }
+        } catch {
+          // not a JSON message, ignore
+        }
+      }
+    };
+    window.addEventListener("message", handleMessage);
+    return () => window.removeEventListener("message", handleMessage);
+  }, []);
+
+  // Fallback: detect if iframe fails to load after a timeout
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (iframeRef.current) {
+        try {
+          // If we can't access contentDocument, it loaded cross-origin (good)
+          // But we set a backup timer — if the user sees an error, they can click fallback
+        } catch {
+          // Expected cross-origin block
+        }
+      }
+    }, 5000);
+    return () => clearTimeout(timer);
+  }, [ytData.embedUrl]);
+
+  if (embedError) {
+    return (
+      <div className="aspect-video w-full rounded-md overflow-hidden bg-gradient-to-br from-red-950 to-black flex flex-col items-center justify-center gap-4 p-6">
+        <SiYoutube className="w-16 h-16 text-red-500" />
+        <p className="text-white text-center font-medium">Este video no permite ser embebido</p>
+        <p className="text-white/60 text-sm text-center max-w-sm">El autor del video ha restringido la reproducción fuera de YouTube. Haz clic para verlo directamente.</p>
+        <Button
+          variant="outline"
+          className="border-red-500/50 text-red-400 hover:bg-red-500/10"
+          onClick={() => window.open(ytData.watchUrl, "_blank")}
+        >
+          <SiYoutube className="w-4 h-4 mr-2" /> Ver en YouTube
+        </Button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="aspect-video w-full rounded-md overflow-hidden bg-black relative">
+      <iframe
+        ref={iframeRef}
+        src={ytData.embedUrl}
+        className="w-full h-full"
+        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+        allowFullScreen
+        title="YouTube Live"
+        data-testid="iframe-youtube-player"
+      />
+      {/* Fallback button always visible at the bottom */}
+      <div className="absolute bottom-2 right-2 z-10">
+        <Button
+          size="sm"
+          variant="secondary"
+          className="opacity-70 hover:opacity-100 text-xs gap-1"
+          onClick={() => window.open(ytData.watchUrl, "_blank")}
+        >
+          <ExternalLink className="w-3 h-3" /> YouTube
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+function VideoPlayer({ sourceType, sourceUrl }: { sourceType: string; sourceUrl: string }) {
+  if (sourceType === "youtube") {
+    return <YouTubePlayer sourceUrl={sourceUrl} />;
   }
 
   if (sourceType === "facebook") {
