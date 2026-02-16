@@ -20,34 +20,51 @@ declare module "http" {
 app.use(compression());
 
 // ========== SECURITY HEADERS (helmet) ==========
+const videoFrameSources = [
+  "'self'",
+  // YouTube
+  "https://www.youtube.com",
+  "https://youtube.com",
+  "https://*.youtube.com",
+  "https://www.youtube-nocookie.com",
+  "https://*.youtube-nocookie.com",
+  "https://*.ytimg.com",
+  "https://*.googlevideo.com",
+  // Facebook
+  "https://www.facebook.com",
+  "https://web.facebook.com",
+  "https://*.facebook.com",
+  "https://*.fbcdn.net",
+  "https://*.facebook.net",
+  // TikTok
+  "https://www.tiktok.com",
+  "https://*.tiktok.com",
+  "https://*.tiktokcdn.com",
+  // Other platforms
+  "https://player.vimeo.com",
+  "https://zoom.us",
+  "https://*.zoom.us",
+  "https://meet.google.com",
+  "https://teams.microsoft.com",
+];
 app.use(helmet({
   contentSecurityPolicy: {
     directives: {
       defaultSrc: ["'self'"],
-      scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'"],
+      scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https://www.youtube.com", "https://*.facebook.com", "https://*.facebook.net"],
       styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
       fontSrc: ["'self'", "https://fonts.gstatic.com", "data:"],
       imgSrc: ["'self'", "data:", "blob:", "https:"],
       connectSrc: ["'self'", "https:", "wss:"],
       mediaSrc: ["'self'", "https:", "blob:"],
-      frameSrc: [
-        "'self'",
-        "https://www.youtube.com",
-        "https://youtube.com",
-        "https://www.youtube-nocookie.com",
-        "https://player.vimeo.com",
-        "https://www.facebook.com",
-        "https://web.facebook.com",
-        "https://zoom.us",
-        "https://*.zoom.us",
-        "https://meet.google.com",
-        "https://teams.microsoft.com",
-        "https://www.tiktok.com",
-      ],
+      frameSrc: videoFrameSources,
+      childSrc: videoFrameSources,
+      workerSrc: ["'self'", "blob:"],
     },
   },
-  crossOriginEmbedderPolicy: false, // Allow embedding YouTube/Vimeo/Facebook
+  crossOriginEmbedderPolicy: false,
   crossOriginResourcePolicy: false,
+  crossOriginOpenerPolicy: false,
 }));
 
 // Servir archivos estáticos de uploads (avatares, regiones, biblioteca, etc.)

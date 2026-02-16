@@ -39,7 +39,7 @@ function extractYouTubeId(url: string): string | null {
 }
 
 function extractFacebookVideoUrl(url: string): string {
-  return `https://www.facebook.com/plugins/video.php?href=${encodeURIComponent(url)}&show_text=false&width=560&height=315&appId`;
+  return `https://www.facebook.com/plugins/video.php?href=${encodeURIComponent(url)}&show_text=false&width=560&height=315`;
 }
 
 function getSourceIcon(type: string) {
@@ -183,14 +183,12 @@ function VideoPlayer({ sourceType, sourceUrl }: { sourceType: string; sourceUrl:
   if (sourceType === "youtube") {
     const videoId = extractYouTubeId(sourceUrl);
     if (!videoId) return <p className="text-center text-sm text-muted-foreground p-8">URL de YouTube no valida</p>;
-    const origin = typeof window !== "undefined" ? window.location.origin : "";
     return (
       <div className="aspect-video w-full rounded-md overflow-hidden bg-black">
         <iframe
-          src={`https://www.youtube-nocookie.com/embed/${videoId}?autoplay=1&rel=0&modestbranding=1&origin=${encodeURIComponent(origin)}`}
+          src={`https://www.youtube.com/embed/${videoId}?autoplay=1&rel=0&modestbranding=1`}
           className="w-full h-full"
           allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-          referrerPolicy="strict-origin-when-cross-origin"
           allowFullScreen
           title="YouTube Live"
           data-testid="iframe-youtube-player"
@@ -206,9 +204,11 @@ function VideoPlayer({ sourceType, sourceUrl }: { sourceType: string; sourceUrl:
           src={extractFacebookVideoUrl(sourceUrl)}
           className="w-full h-full"
           allow="autoplay; clipboard-write; encrypted-media; picture-in-picture; web-share"
+          referrerPolicy="no-referrer-when-downgrade"
           allowFullScreen
           title="Facebook Live"
           data-testid="iframe-facebook-player"
+          style={{ border: "none" }}
         />
       </div>
     );
