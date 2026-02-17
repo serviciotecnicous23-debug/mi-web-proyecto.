@@ -197,6 +197,7 @@ export async function registerRoutes(
   app.use("/api/", apiLimiter);
 
   // Trust proxy (needed for Codespaces, Render, and reverse proxy environments)
+  // Set here as well as index.ts to cover all environments
   app.set("trust proxy", 1);
 
   // ========== SESSION STORE (PostgreSQL-backed) ==========
@@ -241,8 +242,9 @@ export async function registerRoutes(
       resave: false,
       saveUninitialized: false,
       store: sessionStore,
+      proxy: isProduction, // Trust first proxy in production (Render)
       cookie: {
-        secure: false, // Render terminates SSL at proxy level
+        secure: isProduction, // true in production (HTTPS via Render proxy), false in dev
         httpOnly: true,
         maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
         sameSite: "lax",
@@ -252,6 +254,17 @@ export async function registerRoutes(
 
   app.use(passport.initialize());
   app.use(passport.session());
+
+  // Debug endpoint to check authentication status (must be AFTER session/passport middleware)
+  app.get("/api/auth-status", (req, res) => {
+    res.json({
+      authenticated: req.isAuthenticated?.() || false,
+      hasSession: !!req.session,
+      sessionID: req.sessionID?.slice(0, 8) + "...",
+      userId: (req.user as any)?.id || null,
+      username: (req.user as any)?.username || null,
+    });
+  });
 
   passport.use(
     new LocalStrategy(async (username, password, done) => {
@@ -678,41 +691,59 @@ export async function registerRoutes(
   });
 
   app.post(api.events.create.path, async (req, res) => {
-    if (!req.isAuthenticated()) return res.status(401).json({ message: "Debes iniciar sesion para crear eventos" });
+    if (!req.isAuthenticated()) {
+      console.log("Event create: user not authenticated. Session:", req.sessionID, "User:", req.user);
+      return res.status(401).json({ message: "Debes iniciar sesion para crear eventos" });
+    }
     try {
       const input = api.events.create.input.parse(req.body);
+      // Ensure eventDate is a valid date string
+      const eventDateParsed = new Date(input.eventDate);
+      if (isNaN(eventDateParsed.getTime())) {
+        return res.status(400).json({ message: "La fecha del evento no es valida" });
+      }
       const event = await storage.createEvent({ ...input, createdBy: (req.user as any).id });
       res.status(201).json(event);
-    } catch (err) {
+    } catch (err: any) {
       console.error("Error creating event:", err);
-      if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });
-      res.status(500).json({ message: "Error interno al crear el evento" });
+      if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors.map((e: any) => e.message).join(", ") });
+      res.status(500).json({ message: err?.message || "Error interno al crear el evento" });
     }
   });
 
   app.patch(api.events.update.path, async (req, res) => {
-    if (!req.isAuthenticated()) return res.sendStatus(401);
-    const event = await storage.getEvent(parseInt(req.params.id));
-    if (!event) return res.sendStatus(404);
-    if (!isAdmin(req) && event.createdBy !== (req.user as any).id) return res.sendStatus(403);
+    if (!req.isAuthenticated()) return res.status(401).json({ message: "Debes iniciar sesion" });
+    const eventId = parseInt(req.params.id);
+    if (isNaN(eventId)) return res.status(400).json({ message: "ID de evento invalido" });
+    const event = await storage.getEvent(eventId);
+    if (!event) return res.status(404).json({ message: "Evento no encontrado" });
+    if (!isAdmin(req) && event.createdBy !== (req.user as any).id) return res.status(403).json({ message: "No tienes permiso para editar este evento" });
     try {
       const input = api.events.update.input.parse(req.body);
-      const updated = await storage.updateEvent(parseInt(req.params.id), input);
-      if (!updated) return res.sendStatus(404);
+      const updated = await storage.updateEvent(eventId, input);
+      if (!updated) return res.status(404).json({ message: "Evento no encontrado" });
       res.json(updated);
-    } catch (err) {
-      if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });
-      res.sendStatus(500);
+    } catch (err: any) {
+      console.error("Error updating event:", err);
+      if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors.map((e: any) => e.message).join(", ") });
+      res.status(500).json({ message: err?.message || "Error al actualizar evento" });
     }
   });
 
   app.delete(api.events.delete.path, async (req, res) => {
-    if (!req.isAuthenticated()) return res.sendStatus(401);
-    const event = await storage.getEvent(parseInt(req.params.id));
-    if (!event) return res.sendStatus(404);
-    if (!isAdmin(req) && event.createdBy !== (req.user as any).id) return res.sendStatus(403);
-    await storage.deleteEvent(parseInt(req.params.id));
-    res.sendStatus(200);
+    if (!req.isAuthenticated()) return res.status(401).json({ message: "Debes iniciar sesion" });
+    const eventId = parseInt(req.params.id);
+    if (isNaN(eventId)) return res.status(400).json({ message: "ID invalido" });
+    const event = await storage.getEvent(eventId);
+    if (!event) return res.status(404).json({ message: "Evento no encontrado" });
+    if (!isAdmin(req) && event.createdBy !== (req.user as any).id) return res.status(403).json({ message: "No tienes permiso" });
+    try {
+      await storage.deleteEvent(eventId);
+      res.json({ success: true });
+    } catch (err: any) {
+      console.error("Error deleting event:", err);
+      res.status(500).json({ message: err?.message || "Error al eliminar evento" });
+    }
   });
 
   // ========== EVENT RSVPS ==========
@@ -731,11 +762,16 @@ export async function registerRoutes(
   });
 
   app.post(api.eventRsvps.upsert.path, async (req, res) => {
-    if (!req.isAuthenticated()) return res.status(401).json({ message: "Debes iniciar sesion para confirmar asistencia" });
+    if (!req.isAuthenticated()) {
+      console.log("RSVP: user not authenticated. Session:", req.sessionID, "User:", req.user);
+      return res.status(401).json({ message: "Debes iniciar sesion para confirmar asistencia" });
+    }
     try {
       const eventId = parseInt(req.params.eventId);
+      if (isNaN(eventId)) return res.status(400).json({ message: "ID de evento invalido" });
       const event = await storage.getEvent(eventId);
       if (!event) return res.status(404).json({ message: "Evento no encontrado" });
+      // Use the URL eventId, override the body eventId to ensure consistency
       const input = api.eventRsvps.upsert.input.parse({ ...req.body, eventId });
       const rsvp = await storage.upsertEventRsvp(eventId, (req.user as any).id, input);
       
@@ -766,10 +802,16 @@ export async function registerRoutes(
   });
 
   app.delete(api.eventRsvps.cancel.path, async (req, res) => {
-    if (!req.isAuthenticated()) return res.sendStatus(401);
+    if (!req.isAuthenticated()) return res.status(401).json({ message: "Debes iniciar sesion" });
     const eventId = parseInt(req.params.eventId);
-    await storage.cancelEventRsvp(eventId, (req.user as any).id);
-    res.sendStatus(200);
+    if (isNaN(eventId)) return res.status(400).json({ message: "ID invalido" });
+    try {
+      await storage.cancelEventRsvp(eventId, (req.user as any).id);
+      res.json({ success: true });
+    } catch (err: any) {
+      console.error("Error canceling RSVP:", err);
+      res.status(500).json({ message: err?.message || "Error al cancelar confirmacion" });
+    }
   });
 
   // ========== SITE CONTENT ==========

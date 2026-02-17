@@ -261,7 +261,10 @@ export function useDeleteEvent() {
     mutationFn: async (id: number) => {
       const url = buildUrl(api.events.delete.path, { id });
       const res = await fetch(url, { method: "DELETE", credentials: "include" });
-      if (!res.ok) throw new Error("Error al eliminar evento");
+      if (!res.ok) {
+        const errData = await res.json().catch(() => null);
+        throw new Error(errData?.message || `Error al eliminar evento (${res.status})`);
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [api.events.list.path] });
@@ -336,7 +339,10 @@ export function useCancelRsvp() {
     mutationFn: async (eventId: number) => {
       const url = buildUrl(api.eventRsvps.cancel.path, { eventId });
       const res = await fetch(url, { method: "DELETE", credentials: "include" });
-      if (!res.ok) throw new Error("Error al cancelar confirmacion");
+      if (!res.ok) {
+        const errData = await res.json().catch(() => null);
+        throw new Error(errData?.message || `Error al cancelar confirmacion (${res.status})`);
+      }
     },
     onSuccess: (_data, eventId) => {
       queryClient.invalidateQueries({ queryKey: [api.eventRsvps.list.path, eventId] });

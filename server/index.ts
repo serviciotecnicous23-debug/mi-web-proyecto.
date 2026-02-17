@@ -15,6 +15,13 @@ declare module "http" {
   }
 }
 
+// ========== TRUST PROXY ==========
+// Must be set BEFORE any middleware that depends on it (session, rate-limit)
+// Required for Render, Codespaces, and any reverse proxy environment
+if (process.env.NODE_ENV === "production") {
+  app.set("trust proxy", 1);
+}
+
 // ========== COMPRESSION (gzip) ==========
 // Reduces response sizes by ~70%, much faster page loads
 app.use(compression());
