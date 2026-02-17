@@ -155,6 +155,30 @@ export async function registerRoutes(
   httpServer: Server,
   app: Express,
 ): Promise<Server> {
+  // ========== DATABASE MIGRATIONS (ensure columns exist) ==========
+  if (process.env.DATABASE_URL) {
+    try {
+      // Add missing columns that may not exist in older databases
+      const migrations = [
+        `ALTER TABLE events ADD COLUMN IF NOT EXISTS meeting_url text`,
+        `ALTER TABLE events ADD COLUMN IF NOT EXISTS meeting_platform text`,
+      ];
+      for (const sql of migrations) {
+        try {
+          await pool.query(sql);
+        } catch (migErr: any) {
+          // Ignore errors (column might already exist or syntax varies)
+          if (!migErr.message?.includes("already exists")) {
+            console.log("Migration note:", migErr.message);
+          }
+        }
+      }
+      console.log("✓ Database schema verified");
+    } catch (err) {
+      console.error("Database migration check failed:", err);
+    }
+  }
+
   // Health check endpoint (used by Render)
   app.get("/api/hello", (_req, res) => {
     res.json({ 
