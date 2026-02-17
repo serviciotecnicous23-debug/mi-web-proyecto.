@@ -141,6 +141,22 @@ function LiveStreamAdmin() {
                 TikTok Live
               </Button>
               <Button
+                variant={sourceType === "restream" && isLive ? "default" : "outline"}
+                size="sm"
+                onClick={() => handleQuickSwitch("restream")}
+                data-testid="button-quick-restream"
+              >
+                Restream
+              </Button>
+              <Button
+                variant={sourceType === "hls" && isLive ? "default" : "outline"}
+                size="sm"
+                onClick={() => handleQuickSwitch("hls")}
+                data-testid="button-quick-hls"
+              >
+                HLS Stream
+              </Button>
+              <Button
                 variant={sourceType === "custom" && isLive ? "default" : "outline"}
                 size="sm"
                 onClick={() => handleQuickSwitch("custom")}
@@ -184,6 +200,8 @@ function LiveStreamAdmin() {
                       <SelectItem value="youtube">YouTube Live</SelectItem>
                       <SelectItem value="facebook">Facebook Live</SelectItem>
                       <SelectItem value="tiktok">TikTok Live</SelectItem>
+                      <SelectItem value="restream">Restream.io (retransmision)</SelectItem>
+                      <SelectItem value="hls">HLS Stream (m3u8)</SelectItem>
                       <SelectItem value="custom">Otra Plataforma (iframe)</SelectItem>
                     </SelectContent>
                   </Select>
@@ -198,10 +216,22 @@ function LiveStreamAdmin() {
                       sourceType === "youtube" ? "https://youtube.com/watch?v=XXXXX o https://youtube.com/live/XXXXX" :
                       sourceType === "facebook" ? "https://www.facebook.com/user/videos/XXXXX" :
                       sourceType === "tiktok" ? "https://www.tiktok.com/@user/live" :
+                      sourceType === "restream" ? "https://player.restream.io/player/xxxxxxxx" :
+                      sourceType === "hls" ? "https://tu-servidor.com/live/stream.m3u8" :
                       "https://..."
                     }
                     data-testid="input-source-url"
                   />
+                  {sourceType === "restream" && (
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Usa Restream.io para retransmitir a YouTube, Facebook y TikTok al mismo tiempo. Pega aqui la URL del player embebible que Restream te proporciona.
+                    </p>
+                  )}
+                  {sourceType === "hls" && (
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Pega la URL del stream HLS (.m3u8). Puedes obtenerla de servicios como Restream, Castr, o tu propio servidor RTMP con nginx-rtmp.
+                    </p>
+                  )}
                 </div>
 
                 <div>
@@ -229,7 +259,7 @@ function LiveStreamAdmin() {
             )}
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <div className={`w-2 h-2 rounded-full ${isLive ? "bg-red-500" : "bg-green-500"}`} />
-              {isLive ? `En vivo por ${sourceType === "youtube" ? "YouTube" : sourceType === "facebook" ? "Facebook" : sourceType === "tiktok" ? "TikTok" : "Otra plataforma"}` : "Radio activa"}
+              {isLive ? `En vivo por ${sourceType === "youtube" ? "YouTube" : sourceType === "facebook" ? "Facebook" : sourceType === "tiktok" ? "TikTok" : sourceType === "restream" ? "Restream" : sourceType === "hls" ? "HLS Stream" : "Otra plataforma"}` : "Radio activa"}
             </div>
           </div>
         </CardContent>

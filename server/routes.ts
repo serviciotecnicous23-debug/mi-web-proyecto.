@@ -1271,7 +1271,7 @@ export async function registerRoutes(
   app.patch(api.admin.updateLiveStream.path, async (req, res) => {
     if (!isAdmin(req)) return res.sendStatus(403);
     const { sourceType, sourceUrl, radioUrl, title, isLive } = req.body;
-    const validTypes = ["radio", "youtube", "facebook", "tiktok", "custom"];
+    const validTypes = ["radio", "youtube", "facebook", "tiktok", "custom", "restream", "hls"];
     const type = validTypes.includes(sourceType) ? sourceType : "radio";
     const cleanUrl = (url: string) => {
       if (!url || !url.trim()) return "";

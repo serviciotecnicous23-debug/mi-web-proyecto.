@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from "react";
+import Hls from "hls.js";
 import { Layout } from "@/components/layout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -6,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { useLiveStreamConfig } from "@/hooks/use-users";
 import {
   Radio, Mic, Calendar, Video, Volume2, VolumeX,
-  Play, Pause, Tv, Signal, Music, ExternalLink, AlertTriangle,
+  Play, Pause, Tv, Signal, Music, ExternalLink, AlertTriangle, Cast,
 } from "lucide-react";
 import { SiYoutube, SiFacebook, SiTiktok } from "react-icons/si";
 
@@ -77,6 +78,8 @@ function getSourceIcon(type: string) {
     case "youtube": return <SiYoutube className="w-5 h-5 text-red-500" />;
     case "facebook": return <SiFacebook className="w-5 h-5 text-blue-600" />;
     case "tiktok": return <SiTiktok className="w-5 h-5" />;
+    case "restream": return <Cast className="w-5 h-5 text-green-500" />;
+    case "hls": return <Signal className="w-5 h-5 text-purple-500" />;
     case "radio": return <Radio className="w-5 h-5 text-primary" />;
     default: return <Tv className="w-5 h-5 text-primary" />;
   }
@@ -87,6 +90,8 @@ function getSourceLabel(type: string) {
     case "youtube": return "YouTube";
     case "facebook": return "Facebook";
     case "tiktok": return "TikTok";
+    case "restream": return "Restream";
+    case "hls": return "Stream Directo";
     case "radio": return "Radio";
     case "custom": return "Transmision Externa";
     default: return "En Vivo";
@@ -303,9 +308,142 @@ function YouTubePlayer({ sourceUrl }: { sourceUrl: string }) {
   );
 }
 
+function HlsPlayer({ sourceUrl }: { sourceUrl: string }) {
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const hlsRef = useRef<Hls | null>(null);
+  const [error, setError] = useState(false);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video || !sourceUrl) return;
+
+    setError(false);
+    setLoading(true);
+
+    if (Hls.isSupported()) {
+      const hls = new Hls({
+        enableWorker: true,
+        lowLatencyMode: true,
+        maxBufferLength: 10,
+        maxMaxBufferLength: 30,
+      });
+      hlsRef.current = hls;
+      hls.loadSource(sourceUrl);
+      hls.attachMedia(video);
+      hls.on(Hls.Events.MANIFEST_PARSED, () => {
+        setLoading(false);
+        video.play().catch(() => {});
+      });
+      hls.on(Hls.Events.ERROR, (_event, data) => {
+        if (data.fatal) {
+          setError(true);
+          setLoading(false);
+          if (data.type === Hls.ErrorTypes.NETWORK_ERROR) {
+            setTimeout(() => hls.startLoad(), 3000);
+          } else {
+            hls.destroy();
+          }
+        }
+      });
+      return () => { hls.destroy(); hlsRef.current = null; };
+    } else if (video.canPlayType("application/vnd.apple.mpegurl")) {
+      // Safari native HLS
+      video.src = sourceUrl;
+      video.addEventListener("loadedmetadata", () => {
+        setLoading(false);
+        video.play().catch(() => {});
+      });
+      video.addEventListener("error", () => { setError(true); setLoading(false); });
+    } else {
+      setError(true);
+      setLoading(false);
+    }
+  }, [sourceUrl]);
+
+  if (error) {
+    return (
+      <div className="aspect-video w-full rounded-md overflow-hidden bg-gradient-to-br from-purple-950 to-black flex flex-col items-center justify-center gap-4 p-6">
+        <Signal className="w-16 h-16 text-purple-400" />
+        <p className="text-white text-center font-medium">No se pudo conectar con el stream</p>
+        <p className="text-white/60 text-sm text-center max-w-sm">
+          Verifica que la URL del stream HLS sea correcta y que el servidor este transmitiendo.
+        </p>
+        <Button
+          variant="outline"
+          className="border-purple-500/50 text-purple-400 hover:bg-purple-500/10"
+          onClick={() => { setError(false); setLoading(true); hlsRef.current?.startLoad(); }}
+        >
+          Reintentar conexion
+        </Button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="aspect-video w-full rounded-md overflow-hidden bg-black relative">
+      {loading && (
+        <div className="absolute inset-0 flex items-center justify-center bg-black/80 z-10">
+          <div className="flex flex-col items-center gap-2 text-white">
+            <Signal className="w-8 h-8 animate-pulse text-purple-400" />
+            <p className="text-sm">Conectando al stream...</p>
+          </div>
+        </div>
+      )}
+      <video
+        ref={videoRef}
+        className="w-full h-full"
+        controls
+        autoPlay
+        playsInline
+        data-testid="video-hls-player"
+      />
+    </div>
+  );
+}
+
+function RestreamPlayer({ sourceUrl }: { sourceUrl: string }) {
+  // Restream.io provides embeddable players via iframe
+  // Example URL: https://player.restream.io/player/xxxxxxxx
+  // Or custom Restream embed URLs
+  const embedUrl = sourceUrl.includes("?") ? sourceUrl : `${sourceUrl}?autoplay=true`;
+
+  return (
+    <div className="aspect-video w-full rounded-md overflow-hidden bg-black relative">
+      <iframe
+        src={embedUrl}
+        className="w-full h-full"
+        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+        allowFullScreen
+        title="Restream - Transmision en Vivo"
+        data-testid="iframe-restream-player"
+        style={{ border: "none" }}
+      />
+      <div className="absolute bottom-2 right-2 z-10">
+        <Button
+          size="sm"
+          variant="secondary"
+          className="opacity-70 hover:opacity-100 text-xs gap-1"
+          onClick={() => window.open(sourceUrl, "_blank")}
+        >
+          <ExternalLink className="w-3 h-3" /> Abrir Player
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 function VideoPlayer({ sourceType, sourceUrl }: { sourceType: string; sourceUrl: string }) {
   if (sourceType === "youtube") {
     return <YouTubePlayer sourceUrl={sourceUrl} />;
+  }
+
+  if (sourceType === "restream") {
+    return <RestreamPlayer sourceUrl={sourceUrl} />;
+  }
+
+  if (sourceType === "hls") {
+    return <HlsPlayer sourceUrl={sourceUrl} />;
   }
 
   if (sourceType === "facebook") {
@@ -471,6 +609,12 @@ export default function EnVivo() {
                         </div>
                         <div className="flex items-center gap-1 text-xs text-muted-foreground">
                           <SiTiktok className="w-3 h-3" /> TikTok
+                        </div>
+                        <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                          <Cast className="w-3 h-3" /> Restream
+                        </div>
+                        <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                          <Signal className="w-3 h-3" /> HLS
                         </div>
                       </div>
                     </div>
