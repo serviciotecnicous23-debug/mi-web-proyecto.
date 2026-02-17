@@ -1705,7 +1705,10 @@ export async function registerRoutes(
   app.get(api.prayerAttendees.list.path, async (req, res) => {
     const activityId = parseInt(req.params.activityId);
     const attendees = await storage.listPrayerAttendees(activityId);
-    const count = await storage.getPrayerAttendeeCount(activityId);
+    const count = {
+      confirmado: attendees.filter((a: any) => a.status === "confirmado").length,
+      tal_vez: attendees.filter((a: any) => a.status === "tal_vez").length,
+    };
     res.json({ attendees, count });
   });
 
@@ -1727,13 +1730,25 @@ export async function registerRoutes(
       const attendance = await storage.upsertPrayerAttendee(activityId, (req.user as any).id, input);
 
       if (input.status !== "no_asistire") {
-        await storage.createNotification({
-          userId: (req.user as any).id,
-          type: "oracion",
-          title: `Confirmación: ${activity.title}`,
-          content: `Te has confirmado para la actividad de oración "${activity.title}".${activity.meetingUrl ? ' Enlace: ' + activity.meetingUrl : ''}`,
-          link: "/oracion",
-        });
+        try {
+          let dateInfo = "";
+          if (activity.scheduledDate) {
+            const actDate = new Date(activity.scheduledDate as any);
+            const formattedDate = actDate.toLocaleDateString("es-ES", { weekday: "long", day: "numeric", month: "long" });
+            const formattedTime = actDate.toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" });
+            dateInfo = ` el ${formattedDate} a las ${formattedTime}`;
+          }
+          const statusLabel = input.status === "tal_vez" ? "indicado que tal vez asistiras" : "confirmado tu asistencia";
+          await storage.createNotification({
+            userId: (req.user as any).id,
+            type: "oracion",
+            title: `Recordatorio: ${activity.title}`,
+            content: `Has ${statusLabel} para "${activity.title}"${dateInfo}.${activity.meetingUrl ? ' Enlace: ' + activity.meetingUrl : ''}`,
+            link: "/oracion",
+          });
+        } catch (notifErr) {
+          console.error("Error creating prayer notification (non-blocking):", notifErr);
+        }
       }
 
       res.json(attendance);

@@ -1315,7 +1315,7 @@ export class DatabaseStorage implements IStorage {
   async getPrayerAttendeeCount(activityId: number): Promise<number> {
     const [result] = await db.select({ count: sql<number>`count(*)::int` })
       .from(prayerAttendees)
-      .where(and(eq(prayerAttendees.activityId, activityId), eq(prayerAttendees.status, "asistire")));
+      .where(and(eq(prayerAttendees.activityId, activityId), eq(prayerAttendees.status, "confirmado")));
     return result?.count || 0;
   }
 

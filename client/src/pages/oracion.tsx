@@ -14,7 +14,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Loader2, Plus, Trash2, ExternalLink, Video, Calendar, Users, CheckCircle, HelpCircle, XCircle } from "lucide-react";
+import { Loader2, Plus, Trash2, ExternalLink, Video, Calendar, Users, CheckCircle, HelpCircle, XCircle, Bell, Clock, Link2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { usePrayerAttendees, useMyPrayerAttendance, useAttendPrayer, useCancelPrayerAttendance } from "@/hooks/use-users";
@@ -211,6 +211,7 @@ function PrayerActivityCard({ activity, user, deleteMutation, getPlatformLabel }
   deleteMutation: any;
   getPlatformLabel: (p: string | null) => string;
 }) {
+  const [detailOpen, setDetailOpen] = useState(false);
   const { data: attendeesData } = usePrayerAttendees(activity.id);
   const { data: myAttendance } = useMyPrayerAttendance(activity.id);
   const attendMutation = useAttendPrayer();
@@ -218,106 +219,316 @@ function PrayerActivityCard({ activity, user, deleteMutation, getPlatformLabel }
 
   const count = attendeesData?.count || { confirmado: 0, tal_vez: 0 };
   const totalAttendees = (count.confirmado || 0) + (count.tal_vez || 0);
+  const currentStatus = myAttendance?.status;
+
+  const platformLabels: Record<string, string> = {
+    zoom: "Zoom",
+    google_meet: "Google Meet",
+    youtube: "YouTube Live",
+    facebook: "Facebook Live",
+    otro: "Enlace",
+  };
 
   return (
-    <Card data-testid={`card-prayer-${activity.id}`}>
-      <CardHeader className="flex flex-row items-start justify-between gap-4">
-        <div className="flex-1 min-w-0">
-          <div className="flex flex-wrap items-center gap-2 mb-1">
-            <CardTitle className="text-lg">{activity.title}</CardTitle>
-            {activity.isActive && <Badge variant="secondary">Activa</Badge>}
-            {totalAttendees > 0 && (
-              <Badge variant="outline" className="gap-1">
-                <Users className="w-3 h-3" />
-                {totalAttendees} {totalAttendees === 1 ? "asistente" : "asistentes"}
-              </Badge>
-            )}
+    <>
+      <Card data-testid={`card-prayer-${activity.id}`}>
+        <CardHeader className="flex flex-row items-start justify-between gap-4">
+          <div className="flex-1 min-w-0">
+            <div className="flex flex-wrap items-center gap-2 mb-1">
+              <CardTitle className="text-lg cursor-pointer hover:text-primary transition-colors" onClick={() => setDetailOpen(true)}>
+                {activity.title}
+              </CardTitle>
+              {activity.isActive && <Badge variant="secondary">Activa</Badge>}
+              {totalAttendees > 0 && (
+                <Badge variant="outline" className="gap-1">
+                  <Users className="w-3 h-3" />
+                  {totalAttendees} {totalAttendees === 1 ? "asistente" : "asistentes"}
+                </Badge>
+              )}
+            </div>
+            <CardDescription className="flex flex-wrap items-center gap-2">
+              {activity.user && (
+                <span className="flex items-center gap-1">
+                  <Avatar className="h-5 w-5">
+                    {activity.user.avatarUrl && <AvatarImage src={activity.user.avatarUrl} />}
+                    <AvatarFallback className="text-[10px]">
+                      {(activity.user.displayName || activity.user.username).slice(0, 2).toUpperCase()}
+                    </AvatarFallback>
+                  </Avatar>
+                  {activity.user.displayName || activity.user.username}
+                </span>
+              )}
+              {activity.scheduledDate && (
+                <span className="flex items-center gap-1">
+                  <Calendar className="w-3 h-3" />
+                  {new Date(activity.scheduledDate).toLocaleString("es")}
+                </span>
+              )}
+            </CardDescription>
           </div>
-          <CardDescription className="flex flex-wrap items-center gap-2">
-            {activity.user && (
-              <span className="flex items-center gap-1">
-                <Avatar className="h-5 w-5">
-                  {activity.user.avatarUrl && <AvatarImage src={activity.user.avatarUrl} />}
-                  <AvatarFallback className="text-[10px]">
-                    {(activity.user.displayName || activity.user.username).slice(0, 2).toUpperCase()}
-                  </AvatarFallback>
-                </Avatar>
-                {activity.user.displayName || activity.user.username}
-              </span>
-            )}
-            {activity.scheduledDate && (
-              <span className="flex items-center gap-1">
-                <Calendar className="w-3 h-3" />
-                {new Date(activity.scheduledDate).toLocaleString("es")}
-              </span>
-            )}
-          </CardDescription>
-        </div>
-        {user && (user.role === "admin" || user.id === activity.userId) && (
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => deleteMutation.mutate(activity.id)}
-            disabled={deleteMutation.isPending}
-            data-testid={`button-delete-prayer-${activity.id}`}
-          >
-            <Trash2 className="w-4 h-4" />
-          </Button>
-        )}
-      </CardHeader>
-      {(activity.description || activity.meetingUrl) && (
-        <CardContent className="space-y-3">
-          {activity.description && <p className="text-sm text-muted-foreground">{activity.description}</p>}
-          {activity.meetingUrl && (
-            <a href={activity.meetingUrl} target="_blank" rel="noopener noreferrer">
-              <Button variant="outline" size="sm" data-testid={`button-join-prayer-${activity.id}`}>
-                <Video className="w-4 h-4 mr-1" />
-                Unirse a {getPlatformLabel(activity.meetingPlatform)}
-                <ExternalLink className="w-3 h-3 ml-1" />
-              </Button>
-            </a>
-          )}
-        </CardContent>
-      )}
-      {user && (
-        <CardFooter className="flex flex-wrap gap-2 border-t pt-4">
-          <span className="text-sm text-muted-foreground mr-2">Asistencia:</span>
-          <Button
-            size="sm"
-            variant={myAttendance?.status === "confirmado" ? "default" : "outline"}
-            className="gap-1"
-            onClick={() => attendMutation.mutate({ activityId: activity.id, status: "confirmado" })}
-            disabled={attendMutation.isPending}
-          >
-            <CheckCircle className="w-4 h-4" />
-            Asistiré
-            {count.confirmado > 0 && <Badge variant="secondary" className="ml-1 text-xs px-1">{count.confirmado}</Badge>}
-          </Button>
-          <Button
-            size="sm"
-            variant={myAttendance?.status === "tal_vez" ? "default" : "outline"}
-            className="gap-1"
-            onClick={() => attendMutation.mutate({ activityId: activity.id, status: "tal_vez" })}
-            disabled={attendMutation.isPending}
-          >
-            <HelpCircle className="w-4 h-4" />
-            Tal vez
-            {count.tal_vez > 0 && <Badge variant="secondary" className="ml-1 text-xs px-1">{count.tal_vez}</Badge>}
-          </Button>
-          {myAttendance && myAttendance.status !== "cancelado" && (
+          {user && (user.role === "admin" || user.id === activity.userId) && (
             <Button
-              size="sm"
               variant="ghost"
-              className="gap-1 text-destructive"
-              onClick={() => cancelMutation.mutate(activity.id)}
-              disabled={cancelMutation.isPending}
+              size="icon"
+              onClick={() => deleteMutation.mutate(activity.id)}
+              disabled={deleteMutation.isPending}
+              data-testid={`button-delete-prayer-${activity.id}`}
             >
-              <XCircle className="w-4 h-4" />
-              Cancelar
+              <Trash2 className="w-4 h-4" />
             </Button>
           )}
-        </CardFooter>
-      )}
-    </Card>
+        </CardHeader>
+        {(activity.description || activity.meetingUrl) && (
+          <CardContent className="space-y-3">
+            {activity.description && <p className="text-sm text-muted-foreground whitespace-pre-wrap line-clamp-2">{activity.description}</p>}
+            {activity.meetingUrl && (
+              <a href={activity.meetingUrl} target="_blank" rel="noopener noreferrer">
+                <Button variant="outline" size="sm" data-testid={`button-join-prayer-${activity.id}`}>
+                  <Video className="w-4 h-4 mr-1" />
+                  Unirse a {getPlatformLabel(activity.meetingPlatform)}
+                  <ExternalLink className="w-3 h-3 ml-1" />
+                </Button>
+              </a>
+            )}
+          </CardContent>
+        )}
+        {user && (
+          <CardFooter className="flex flex-col items-start gap-3 border-t pt-4">
+            {/* Attendance count */}
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <Users className="h-3.5 w-3.5" />
+              <span>{count.confirmado || 0} {(count.confirmado || 0) === 1 ? "confirmado" : "confirmados"}</span>
+            </div>
+            {/* Attendance buttons */}
+            <div className="flex flex-wrap gap-2">
+              <Button
+                size="sm"
+                variant={currentStatus === "confirmado" ? "default" : "outline"}
+                className="gap-1"
+                onClick={() => attendMutation.mutate({ activityId: activity.id, status: "confirmado" })}
+                disabled={attendMutation.isPending}
+              >
+                <CheckCircle className="w-3.5 h-3.5" />
+                Asistiré
+              </Button>
+              <Button
+                size="sm"
+                variant={currentStatus === "tal_vez" ? "default" : "outline"}
+                className="gap-1"
+                onClick={() => attendMutation.mutate({ activityId: activity.id, status: "tal_vez" })}
+                disabled={attendMutation.isPending}
+              >
+                <HelpCircle className="w-3.5 h-3.5" />
+                Tal vez
+              </Button>
+              <Button
+                size="sm"
+                variant={currentStatus === "no_asistire" ? "destructive" : "outline"}
+                className="gap-1"
+                onClick={() => attendMutation.mutate({ activityId: activity.id, status: "no_asistire" })}
+                disabled={attendMutation.isPending}
+              >
+                <XCircle className="w-3.5 h-3.5" />
+                No asistiré
+              </Button>
+              {currentStatus && (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="gap-1 text-muted-foreground"
+                  onClick={() => cancelMutation.mutate(activity.id)}
+                  disabled={cancelMutation.isPending}
+                >
+                  Cancelar
+                </Button>
+              )}
+            </div>
+            {/* Reminder text */}
+            {currentStatus === "confirmado" && (
+              <div className="flex items-center gap-1.5 text-xs text-green-600 dark:text-green-400">
+                <Bell className="h-3 w-3" />
+                Recordatorio activado. Recibirás una notificación.
+              </div>
+            )}
+            {/* View details button */}
+            <div className="flex gap-2">
+              <Button size="sm" variant="outline" onClick={() => setDetailOpen(true)} className="gap-1">
+                <ExternalLink className="h-3.5 w-3.5" />
+                Ver Detalles
+              </Button>
+              {activity.meetingUrl && (
+                <Button
+                  size="sm"
+                  variant="default"
+                  className="gap-1"
+                  onClick={() => window.open(activity.meetingUrl!, "_blank")}
+                >
+                  <Video className="h-3.5 w-3.5" />
+                  Unirse
+                </Button>
+              )}
+            </div>
+          </CardFooter>
+        )}
+      </Card>
+
+      {/* Detail Dialog */}
+      <Dialog open={detailOpen} onOpenChange={setDetailOpen}>
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto" data-testid={`dialog-prayer-detail-${activity.id}`}>
+          <DialogHeader>
+            <DialogTitle className="text-xl">{activity.title}</DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            {/* Date & Time */}
+            {activity.scheduledDate && (
+              <>
+                <div className="flex items-center gap-2 text-sm">
+                  <Calendar className="h-4 w-4 text-primary" />
+                  <span className="font-medium">
+                    {new Date(activity.scheduledDate).toLocaleDateString("es-ES", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2 text-sm">
+                  <Clock className="h-4 w-4 text-primary" />
+                  <span>
+                    {new Date(activity.scheduledDate).toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" })}
+                  </span>
+                </div>
+              </>
+            )}
+
+            {/* Meeting Link */}
+            {activity.meetingUrl && (
+              <div className="bg-primary/5 dark:bg-primary/10 rounded-lg p-4 space-y-2">
+                <div className="flex items-center gap-2 text-sm font-medium">
+                  <Video className="h-4 w-4 text-primary" />
+                  <span>{platformLabels[activity.meetingPlatform || ""] || "Enlace de Reunión"}</span>
+                </div>
+                <a
+                  href={activity.meetingUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2 text-sm text-primary hover:underline break-all"
+                >
+                  <Link2 className="h-3.5 w-3.5 flex-shrink-0" />
+                  {activity.meetingUrl}
+                  <ExternalLink className="h-3 w-3 flex-shrink-0" />
+                </a>
+                <Button
+                  size="sm"
+                  className="w-full mt-2 gap-2"
+                  onClick={() => window.open(activity.meetingUrl!, "_blank")}
+                >
+                  <Video className="h-4 w-4" />
+                  Unirse a la Reunión
+                </Button>
+              </div>
+            )}
+
+            {/* Description */}
+            {activity.description && (
+              <div>
+                <h4 className="text-sm font-medium mb-1">Descripción</h4>
+                <p className="text-sm text-muted-foreground whitespace-pre-wrap">{activity.description}</p>
+              </div>
+            )}
+
+            {/* RSVP Section */}
+            {user && (
+              <div className="border-t pt-4">
+                <h4 className="text-sm font-medium mb-2 flex items-center gap-2">
+                  <Users className="h-4 w-4 text-primary" />
+                  Confirmar Asistencia
+                </h4>
+                <div className="flex items-center gap-2 text-sm text-muted-foreground mb-2">
+                  <Users className="h-3.5 w-3.5" />
+                  <span>{count.confirmado || 0} {(count.confirmado || 0) === 1 ? "confirmado" : "confirmados"}</span>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    size="sm"
+                    variant={currentStatus === "confirmado" ? "default" : "outline"}
+                    onClick={() => attendMutation.mutate({ activityId: activity.id, status: "confirmado" })}
+                    disabled={attendMutation.isPending}
+                    className="gap-1"
+                  >
+                    <CheckCircle className="h-3.5 w-3.5" />
+                    Asistiré
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant={currentStatus === "tal_vez" ? "default" : "outline"}
+                    onClick={() => attendMutation.mutate({ activityId: activity.id, status: "tal_vez" })}
+                    disabled={attendMutation.isPending}
+                    className="gap-1"
+                  >
+                    <HelpCircle className="h-3.5 w-3.5" />
+                    Tal vez
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant={currentStatus === "no_asistire" ? "destructive" : "outline"}
+                    onClick={() => attendMutation.mutate({ activityId: activity.id, status: "no_asistire" })}
+                    disabled={attendMutation.isPending}
+                    className="gap-1"
+                  >
+                    <XCircle className="h-3.5 w-3.5" />
+                    No asistiré
+                  </Button>
+                  {currentStatus && (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => cancelMutation.mutate(activity.id)}
+                      disabled={cancelMutation.isPending}
+                      className="gap-1 text-muted-foreground"
+                    >
+                      Cancelar
+                    </Button>
+                  )}
+                </div>
+                {currentStatus === "confirmado" && (
+                  <div className="flex items-center gap-1.5 text-xs text-green-600 dark:text-green-400 mt-2">
+                    <Bell className="h-3 w-3" />
+                    Recordatorio activado. Recibirás una notificación.
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Attendees list */}
+            {attendeesData?.attendees && attendeesData.attendees.length > 0 && (
+              <div className="border-t pt-4">
+                <h4 className="text-sm font-medium mb-3 flex items-center gap-2">
+                  <Users className="h-4 w-4 text-primary" />
+                  Asistentes ({count.confirmado || 0} confirmados)
+                </h4>
+                <div className="space-y-2 max-h-40 overflow-y-auto">
+                  {attendeesData.attendees.map((att: any) => (
+                    <div key={att.id} className="flex items-center gap-2 text-sm">
+                      {att.user?.avatarUrl ? (
+                        <img src={att.user.avatarUrl} alt="" className="w-6 h-6 rounded-full object-cover" />
+                      ) : (
+                        <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center text-xs font-medium text-primary">
+                          {(att.user?.displayName || att.user?.username || "?")[0].toUpperCase()}
+                        </div>
+                      )}
+                      <span>{att.user?.displayName || att.user?.username}</span>
+                      <Badge
+                        variant={att.status === "confirmado" ? "default" : att.status === "tal_vez" ? "secondary" : "outline"}
+                        className="ml-auto text-[10px]"
+                      >
+                        {att.status === "confirmado" ? "Confirmado" : att.status === "tal_vez" ? "Tal vez" : "No asistirá"}
+                      </Badge>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }

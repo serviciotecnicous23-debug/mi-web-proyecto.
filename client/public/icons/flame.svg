@@ -1,0 +1,69 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <radialGradient id="bg" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#c0392b"/>
+      <stop offset="100%" stop-color="#8b1a1a"/>
+    </radialGradient>
+    <linearGradient id="flame1" x1="50%" y1="100%" x2="50%" y2="0%">
+      <stop offset="0%" stop-color="#e67e22"/>
+      <stop offset="40%" stop-color="#f39c12"/>
+      <stop offset="70%" stop-color="#f1c40f"/>
+      <stop offset="100%" stop-color="#fff3cd"/>
+    </linearGradient>
+    <linearGradient id="flame2" x1="50%" y1="100%" x2="50%" y2="0%">
+      <stop offset="0%" stop-color="#d35400"/>
+      <stop offset="50%" stop-color="#e74c3c"/>
+      <stop offset="100%" stop-color="#f39c12"/>
+    </linearGradient>
+    <linearGradient id="flame3" x1="50%" y1="100%" x2="50%" y2="0%">
+      <stop offset="0%" stop-color="#f39c12"/>
+      <stop offset="100%" stop-color="#fffde7"/>
+    </linearGradient>
+  </defs>
+  <!-- Background circle -->
+  <circle cx="256" cy="256" r="256" fill="url(#bg)"/>
+  <!-- Outer flame glow -->
+  <ellipse cx="256" cy="300" rx="100" ry="60" fill="#e67e22" opacity="0.15"/>
+  <!-- Main outer flame -->
+  <path d="M256 60
+    C256 60, 340 140, 355 200
+    C370 260, 380 310, 370 350
+    C360 390, 340 420, 310 440
+    C280 460, 256 465, 256 465
+    C256 465, 232 460, 202 440
+    C172 420, 152 390, 142 350
+    C132 310, 142 260, 157 200
+    C172 140, 256 60, 256 60Z"
+    fill="url(#flame2)" opacity="0.85"/>
+  <!-- Middle flame -->
+  <path d="M256 110
+    C256 110, 320 180, 332 230
+    C344 280, 348 320, 340 355
+    C332 390, 310 415, 290 430
+    C270 445, 256 448, 256 448
+    C256 448, 242 445, 222 430
+    C202 415, 180 390, 172 355
+    C164 320, 168 280, 180 230
+    C192 180, 256 110, 256 110Z"
+    fill="url(#flame1)"/>
+  <!-- Inner bright flame -->
+  <path d="M256 190
+    C256 190, 298 240, 306 275
+    C314 310, 312 340, 304 365
+    C296 390, 280 405, 268 415
+    C260 420, 256 422, 256 422
+    C256 422, 252 420, 244 415
+    C232 405, 216 390, 208 365
+    C200 340, 198 310, 206 275
+    C214 240, 256 190, 256 190Z"
+    fill="url(#flame3)"/>
+  <!-- Core white glow -->
+  <path d="M256 280
+    C256 280, 278 310, 280 335
+    C282 360, 274 380, 266 395
+    C260 405, 256 408, 256 408
+    C256 408, 252 405, 246 395
+    C238 380, 230 360, 232 335
+    C234 310, 256 280, 256 280Z"
+    fill="#fffde7" opacity="0.9"/>
+</svg>
