@@ -73,8 +73,8 @@ export default function OracionPage() {
       form.reset();
       setDialogOpen(false);
     },
-    onError: () => {
-      toast({ title: "Error", description: "No se pudo crear la actividad.", variant: "destructive" });
+    onError: (error: Error) => {
+      toast({ title: "Error", description: error.message || "No se pudo crear la actividad.", variant: "destructive" });
     },
   });
 
@@ -85,6 +85,9 @@ export default function OracionPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/prayer-activities"] });
       toast({ title: "Eliminada", description: "La actividad ha sido eliminada." });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Error al eliminar", description: error.message || "No se pudo eliminar la actividad.", variant: "destructive" });
     },
   });
 

@@ -435,7 +435,7 @@ export async function registerRoutes(
   });
 
   app.get(api.auth.me.path, (req, res) => {
-    if (!req.isAuthenticated()) return res.sendStatus(401);
+    if (!req.isAuthenticated()) return res.status(401).json({ message: "No autenticado" });
     const { password, ...safeUser } = req.user as any;
     res.json(safeUser);
   });
@@ -1638,27 +1638,51 @@ export async function registerRoutes(
   });
 
   app.post(api.prayerActivities.create.path, async (req, res) => {
-    if (!req.isAuthenticated()) return res.sendStatus(401);
-    const input = api.prayerActivities.create.input.parse(req.body);
-    const activity = await storage.createPrayerActivity((req.user as any).id, input);
-    await storage.createNotificationForAll({
-      type: "oracion",
-      title: "Nueva Actividad de Oracion",
-      content: `Se creo la actividad: ${activity.title}`,
-      link: "/oracion",
-    });
-    res.status(201).json(activity);
+    if (!req.isAuthenticated()) {
+      console.log("Prayer create: user not authenticated. Session:", req.sessionID);
+      return res.status(401).json({ message: "Debes iniciar sesion para crear actividades" });
+    }
+    try {
+      const input = api.prayerActivities.create.input.parse(req.body);
+      const activity = await storage.createPrayerActivity((req.user as any).id, input);
+      // Send notification to all users (non-blocking)
+      try {
+        await storage.createNotificationForAll({
+          type: "oracion",
+          title: "Nueva Actividad de Oracion",
+          content: `Se creo la actividad: ${activity.title}`,
+          link: "/oracion",
+        });
+      } catch (notifErr) {
+        console.error("Error creating prayer notifications (non-blocking):", notifErr);
+      }
+      res.status(201).json(activity);
+    } catch (err: any) {
+      console.error("Error creating prayer activity:", err);
+      if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });
+      res.status(500).json({ message: err?.message || "Error interno al crear la actividad" });
+    }
   });
 
   app.delete(api.prayerActivities.delete.path, async (req, res) => {
-    if (!req.isAuthenticated()) return res.sendStatus(401);
-    const id = parseInt(req.params.id);
-    const activities = await storage.listPrayerActivities();
-    const activity = activities.find(a => a.id === id);
-    if (!activity) return res.sendStatus(404);
-    if (activity.userId !== (req.user as any).id && !isAdmin(req)) return res.sendStatus(403);
-    await storage.deletePrayerActivity(id);
-    res.json({ success: true });
+    if (!req.isAuthenticated()) {
+      console.log("Prayer delete: user not authenticated. Session:", req.sessionID);
+      return res.status(401).json({ message: "Debes iniciar sesion para eliminar actividades" });
+    }
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) return res.status(400).json({ message: "ID de actividad invalido" });
+      const activity = await storage.getPrayerActivity(id);
+      if (!activity) return res.status(404).json({ message: "Actividad no encontrada" });
+      if (activity.userId !== (req.user as any).id && !isAdmin(req)) {
+        return res.status(403).json({ message: "No tienes permiso para eliminar esta actividad" });
+      }
+      await storage.deletePrayerActivity(id);
+      res.json({ success: true });
+    } catch (err: any) {
+      console.error("Error deleting prayer activity:", err);
+      res.status(500).json({ message: err?.message || "Error interno al eliminar la actividad" });
+    }
   });
 
   // ========== ASISTENCIA A ACTIVIDADES DE ORACION ==========

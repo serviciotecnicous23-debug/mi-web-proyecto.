@@ -169,6 +169,7 @@ export interface IStorage {
   getUnreadNotificationCount(userId: number): Promise<number>;
 
   createPrayerActivity(userId: number, data: InsertPrayerActivity): Promise<PrayerActivity>;
+  getPrayerActivity(id: number): Promise<PrayerActivity | undefined>;
   listPrayerActivities(): Promise<(PrayerActivity & { user: { username: string; displayName: string | null } })[]>;
   deletePrayerActivity(id: number): Promise<void>;
 
@@ -1219,6 +1220,11 @@ export class DatabaseStorage implements IStorage {
       scheduledDate: data.scheduledDate ? new Date(data.scheduledDate) : null,
     }).returning();
     return a;
+  }
+
+  async getPrayerActivity(id: number): Promise<PrayerActivity | undefined> {
+    const [activity] = await db.select().from(prayerActivities).where(eq(prayerActivities.id, id));
+    return activity;
   }
 
   async listPrayerActivities(): Promise<(PrayerActivity & { user: { username: string; displayName: string | null } })[]> {
