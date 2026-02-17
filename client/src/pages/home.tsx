@@ -32,6 +32,7 @@ export default function Home() {
           <p className="text-sm text-muted-foreground mb-4" data-testid="text-subtitle">
             Desde 2017 - Ciudad Bolivar, Venezuela
           </p>
+          <p className="text-xs text-muted-foreground/50 mb-2">v2.1.0 — Febrero 2026</p>
           <h1 className="text-4xl md:text-6xl font-bold mb-6" data-testid="text-title">
             <span className="fire-text">AVIVANDO EL FUEGO</span>
           </h1>
