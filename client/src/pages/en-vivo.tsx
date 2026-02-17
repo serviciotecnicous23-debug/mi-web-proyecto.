@@ -49,12 +49,14 @@ function extractYouTubeChannelId(url: string): string | null {
 }
 
 // Build the best YouTube embed URL from any YouTube link
-function buildYouTubeEmbedUrl(sourceUrl: string): { embedUrl: string; watchUrl: string } | null {
+function buildYouTubeEmbedUrl(sourceUrl: string): { videoId: string | null; channelId: string | null; embedUrl: string; watchUrl: string } | null {
   // Try video ID first
   const videoId = extractYouTubeId(sourceUrl);
   if (videoId) {
     return {
-      embedUrl: `https://www.youtube.com/embed/${videoId}?autoplay=1&rel=0&modestbranding=1`,
+      videoId,
+      channelId: null,
+      embedUrl: `https://www.youtube.com/embed/${videoId}?autoplay=1&rel=0&modestbranding=1&enablejsapi=1&origin=${window.location.origin}`,
       watchUrl: `https://www.youtube.com/watch?v=${videoId}`,
     };
   }
@@ -62,7 +64,9 @@ function buildYouTubeEmbedUrl(sourceUrl: string): { embedUrl: string; watchUrl: 
   const channelId = extractYouTubeChannelId(sourceUrl);
   if (channelId) {
     return {
-      embedUrl: `https://www.youtube.com/embed/live_stream?channel=${channelId}&autoplay=1`,
+      videoId: null,
+      channelId,
+      embedUrl: `https://www.youtube.com/embed/live_stream?channel=${channelId}&autoplay=1&enablejsapi=1&origin=${window.location.origin}`,
       watchUrl: sourceUrl,
     };
   }
@@ -216,9 +220,11 @@ function RadioPlayer({ url, title }: { url: string; title?: string }) {
 
 function YouTubePlayer({ sourceUrl }: { sourceUrl: string }) {
   const [embedError, setEmbedError] = useState(false);
-  const iframeRef = useRef<HTMLIFrameElement>(null);
-
+  const [isLoading, setIsLoading] = useState(true);
+  const playerContainerRef = useRef<HTMLDivElement>(null);
+  const playerRef = useRef<any>(null);
   const ytData = buildYouTubeEmbedUrl(sourceUrl);
+
   if (!ytData) {
     return (
       <div className="aspect-video w-full rounded-md overflow-hidden bg-black flex flex-col items-center justify-center gap-4 p-6">
@@ -231,69 +237,183 @@ function YouTubePlayer({ sourceUrl }: { sourceUrl: string }) {
     );
   }
 
-  // Detect errors: YouTube embed errors show as very small document or trigger postMessage
+  // Load YouTube IFrame API and create player with proper error handling
   useEffect(() => {
-    const handleMessage = (event: MessageEvent) => {
-      // YouTube player API sends error events via postMessage
-      if (event.origin?.includes("youtube.com") && typeof event.data === "string") {
-        try {
-          const data = JSON.parse(event.data);
-          if (data?.event === "onError" || data?.info?.playerError || data?.errorCode === 150 || data?.errorCode === 153) {
-            setEmbedError(true);
-          }
-        } catch {
-          // not a JSON message, ignore
-        }
+    setEmbedError(false);
+    setIsLoading(true);
+
+    // Unique div id for this player instance
+    const playerId = "yt-player-" + Date.now();
+    if (playerContainerRef.current) {
+      playerContainerRef.current.innerHTML = `<div id="${playerId}" style="width:100%;height:100%"></div>`;
+    }
+
+    // Destroy previous player
+    if (playerRef.current) {
+      try { playerRef.current.destroy(); } catch {}
+      playerRef.current = null;
+    }
+
+    const createPlayer = () => {
+      if (!(window as any).YT?.Player) return;
+
+      const playerConfig: any = {
+        width: "100%",
+        height: "100%",
+        playerVars: {
+          autoplay: 1,
+          rel: 0,
+          modestbranding: 1,
+          playsinline: 1,
+          origin: window.location.origin,
+        },
+        events: {
+          onReady: () => {
+            setIsLoading(false);
+          },
+          onError: (event: any) => {
+            // Error codes: 2=invalid param, 5=HTML5 error, 100=not found, 101/150/153=embed restricted
+            const code = event?.data;
+            console.warn("YouTube Player Error:", code);
+            if (code === 150 || code === 153 || code === 101 || code === 100) {
+              setEmbedError(true);
+              setIsLoading(false);
+            } else if (code === 5) {
+              // HTML5 player error - try reopening
+              setEmbedError(true);
+              setIsLoading(false);
+            } else {
+              setEmbedError(true);
+              setIsLoading(false);
+            }
+          },
+          onStateChange: (event: any) => {
+            // -1=unstarted, 0=ended, 1=playing, 2=paused, 3=buffering, 5=cued
+            if (event?.data === 1 || event?.data === 3) {
+              setIsLoading(false);
+              setEmbedError(false);
+            }
+          },
+        },
+      };
+
+      // Use videoId or channel live_stream
+      if (ytData.videoId) {
+        playerConfig.videoId = ytData.videoId;
+      } else if (ytData.channelId) {
+        playerConfig.playerVars.channel = ytData.channelId;
+        playerConfig.videoId = undefined;
+        // For channel live streams, use the embed URL approach
+        playerConfig.playerVars.listType = undefined;
+      }
+
+      try {
+        playerRef.current = new (window as any).YT.Player(playerId, playerConfig);
+      } catch (err) {
+        console.error("Failed to create YT player:", err);
+        setEmbedError(true);
+        setIsLoading(false);
       }
     };
-    window.addEventListener("message", handleMessage);
-    return () => window.removeEventListener("message", handleMessage);
-  }, []);
 
-  // Fallback: detect if iframe fails to load after a timeout
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      if (iframeRef.current) {
+    // Load the YouTube IFrame API script if not already loaded
+    if ((window as any).YT?.Player) {
+      createPlayer();
+    } else {
+      // Set callback
+      const prevCallback = (window as any).onYouTubeIframeAPIReady;
+      (window as any).onYouTubeIframeAPIReady = () => {
+        if (prevCallback) prevCallback();
+        createPlayer();
+      };
+
+      if (!document.querySelector('script[src*="youtube.com/iframe_api"]')) {
+        const tag = document.createElement("script");
+        tag.src = "https://www.youtube.com/iframe_api";
+        document.head.appendChild(tag);
+      } else {
+        // Script already exists but API not ready yet — poll
+        const interval = setInterval(() => {
+          if ((window as any).YT?.Player) {
+            clearInterval(interval);
+            createPlayer();
+          }
+        }, 200);
+        setTimeout(() => clearInterval(interval), 10000);
+      }
+    }
+
+    // Fallback timeout: if nothing happens after 8 seconds, show error
+    const fallbackTimer = setTimeout(() => {
+      if (isLoading && !embedError) {
+        // Check if player actually started playing
         try {
-          // If we can't access contentDocument, it loaded cross-origin (good)
-          // But we set a backup timer — if the user sees an error, they can click fallback
+          const state = playerRef.current?.getPlayerState?.();
+          if (state === undefined || state === -1 || state === null) {
+            setEmbedError(true);
+            setIsLoading(false);
+          }
         } catch {
-          // Expected cross-origin block
+          // If we can't read state, probably an error
+          setEmbedError(true);
+          setIsLoading(false);
         }
       }
-    }, 5000);
-    return () => clearTimeout(timer);
-  }, [ytData.embedUrl]);
+    }, 10000);
+
+    return () => {
+      clearTimeout(fallbackTimer);
+      if (playerRef.current) {
+        try { playerRef.current.destroy(); } catch {}
+        playerRef.current = null;
+      }
+    };
+  }, [sourceUrl]);
 
   if (embedError) {
     return (
       <div className="aspect-video w-full rounded-md overflow-hidden bg-gradient-to-br from-red-950 to-black flex flex-col items-center justify-center gap-4 p-6">
         <SiYoutube className="w-16 h-16 text-red-500" />
-        <p className="text-white text-center font-medium">Este video no permite ser embebido</p>
-        <p className="text-white/60 text-sm text-center max-w-sm">El autor del video ha restringido la reproducción fuera de YouTube. Haz clic para verlo directamente.</p>
-        <Button
-          variant="outline"
-          className="border-red-500/50 text-red-400 hover:bg-red-500/10"
-          onClick={() => window.open(ytData.watchUrl, "_blank")}
-        >
-          <SiYoutube className="w-4 h-4 mr-2" /> Ver en YouTube
-        </Button>
+        <p className="text-white text-center font-medium text-lg">Este video no permite reproducirse aqui</p>
+        <p className="text-white/60 text-sm text-center max-w-sm">
+          El creador del video ha restringido su reproduccion fuera de YouTube (Error de embed). 
+          Puedes verlo directamente en YouTube haciendo clic abajo.
+        </p>
+        <div className="flex flex-col sm:flex-row gap-3 mt-2">
+          <Button
+            variant="default"
+            className="bg-red-600 hover:bg-red-700 text-white gap-2"
+            onClick={() => window.open(ytData.watchUrl, "_blank")}
+          >
+            <SiYoutube className="w-5 h-5" /> Ver en YouTube
+          </Button>
+          <Button
+            variant="outline"
+            className="border-white/30 text-white/80 hover:text-white gap-2"
+            onClick={() => {
+              // Copy link to clipboard
+              navigator.clipboard?.writeText(ytData.watchUrl);
+            }}
+          >
+            <ExternalLink className="w-4 h-4" /> Copiar enlace
+          </Button>
+        </div>
       </div>
     );
   }
 
   return (
     <div className="aspect-video w-full rounded-md overflow-hidden bg-black relative">
-      <iframe
-        ref={iframeRef}
-        src={ytData.embedUrl}
-        className="w-full h-full"
-        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-        allowFullScreen
-        title="YouTube Live"
-        data-testid="iframe-youtube-player"
-      />
-      {/* Fallback button always visible at the bottom */}
+      {isLoading && (
+        <div className="absolute inset-0 flex items-center justify-center bg-black z-10">
+          <div className="flex flex-col items-center gap-3">
+            <SiYoutube className="w-12 h-12 text-red-500 animate-pulse" />
+            <p className="text-white/70 text-sm">Cargando video...</p>
+          </div>
+        </div>
+      )}
+      <div ref={playerContainerRef} className="w-full h-full" />
+      {/* Fallback button always visible */}
       <div className="absolute bottom-2 right-2 z-10">
         <Button
           size="sm"
