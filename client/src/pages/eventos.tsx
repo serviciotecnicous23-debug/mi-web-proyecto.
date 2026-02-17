@@ -106,12 +106,15 @@ export default function Eventos() {
 
   function handleCreate() {
     if (!form.title || !form.description || !form.eventDate || !form.location) return;
+    // Convert datetime-local value to ISO string for the server
+    const eventDateISO = new Date(form.eventDate).toISOString();
+    const eventEndDateISO = form.eventEndDate ? new Date(form.eventEndDate).toISOString() : null;
     createEvent.mutate(
       {
         title: form.title,
         description: form.description,
-        eventDate: form.eventDate,
-        eventEndDate: form.eventEndDate || null,
+        eventDate: eventDateISO,
+        eventEndDate: eventEndDateISO,
         location: form.location,
         meetingUrl: form.meetingUrl || null,
         meetingPlatform: form.meetingPlatform || null,
@@ -128,14 +131,16 @@ export default function Eventos() {
 
   function handleUpdate() {
     if (!editingEvent || !form.title || !form.description || !form.eventDate || !form.location) return;
+    const eventDateISO = new Date(form.eventDate).toISOString();
+    const eventEndDateISO = form.eventEndDate ? new Date(form.eventEndDate).toISOString() : null;
     updateEvent.mutate(
       {
         id: editingEvent.id,
         updates: {
           title: form.title,
           description: form.description,
-          eventDate: form.eventDate,
-          eventEndDate: form.eventEndDate || null,
+          eventDate: eventDateISO,
+          eventEndDate: eventEndDateISO,
           location: form.location,
           meetingUrl: form.meetingUrl || null,
           meetingPlatform: form.meetingPlatform || null,
@@ -245,12 +250,16 @@ export default function Eventos() {
 
       <EventFormDialog
         open={createOpen}
-        onOpenChange={setCreateOpen}
+        onOpenChange={(open) => {
+          setCreateOpen(open);
+          if (!open) createEvent.reset();
+        }}
         title="Crear Evento"
         form={form}
         setForm={setForm}
         onSubmit={handleCreate}
         isPending={createEvent.isPending}
+        errorMessage={createEvent.error?.message || null}
         submitLabel="Crear"
       />
 
@@ -258,13 +267,17 @@ export default function Eventos() {
         open={editOpen}
         onOpenChange={(open) => {
           setEditOpen(open);
-          if (!open) setEditingEvent(null);
+          if (!open) {
+            setEditingEvent(null);
+            updateEvent.reset();
+          }
         }}
         title="Editar Evento"
         form={form}
         setForm={setForm}
         onSubmit={handleUpdate}
         isPending={updateEvent.isPending}
+        errorMessage={updateEvent.error?.message || null}
         submitLabel="Guardar"
       />
 
@@ -288,6 +301,7 @@ function EventFormDialog({
   setForm,
   onSubmit,
   isPending,
+  errorMessage,
   submitLabel,
 }: {
   open: boolean;
@@ -297,6 +311,7 @@ function EventFormDialog({
   setForm: (form: typeof emptyForm) => void;
   onSubmit: () => void;
   isPending: boolean;
+  errorMessage: string | null;
   submitLabel: string;
 }) {
   return (
@@ -384,6 +399,11 @@ function EventFormDialog({
             </select>
           </div>
         </div>
+        {errorMessage && (
+          <div className="rounded-md bg-destructive/15 border border-destructive/30 px-4 py-3 text-sm text-destructive" data-testid="event-form-error">
+            {errorMessage}
+          </div>
+        )}
         <DialogFooter>
           <Button
             onClick={onSubmit}

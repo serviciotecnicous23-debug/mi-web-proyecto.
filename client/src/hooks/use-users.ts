@@ -221,13 +221,18 @@ export function useCreateEvent() {
       const res = await fetch(api.events.create.path, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data), credentials: "include" });
       if (!res.ok) {
         const errData = await res.json().catch(() => null);
+        if (res.status === 401) {
+          // Session expired - invalidate auth state so UI updates
+          queryClient.invalidateQueries({ queryKey: [api.auth.me.path] });
+          throw new Error("Tu sesion ha expirado. Por favor, cierra sesion e inicia sesion nuevamente.");
+        }
         throw new Error(errData?.message || `Error al crear evento (${res.status})`);
       }
       return res.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [api.events.list.path] });
-      toast({ title: "Evento creado" });
+      toast({ title: "Evento creado exitosamente" });
     },
     onError: (error) => { toast({ title: "Error", description: error.message, variant: "destructive" }); },
   });
@@ -242,6 +247,10 @@ export function useUpdateEvent() {
       const res = await fetch(url, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(updates), credentials: "include" });
       if (!res.ok) {
         const errData = await res.json().catch(() => null);
+        if (res.status === 401) {
+          queryClient.invalidateQueries({ queryKey: [api.auth.me.path] });
+          throw new Error("Tu sesion ha expirado. Por favor, cierra sesion e inicia sesion nuevamente.");
+        }
         throw new Error(errData?.message || `Error al actualizar evento (${res.status})`);
       }
       return res.json();

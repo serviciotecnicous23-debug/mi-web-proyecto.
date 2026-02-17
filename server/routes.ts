@@ -294,13 +294,26 @@ export async function registerRoutes(
   passport.serializeUser((user: any, done) => done(null, user.id));
   passport.deserializeUser(async (id: number, done) => {
     try {
-      let user = await storage.getUser(id);
+      let user = null;
+      try {
+        user = await storage.getUser(id);
+      } catch (dbErr) {
+        console.log("Database unavailable during deserialization, trying memory storage");
+      }
       // Fallback a almacenamiento en memoria
       if (!user) {
-        user = await memoryStorage.getUser(id) as any;
+        try {
+          user = await memoryStorage.getUser(id) as any;
+        } catch (memErr) {
+          console.log("Memory storage also failed during deserialization");
+        }
+      }
+      if (!user) {
+        console.log(`deserializeUser: user with id ${id} not found in any storage`);
       }
       done(null, user);
     } catch (err) {
+      console.error("deserializeUser error:", err);
       done(err);
     }
   });
@@ -691,9 +704,9 @@ export async function registerRoutes(
   });
 
   app.post(api.events.create.path, async (req, res) => {
-    if (!req.isAuthenticated()) {
-      console.log("Event create: user not authenticated. Session:", req.sessionID, "User:", req.user);
-      return res.status(401).json({ message: "Debes iniciar sesion para crear eventos" });
+    if (!req.isAuthenticated() || !req.user) {
+      console.log("Event create: user not authenticated. Session:", req.sessionID, "User:", req.user, "Authenticated:", req.isAuthenticated?.());
+      return res.status(401).json({ message: "Debes iniciar sesion para crear eventos. Si ya iniciaste sesion, intenta cerrar sesion y volver a entrar." });
     }
     try {
       const input = api.events.create.input.parse(req.body);
@@ -706,8 +719,8 @@ export async function registerRoutes(
       res.status(201).json(event);
     } catch (err: any) {
       console.error("Error creating event:", err);
-      if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors.map((e: any) => e.message).join(", ") });
-      res.status(500).json({ message: err?.message || "Error interno al crear el evento" });
+      if (err instanceof z.ZodError) return res.status(400).json({ message: "Datos invalidos: " + err.errors.map((e: any) => e.message).join(", ") });
+      res.status(500).json({ message: err?.message || "Error interno al crear el evento. Intenta de nuevo." });
     }
   });
 
