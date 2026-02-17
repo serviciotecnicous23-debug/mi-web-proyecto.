@@ -3,12 +3,17 @@ import { api, buildUrl } from "@shared/routes";
 import { type UpdateUser, type InsertEvent, type UpdateEvent, type InsertEventRsvp, type UpdateSiteContent, type InsertCourse, type UpdateCourse, type InsertCourseMaterial, type UpdateCourseMaterial, type InsertCourseSession, type UpdateCourseSession, type UpdateEnrollment, type UpdateTeacherRequest, type InsertCourseAnnouncement, type UpdateCourseAnnouncement, type InsertCourseSchedule, type UpdateCourseSchedule, type InsertBibleHighlight, type InsertBibleNote, type InsertReadingPlan, type InsertReadingPlanItem, type InsertReadingClubPost, type InsertReadingClubComment, type InsertLibraryResource } from "@shared/schema";
 import { useToast } from "@/hooks/use-toast";
 
+// Wrapper around fetch that always includes credentials for auth cookies
+function authFetch(url: string, init?: RequestInit): Promise<Response> {
+  return fetch(url, { ...init, credentials: "include" });
+}
+
 export function useUser(id: number) {
   return useQuery({
     queryKey: [api.users.get.path, id],
     queryFn: async () => {
       const url = buildUrl(api.users.get.path, { id });
-      const res = await fetch(url);
+      const res = await authFetch(url);
       if (!res.ok) throw new Error("Error al obtener usuario");
       return res.json();
     },
@@ -22,7 +27,7 @@ export function useUpdateUser() {
   return useMutation({
     mutationFn: async ({ id, updates }: { id: number; updates: UpdateUser }) => {
       const url = buildUrl(api.users.update.path, { id });
-      const res = await fetch(url, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(updates) });
+      const res = await authFetch(url, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(updates) });
       if (!res.ok) throw new Error("Error al actualizar perfil");
       return res.json();
     },
@@ -39,7 +44,7 @@ export function useAdminUsers() {
   return useQuery({
     queryKey: [api.admin.listUsers.path],
     queryFn: async () => {
-      const res = await fetch(api.admin.listUsers.path);
+      const res = await authFetch(api.admin.listUsers.path);
       if (!res.ok) throw new Error("Error al obtener usuarios");
       return res.json();
     },
@@ -52,7 +57,7 @@ export function useToggleUserActive() {
   return useMutation({
     mutationFn: async (id: number) => {
       const url = buildUrl(api.admin.toggleActive.path, { id });
-      const res = await fetch(url, { method: "PATCH" });
+      const res = await authFetch(url, { method: "PATCH" });
       if (!res.ok) throw new Error("Error al cambiar estado");
       return res.json();
     },
@@ -73,7 +78,7 @@ export function useUpdateUserRole() {
   return useMutation({
     mutationFn: async ({ id, role }: { id: number; role: string }) => {
       const url = buildUrl(api.admin.updateRole.path, { id });
-      const res = await fetch(url, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ role }) });
+      const res = await authFetch(url, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ role }) });
       if (!res.ok) throw new Error("Error al cambiar rol");
       return res.json();
     },
@@ -94,7 +99,7 @@ export function useDeleteUser() {
   return useMutation({
     mutationFn: async (id: number) => {
       const url = buildUrl(api.admin.deleteUser.path, { id });
-      const res = await fetch(url, { method: "DELETE" });
+      const res = await authFetch(url, { method: "DELETE" });
       if (!res.ok) throw new Error("Error al eliminar usuario");
     },
     onSuccess: () => {
@@ -109,7 +114,7 @@ export function useAdminMessages() {
   return useQuery({
     queryKey: [api.admin.listMessages.path],
     queryFn: async () => {
-      const res = await fetch(api.admin.listMessages.path);
+      const res = await authFetch(api.admin.listMessages.path);
       if (!res.ok) throw new Error("Error al obtener mensajes");
       return res.json();
     },
@@ -121,7 +126,7 @@ export function useToggleMessageRead() {
   return useMutation({
     mutationFn: async (id: number) => {
       const url = buildUrl(api.admin.toggleMessageRead.path, { id });
-      const res = await fetch(url, { method: "PATCH" });
+      const res = await authFetch(url, { method: "PATCH" });
       if (!res.ok) throw new Error("Error al marcar mensaje");
       return res.json();
     },
@@ -135,7 +140,7 @@ export function useDeleteMessage() {
   return useMutation({
     mutationFn: async (id: number) => {
       const url = buildUrl(api.admin.deleteMessage.path, { id });
-      const res = await fetch(url, { method: "DELETE" });
+      const res = await authFetch(url, { method: "DELETE" });
       if (!res.ok) throw new Error("Error al eliminar mensaje");
     },
     onSuccess: () => {
@@ -149,7 +154,7 @@ export function useMemberPosts() {
   return useQuery({
     queryKey: [api.posts.list.path],
     queryFn: async () => {
-      const res = await fetch(api.posts.list.path);
+      const res = await authFetch(api.posts.list.path);
       if (!res.ok) throw new Error("Error al obtener publicaciones");
       return res.json();
     },
@@ -161,7 +166,7 @@ export function useCreateMemberPost() {
   const { toast } = useToast();
   return useMutation({
     mutationFn: async ({ content, imageUrl }: { content: string; imageUrl?: string | null }) => {
-      const res = await fetch(api.posts.create.path, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ content, imageUrl }) });
+      const res = await authFetch(api.posts.create.path, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ content, imageUrl }) });
       if (!res.ok) throw new Error("Error al publicar mensaje");
       return res.json();
     },
@@ -179,7 +184,7 @@ export function useDeleteMemberPost() {
   return useMutation({
     mutationFn: async (id: number) => {
       const url = buildUrl(api.posts.delete.path, { id });
-      const res = await fetch(url, { method: "DELETE" });
+      const res = await authFetch(url, { method: "DELETE" });
       if (!res.ok) throw new Error("Error al eliminar publicacion");
     },
     onSuccess: () => {
@@ -193,7 +198,7 @@ export function useEvents() {
   return useQuery({
     queryKey: [api.events.list.path],
     queryFn: async () => {
-      const res = await fetch(api.events.list.path, { credentials: "include" });
+      const res = await authFetch(api.events.list.path, { credentials: "include" });
       if (!res.ok) throw new Error("Error al obtener eventos");
       return res.json();
     },
@@ -205,7 +210,7 @@ export function useEvent(id: number) {
     queryKey: [api.events.get.path, id],
     queryFn: async () => {
       const url = buildUrl(api.events.get.path, { id });
-      const res = await fetch(url, { credentials: "include" });
+      const res = await authFetch(url, { credentials: "include" });
       if (!res.ok) throw new Error("Error al obtener evento");
       return res.json();
     },
@@ -218,7 +223,7 @@ export function useCreateEvent() {
   const { toast } = useToast();
   return useMutation({
     mutationFn: async (data: InsertEvent) => {
-      const res = await fetch(api.events.create.path, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data), credentials: "include" });
+      const res = await authFetch(api.events.create.path, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data), credentials: "include" });
       if (!res.ok) {
         const errData = await res.json().catch(() => null);
         if (res.status === 401) {
@@ -244,7 +249,7 @@ export function useUpdateEvent() {
   return useMutation({
     mutationFn: async ({ id, updates }: { id: number; updates: UpdateEvent }) => {
       const url = buildUrl(api.events.update.path, { id });
-      const res = await fetch(url, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(updates), credentials: "include" });
+      const res = await authFetch(url, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(updates), credentials: "include" });
       if (!res.ok) {
         const errData = await res.json().catch(() => null);
         if (res.status === 401) {
@@ -269,7 +274,7 @@ export function useDeleteEvent() {
   return useMutation({
     mutationFn: async (id: number) => {
       const url = buildUrl(api.events.delete.path, { id });
-      const res = await fetch(url, { method: "DELETE", credentials: "include" });
+      const res = await authFetch(url, { method: "DELETE", credentials: "include" });
       if (!res.ok) {
         const errData = await res.json().catch(() => null);
         throw new Error(errData?.message || `Error al eliminar evento (${res.status})`);
@@ -290,7 +295,7 @@ export function useEventRsvps(eventId: number) {
     queryKey: [api.eventRsvps.list.path, eventId],
     queryFn: async () => {
       const url = buildUrl(api.eventRsvps.list.path, { eventId });
-      const res = await fetch(url, { credentials: "include" });
+      const res = await authFetch(url, { credentials: "include" });
       if (!res.ok) throw new Error("Error al obtener confirmaciones");
       return res.json();
     },
@@ -303,7 +308,7 @@ export function useMyEventRsvp(eventId: number) {
     queryKey: [api.eventRsvps.myRsvp.path, eventId],
     queryFn: async () => {
       const url = buildUrl(api.eventRsvps.myRsvp.path, { eventId });
-      const res = await fetch(url, { credentials: "include" });
+      const res = await authFetch(url, { credentials: "include" });
       if (!res.ok) throw new Error("Error");
       return res.json();
     },
@@ -317,7 +322,7 @@ export function useRsvpEvent() {
   return useMutation({
     mutationFn: async ({ eventId, status, reminder }: { eventId: number; status?: string; reminder?: boolean }) => {
       const url = buildUrl(api.eventRsvps.upsert.path, { eventId });
-      const res = await fetch(url, {
+      const res = await authFetch(url, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ eventId, status: status || "confirmado", reminder: reminder ?? true }),
@@ -347,7 +352,7 @@ export function useCancelRsvp() {
   return useMutation({
     mutationFn: async (eventId: number) => {
       const url = buildUrl(api.eventRsvps.cancel.path, { eventId });
-      const res = await fetch(url, { method: "DELETE", credentials: "include" });
+      const res = await authFetch(url, { method: "DELETE", credentials: "include" });
       if (!res.ok) {
         const errData = await res.json().catch(() => null);
         throw new Error(errData?.message || `Error al cancelar confirmacion (${res.status})`);
@@ -369,7 +374,7 @@ export function usePrayerAttendees(activityId: number) {
     queryKey: [api.prayerAttendees.list.path, activityId],
     queryFn: async () => {
       const url = buildUrl(api.prayerAttendees.list.path, { activityId });
-      const res = await fetch(url);
+      const res = await authFetch(url);
       if (!res.ok) throw new Error("Error al obtener asistentes");
       return res.json();
     },
@@ -382,7 +387,7 @@ export function useMyPrayerAttendance(activityId: number) {
     queryKey: [api.prayerAttendees.myAttendance.path, activityId],
     queryFn: async () => {
       const url = buildUrl(api.prayerAttendees.myAttendance.path, { activityId });
-      const res = await fetch(url);
+      const res = await authFetch(url);
       if (!res.ok) throw new Error("Error");
       return res.json();
     },
@@ -396,7 +401,7 @@ export function useAttendPrayer() {
   return useMutation({
     mutationFn: async ({ activityId, status }: { activityId: number; status?: string }) => {
       const url = buildUrl(api.prayerAttendees.upsert.path, { activityId });
-      const res = await fetch(url, {
+      const res = await authFetch(url, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ activityId, status: status || "confirmado" }),
@@ -422,7 +427,7 @@ export function useCancelPrayerAttendance() {
   return useMutation({
     mutationFn: async (activityId: number) => {
       const url = buildUrl(api.prayerAttendees.cancel.path, { activityId });
-      const res = await fetch(url, { method: "DELETE" });
+      const res = await authFetch(url, { method: "DELETE" });
       if (!res.ok) throw new Error("Error al cancelar asistencia");
     },
     onSuccess: (_data, activityId) => {
@@ -439,7 +444,7 @@ export function useSiteContent(key: string) {
     queryKey: [api.siteContent.get.path, key],
     queryFn: async () => {
       const url = buildUrl(api.siteContent.get.path, { key });
-      const res = await fetch(url);
+      const res = await authFetch(url);
       if (!res.ok) throw new Error("Error al obtener contenido");
       return res.json();
     },
@@ -450,7 +455,7 @@ export function useAllSiteContent() {
   return useQuery({
     queryKey: [api.siteContent.list.path],
     queryFn: async () => {
-      const res = await fetch(api.siteContent.list.path);
+      const res = await authFetch(api.siteContent.list.path);
       if (!res.ok) throw new Error("Error al obtener contenido");
       return res.json();
     },
@@ -463,7 +468,7 @@ export function useUpdateSiteContent() {
   return useMutation({
     mutationFn: async ({ key, data }: { key: string; data: UpdateSiteContent }) => {
       const url = buildUrl(api.siteContent.update.path, { key });
-      const res = await fetch(url, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) });
+      const res = await authFetch(url, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) });
       if (!res.ok) throw new Error("Error al actualizar contenido");
       return res.json();
     },
@@ -487,7 +492,7 @@ export function useCourses(params?: { search?: string; category?: string; teache
   return useQuery({
     queryKey: [api.courses.list.path, params?.search || "", params?.category || "", params?.teacher || ""],
     queryFn: async () => {
-      const res = await fetch(`${api.courses.list.path}${qs ? `?${qs}` : ""}`);
+      const res = await authFetch(`${api.courses.list.path}${qs ? `?${qs}` : ""}`);
       if (!res.ok) throw new Error("Error al obtener cursos");
       return res.json();
     },
@@ -499,7 +504,7 @@ export function useCourse(id: number) {
     queryKey: [api.courses.get.path, id],
     queryFn: async () => {
       const url = buildUrl(api.courses.get.path, { id });
-      const res = await fetch(url);
+      const res = await authFetch(url);
       if (!res.ok) throw new Error("Error al obtener curso");
       return res.json();
     },
@@ -512,7 +517,7 @@ export function useCreateCourse() {
   const { toast } = useToast();
   return useMutation({
     mutationFn: async (data: InsertCourse) => {
-      const res = await fetch(api.courses.create.path, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) });
+      const res = await authFetch(api.courses.create.path, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) });
       if (!res.ok) throw new Error("Error al crear curso");
       return res.json();
     },
@@ -530,7 +535,7 @@ export function useUpdateCourse() {
   return useMutation({
     mutationFn: async ({ id, updates }: { id: number; updates: UpdateCourse }) => {
       const url = buildUrl(api.courses.update.path, { id });
-      const res = await fetch(url, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(updates) });
+      const res = await authFetch(url, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(updates) });
       if (!res.ok) throw new Error("Error al actualizar curso");
       return res.json();
     },
@@ -552,7 +557,7 @@ export function useDeleteCourse() {
   return useMutation({
     mutationFn: async (id: number) => {
       const url = buildUrl(api.courses.delete.path, { id });
-      const res = await fetch(url, { method: "DELETE" });
+      const res = await authFetch(url, { method: "DELETE" });
       if (!res.ok) throw new Error("Error al eliminar curso");
     },
     onSuccess: () => {
@@ -569,7 +574,7 @@ export function useCourseMaterials(courseId: number) {
     queryKey: [api.courseMaterials.list.path, courseId],
     queryFn: async () => {
       const url = buildUrl(api.courseMaterials.list.path, { courseId });
-      const res = await fetch(url);
+      const res = await authFetch(url);
       if (!res.ok) throw new Error("Error al obtener materiales");
       return res.json();
     },
@@ -583,7 +588,7 @@ export function useCreateCourseMaterial() {
   return useMutation({
     mutationFn: async (data: InsertCourseMaterial) => {
       const url = buildUrl(api.courseMaterials.list.path, { courseId: data.courseId });
-      const res = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) });
+      const res = await authFetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) });
       if (!res.ok) throw new Error("Error al crear material");
       return res.json();
     },
@@ -601,7 +606,7 @@ export function useUpdateCourseMaterial() {
   return useMutation({
     mutationFn: async ({ id, courseId, updates }: { id: number; courseId: number; updates: UpdateCourseMaterial }) => {
       const url = buildUrl(api.courseMaterials.update.path, { id });
-      const res = await fetch(url, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(updates) });
+      const res = await authFetch(url, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(updates) });
       if (!res.ok) throw new Error("Error al actualizar material");
       return res.json();
     },
@@ -619,7 +624,7 @@ export function useDeleteCourseMaterial() {
   return useMutation({
     mutationFn: async ({ id, courseId }: { id: number; courseId: number }) => {
       const url = buildUrl(api.courseMaterials.delete.path, { id });
-      const res = await fetch(url, { method: "DELETE" });
+      const res = await authFetch(url, { method: "DELETE" });
       if (!res.ok) throw new Error("Error al eliminar material");
     },
     onSuccess: (_, variables) => {
@@ -636,7 +641,7 @@ export function useCourseSessions(courseId: number) {
     queryKey: [api.courseSessions.list.path, courseId],
     queryFn: async () => {
       const url = buildUrl(api.courseSessions.list.path, { courseId });
-      const res = await fetch(url);
+      const res = await authFetch(url);
       if (!res.ok) throw new Error("Error al obtener sesiones");
       return res.json();
     },
@@ -650,7 +655,7 @@ export function useCreateCourseSession() {
   return useMutation({
     mutationFn: async (data: InsertCourseSession) => {
       const url = buildUrl(api.courseSessions.list.path, { courseId: data.courseId });
-      const res = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) });
+      const res = await authFetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) });
       if (!res.ok) throw new Error("Error al crear sesion");
       return res.json();
     },
@@ -668,7 +673,7 @@ export function useUpdateCourseSession() {
   return useMutation({
     mutationFn: async ({ id, courseId, updates }: { id: number; courseId: number; updates: UpdateCourseSession }) => {
       const url = buildUrl(api.courseSessions.update.path, { id });
-      const res = await fetch(url, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(updates) });
+      const res = await authFetch(url, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(updates) });
       if (!res.ok) throw new Error("Error al actualizar sesion");
       return res.json();
     },
@@ -686,7 +691,7 @@ export function useDeleteCourseSession() {
   return useMutation({
     mutationFn: async ({ id, courseId }: { id: number; courseId: number }) => {
       const url = buildUrl(api.courseSessions.delete.path, { id });
-      const res = await fetch(url, { method: "DELETE" });
+      const res = await authFetch(url, { method: "DELETE" });
       if (!res.ok) throw new Error("Error al eliminar sesion");
     },
     onSuccess: (_, variables) => {
@@ -702,7 +707,7 @@ export function useMyEnrollments() {
   return useQuery({
     queryKey: [api.enrollments.list.path],
     queryFn: async () => {
-      const res = await fetch(api.enrollments.list.path);
+      const res = await authFetch(api.enrollments.list.path);
       if (!res.ok) throw new Error("Error al obtener inscripciones");
       return res.json();
     },
@@ -714,7 +719,7 @@ export function useCourseEnrollments(courseId: number) {
     queryKey: [api.enrollments.listByCourse.path, courseId],
     queryFn: async () => {
       const url = buildUrl(api.enrollments.listByCourse.path, { courseId });
-      const res = await fetch(url);
+      const res = await authFetch(url);
       if (!res.ok) throw new Error("Error al obtener inscripciones");
       return res.json();
     },
@@ -727,7 +732,7 @@ export function useCreateEnrollment() {
   const { toast } = useToast();
   return useMutation({
     mutationFn: async (courseId: number) => {
-      const res = await fetch(api.enrollments.create.path, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ courseId }) });
+      const res = await authFetch(api.enrollments.create.path, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ courseId }) });
       if (!res.ok) {
         const data = await res.json().catch(() => null);
         throw new Error(data?.message || "Error al solicitar inscripcion");
@@ -748,7 +753,7 @@ export function useUpdateEnrollment() {
   return useMutation({
     mutationFn: async ({ id, courseId, updates }: { id: number; courseId: number; updates: UpdateEnrollment }) => {
       const url = buildUrl(api.enrollments.update.path, { id });
-      const res = await fetch(url, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(updates) });
+      const res = await authFetch(url, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(updates) });
       if (!res.ok) throw new Error("Error al actualizar inscripcion");
       return res.json();
     },
@@ -769,7 +774,7 @@ export function useDeleteEnrollment() {
   return useMutation({
     mutationFn: async ({ id, courseId }: { id: number; courseId: number }) => {
       const url = buildUrl(api.enrollments.delete.path, { id });
-      const res = await fetch(url, { method: "DELETE" });
+      const res = await authFetch(url, { method: "DELETE" });
       if (!res.ok) throw new Error("Error al cancelar inscripcion");
     },
     onSuccess: (_, variables) => {
@@ -785,7 +790,7 @@ export function useTeacherRequests() {
   return useQuery({
     queryKey: [api.teacherRequests.list.path],
     queryFn: async () => {
-      const res = await fetch(api.teacherRequests.list.path);
+      const res = await authFetch(api.teacherRequests.list.path);
       if (!res.ok) throw new Error("Error al obtener solicitudes de maestros");
       return res.json();
     },
@@ -796,7 +801,7 @@ export function useMyTeacherRequests() {
   return useQuery({
     queryKey: [api.teacherRequests.myRequests.path],
     queryFn: async () => {
-      const res = await fetch(api.teacherRequests.myRequests.path);
+      const res = await authFetch(api.teacherRequests.myRequests.path);
       if (!res.ok) throw new Error("Error al obtener mis solicitudes");
       return res.json();
     },
@@ -808,7 +813,7 @@ export function useCreateTeacherRequest() {
   const { toast } = useToast();
   return useMutation({
     mutationFn: async ({ courseId, message }: { courseId: number; message?: string }) => {
-      const res = await fetch(api.teacherRequests.create.path, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ courseId, message }) });
+      const res = await authFetch(api.teacherRequests.create.path, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ courseId, message }) });
       if (!res.ok) {
         const data = await res.json().catch(() => null);
         throw new Error(data?.message || "Error al enviar solicitud");
@@ -830,7 +835,7 @@ export function useUpdateTeacherRequest() {
   return useMutation({
     mutationFn: async ({ id, updates }: { id: number; updates: UpdateTeacherRequest }) => {
       const url = buildUrl(api.teacherRequests.update.path, { id });
-      const res = await fetch(url, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(updates) });
+      const res = await authFetch(url, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(updates) });
       if (!res.ok) throw new Error("Error al actualizar solicitud");
       return res.json();
     },
@@ -851,7 +856,7 @@ export function useDeleteTeacherRequest() {
   return useMutation({
     mutationFn: async (id: number) => {
       const url = buildUrl(api.teacherRequests.delete.path, { id });
-      const res = await fetch(url, { method: "DELETE" });
+      const res = await authFetch(url, { method: "DELETE" });
       if (!res.ok) throw new Error("Error al eliminar solicitud");
     },
     onSuccess: () => {
@@ -870,7 +875,7 @@ export function useCourseAnnouncements(courseId: number) {
     queryKey: [api.courseAnnouncements.list.path, courseId],
     queryFn: async () => {
       const url = buildUrl(api.courseAnnouncements.list.path, { courseId });
-      const res = await fetch(url);
+      const res = await authFetch(url);
       if (!res.ok) throw new Error("Error al obtener anuncios");
       return res.json();
     },
@@ -884,7 +889,7 @@ export function useCreateCourseAnnouncement() {
   return useMutation({
     mutationFn: async (data: InsertCourseAnnouncement) => {
       const url = buildUrl(api.courseAnnouncements.list.path, { courseId: data.courseId });
-      const res = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) });
+      const res = await authFetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) });
       if (!res.ok) throw new Error("Error al crear anuncio");
       return res.json();
     },
@@ -902,7 +907,7 @@ export function useDeleteCourseAnnouncement() {
   return useMutation({
     mutationFn: async ({ id, courseId }: { id: number; courseId: number }) => {
       const url = buildUrl(api.courseAnnouncements.delete.path, { id });
-      const res = await fetch(url, { method: "DELETE" });
+      const res = await authFetch(url, { method: "DELETE" });
       if (!res.ok) throw new Error("Error al eliminar anuncio");
     },
     onSuccess: (_, variables) => {
@@ -919,7 +924,7 @@ export function useCourseSchedule(courseId: number) {
     queryKey: [api.courseScheduleEntries.list.path, courseId],
     queryFn: async () => {
       const url = buildUrl(api.courseScheduleEntries.list.path, { courseId });
-      const res = await fetch(url);
+      const res = await authFetch(url);
       if (!res.ok) throw new Error("Error al obtener horario");
       return res.json();
     },
@@ -933,7 +938,7 @@ export function useCreateCourseScheduleEntry() {
   return useMutation({
     mutationFn: async (data: InsertCourseSchedule) => {
       const url = buildUrl(api.courseScheduleEntries.list.path, { courseId: data.courseId });
-      const res = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) });
+      const res = await authFetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) });
       if (!res.ok) throw new Error("Error al crear horario");
       return res.json();
     },
@@ -951,7 +956,7 @@ export function useDeleteCourseScheduleEntry() {
   return useMutation({
     mutationFn: async ({ id, courseId }: { id: number; courseId: number }) => {
       const url = buildUrl(api.courseScheduleEntries.delete.path, { id });
-      const res = await fetch(url, { method: "DELETE" });
+      const res = await authFetch(url, { method: "DELETE" });
       if (!res.ok) throw new Error("Error al eliminar horario");
     },
     onSuccess: (_, variables) => {
@@ -968,7 +973,7 @@ export function useSessionAttendance(sessionId: number) {
     queryKey: [api.sessionAttendance.list.path, sessionId],
     queryFn: async () => {
       const url = buildUrl(api.sessionAttendance.list.path, { sessionId });
-      const res = await fetch(url);
+      const res = await authFetch(url);
       if (!res.ok) throw new Error("Error al obtener asistencia");
       return res.json();
     },
@@ -982,7 +987,7 @@ export function useUpsertSessionAttendance() {
   return useMutation({
     mutationFn: async (data: { sessionId: number; userId: number; status?: string }) => {
       const url = buildUrl(api.sessionAttendance.list.path, { sessionId: data.sessionId });
-      const res = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) });
+      const res = await authFetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) });
       if (!res.ok) throw new Error("Error al registrar asistencia");
       return res.json();
     },
@@ -1003,7 +1008,7 @@ export function useBibleHighlights(book?: string, chapter?: number) {
   return useQuery({
     queryKey: [api.bibleHighlights.list.path, book || "", chapter ?? ""],
     queryFn: async () => {
-      const res = await fetch(`${api.bibleHighlights.list.path}${qs ? `?${qs}` : ""}`);
+      const res = await authFetch(`${api.bibleHighlights.list.path}${qs ? `?${qs}` : ""}`);
       if (!res.ok) return [];
       return res.json();
     },
@@ -1014,7 +1019,7 @@ export function useCreateBibleHighlight() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (data: InsertBibleHighlight) => {
-      const res = await fetch(api.bibleHighlights.create.path, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) });
+      const res = await authFetch(api.bibleHighlights.create.path, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) });
       if (!res.ok) throw new Error("Error al crear resaltado");
       return res.json();
     },
@@ -1027,7 +1032,7 @@ export function useDeleteBibleHighlight() {
   return useMutation({
     mutationFn: async (id: number) => {
       const url = buildUrl(api.bibleHighlights.delete.path, { id });
-      const res = await fetch(url, { method: "DELETE" });
+      const res = await authFetch(url, { method: "DELETE" });
       if (!res.ok) throw new Error("Error al eliminar resaltado");
     },
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: [api.bibleHighlights.list.path] }); },
@@ -1043,7 +1048,7 @@ export function useBibleNotes(book?: string, chapter?: number) {
   return useQuery({
     queryKey: [api.bibleNotes.list.path, book || "", chapter ?? ""],
     queryFn: async () => {
-      const res = await fetch(`${api.bibleNotes.list.path}${qs ? `?${qs}` : ""}`);
+      const res = await authFetch(`${api.bibleNotes.list.path}${qs ? `?${qs}` : ""}`);
       if (!res.ok) return [];
       return res.json();
     },
@@ -1055,7 +1060,7 @@ export function useCreateBibleNote() {
   const { toast } = useToast();
   return useMutation({
     mutationFn: async (data: InsertBibleNote) => {
-      const res = await fetch(api.bibleNotes.create.path, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) });
+      const res = await authFetch(api.bibleNotes.create.path, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) });
       if (!res.ok) throw new Error("Error al crear nota");
       return res.json();
     },
@@ -1072,7 +1077,7 @@ export function useDeleteBibleNote() {
   return useMutation({
     mutationFn: async (id: number) => {
       const url = buildUrl(api.bibleNotes.delete.path, { id });
-      const res = await fetch(url, { method: "DELETE" });
+      const res = await authFetch(url, { method: "DELETE" });
       if (!res.ok) throw new Error("Error al eliminar nota");
     },
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: [api.bibleNotes.list.path] }); },
@@ -1084,7 +1089,7 @@ export function useReadingPlans(isPublic?: boolean) {
   return useQuery({
     queryKey: [api.readingPlans.list.path, isPublic ? "public" : "mine"],
     queryFn: async () => {
-      const res = await fetch(`${api.readingPlans.list.path}${isPublic ? "?public=true" : ""}`);
+      const res = await authFetch(`${api.readingPlans.list.path}${isPublic ? "?public=true" : ""}`);
       if (!res.ok) return [];
       return res.json();
     },
@@ -1096,7 +1101,7 @@ export function useReadingPlan(id: number) {
     queryKey: [api.readingPlans.get.path, id],
     queryFn: async () => {
       const url = buildUrl(api.readingPlans.get.path, { id });
-      const res = await fetch(url);
+      const res = await authFetch(url);
       if (!res.ok) throw new Error("Error al obtener plan");
       return res.json();
     },
@@ -1109,7 +1114,7 @@ export function useCreateReadingPlan() {
   const { toast } = useToast();
   return useMutation({
     mutationFn: async (data: InsertReadingPlan) => {
-      const res = await fetch(api.readingPlans.create.path, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) });
+      const res = await authFetch(api.readingPlans.create.path, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) });
       if (!res.ok) throw new Error("Error al crear plan");
       return res.json();
     },
@@ -1127,7 +1132,7 @@ export function useDeleteReadingPlan() {
   return useMutation({
     mutationFn: async (id: number) => {
       const url = buildUrl(api.readingPlans.delete.path, { id });
-      const res = await fetch(url, { method: "DELETE" });
+      const res = await authFetch(url, { method: "DELETE" });
       if (!res.ok) throw new Error("Error al eliminar plan");
     },
     onSuccess: () => {
@@ -1143,7 +1148,7 @@ export function useAddReadingPlanItem() {
   return useMutation({
     mutationFn: async ({ planId, data }: { planId: number; data: Omit<InsertReadingPlanItem, "planId"> }) => {
       const url = buildUrl(api.readingPlans.addItem.path, { id: planId });
-      const res = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...data, planId }) });
+      const res = await authFetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...data, planId }) });
       if (!res.ok) throw new Error("Error al agregar lectura");
       return res.json();
     },
@@ -1158,7 +1163,7 @@ export function useToggleReadingPlanItem() {
   return useMutation({
     mutationFn: async ({ id, planId }: { id: number; planId: number }) => {
       const url = buildUrl(api.readingPlans.toggleItem.path, { id });
-      const res = await fetch(url, { method: "PATCH" });
+      const res = await authFetch(url, { method: "PATCH" });
       if (!res.ok) throw new Error("Error al actualizar lectura");
       return res.json();
     },
@@ -1174,7 +1179,7 @@ export function useDeleteReadingPlanItem() {
   return useMutation({
     mutationFn: async ({ id, planId }: { id: number; planId: number }) => {
       const url = buildUrl(api.readingPlans.deleteItem.path, { id });
-      const res = await fetch(url, { method: "DELETE" });
+      const res = await authFetch(url, { method: "DELETE" });
       if (!res.ok) throw new Error("Error al eliminar lectura");
     },
     onSuccess: (_, variables) => {
@@ -1188,7 +1193,7 @@ export function useReadingClubPosts() {
   return useQuery({
     queryKey: [api.readingClub.list.path],
     queryFn: async () => {
-      const res = await fetch(api.readingClub.list.path);
+      const res = await authFetch(api.readingClub.list.path);
       if (!res.ok) return [];
       return res.json();
     },
@@ -1200,7 +1205,7 @@ export function useCreateReadingClubPost() {
   const { toast } = useToast();
   return useMutation({
     mutationFn: async (data: InsertReadingClubPost) => {
-      const res = await fetch(api.readingClub.create.path, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) });
+      const res = await authFetch(api.readingClub.create.path, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) });
       if (!res.ok) throw new Error("Error al publicar reflexion");
       return res.json();
     },
@@ -1217,7 +1222,7 @@ export function useDeleteReadingClubPost() {
   return useMutation({
     mutationFn: async (id: number) => {
       const url = buildUrl(api.readingClub.delete.path, { id });
-      const res = await fetch(url, { method: "DELETE" });
+      const res = await authFetch(url, { method: "DELETE" });
       if (!res.ok) throw new Error("Error al eliminar reflexion");
     },
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: [api.readingClub.list.path] }); },
@@ -1229,7 +1234,7 @@ export function useReadingClubComments(postId: number) {
     queryKey: [api.readingClub.listComments.path, postId],
     queryFn: async () => {
       const url = buildUrl(api.readingClub.listComments.path, { id: postId });
-      const res = await fetch(url);
+      const res = await authFetch(url);
       if (!res.ok) return [];
       return res.json();
     },
@@ -1242,7 +1247,7 @@ export function useCreateReadingClubComment() {
   return useMutation({
     mutationFn: async ({ postId, content }: { postId: number; content: string }) => {
       const url = buildUrl(api.readingClub.createComment.path, { id: postId });
-      const res = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ postId, content }) });
+      const res = await authFetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ postId, content }) });
       if (!res.ok) throw new Error("Error al comentar");
       return res.json();
     },
@@ -1258,7 +1263,7 @@ export function useReadingClubLikedPosts() {
   return useQuery({
     queryKey: ["/api/reading-club/my-likes"],
     queryFn: async () => {
-      const res = await fetch("/api/reading-club/my-likes");
+      const res = await authFetch("/api/reading-club/my-likes");
       if (!res.ok) return [];
       return res.json() as Promise<number[]>;
     },
@@ -1270,7 +1275,7 @@ export function useToggleReadingClubPostLike() {
   return useMutation({
     mutationFn: async (postId: number) => {
       const url = buildUrl(api.readingClubLikes.toggle.path, { id: postId });
-      const res = await fetch(url, { method: "POST" });
+      const res = await authFetch(url, { method: "POST" });
       if (!res.ok) throw new Error("Error al dar like");
       return res.json();
     },
@@ -1288,7 +1293,7 @@ export function useUpdateUserInfo() {
   return useMutation({
     mutationFn: async ({ id, cargo, country }: { id: number; cargo: string | null; country: string | null }) => {
       const url = buildUrl(api.admin.updateUserInfo.path, { id });
-      const res = await fetch(url, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ cargo, country }) });
+      const res = await authFetch(url, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ cargo, country }) });
       if (!res.ok) throw new Error("Error al actualizar info");
       return res.json();
     },
@@ -1305,7 +1310,7 @@ export function useWhatsappLink() {
   return useQuery({
     queryKey: [api.admin.getWhatsappLink.path],
     queryFn: async () => {
-      const res = await fetch(api.admin.getWhatsappLink.path);
+      const res = await authFetch(api.admin.getWhatsappLink.path);
       if (!res.ok) return { link: "" };
       return res.json() as Promise<{ link: string }>;
     },
@@ -1317,7 +1322,7 @@ export function useUpdateWhatsappLink() {
   const { toast } = useToast();
   return useMutation({
     mutationFn: async (link: string) => {
-      const res = await fetch(api.admin.updateWhatsappLink.path, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ link }) });
+      const res = await authFetch(api.admin.updateWhatsappLink.path, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ link }) });
       if (!res.ok) throw new Error("Error al actualizar enlace");
       return res.json();
     },
@@ -1338,7 +1343,7 @@ export function useLibraryResources(category?: string, search?: string) {
   return useQuery({
     queryKey: [api.libraryResources.list.path, category || "", search || ""],
     queryFn: async () => {
-      const res = await fetch(`${api.libraryResources.list.path}${qs ? `?${qs}` : ""}`);
+      const res = await authFetch(`${api.libraryResources.list.path}${qs ? `?${qs}` : ""}`);
       if (!res.ok) return [];
       return res.json();
     },
@@ -1350,7 +1355,7 @@ export function useCreateLibraryResource() {
   const { toast } = useToast();
   return useMutation({
     mutationFn: async (data: InsertLibraryResource) => {
-      const res = await fetch(api.libraryResources.create.path, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) });
+      const res = await authFetch(api.libraryResources.create.path, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) });
       if (!res.ok) throw new Error("Error al compartir recurso");
       return res.json();
     },
@@ -1368,7 +1373,7 @@ export function useDeleteLibraryResource() {
   return useMutation({
     mutationFn: async (id: number) => {
       const url = buildUrl(api.libraryResources.delete.path, { id });
-      const res = await fetch(url, { method: "DELETE" });
+      const res = await authFetch(url, { method: "DELETE" });
       if (!res.ok) throw new Error("Error al eliminar recurso");
     },
     onSuccess: () => {
@@ -1384,7 +1389,7 @@ export function useToggleLibraryResourceLike() {
   return useMutation({
     mutationFn: async (id: number) => {
       const url = buildUrl(api.libraryResources.toggleLike.path, { id });
-      const res = await fetch(url, { method: "POST" });
+      const res = await authFetch(url, { method: "POST" });
       if (!res.ok) throw new Error("Error");
       return res.json();
     },
@@ -1396,7 +1401,7 @@ export function useLiveStreamConfig() {
   return useQuery({
     queryKey: [api.admin.getLiveStream.path],
     queryFn: async () => {
-      const res = await fetch(api.admin.getLiveStream.path);
+      const res = await authFetch(api.admin.getLiveStream.path);
       if (!res.ok) {
         // Return default config on error instead of throwing
         return { sourceType: "radio", sourceUrl: "", radioUrl: "", title: "", isLive: false };
@@ -1414,7 +1419,7 @@ export function useUpdateLiveStream() {
   const { toast } = useToast();
   return useMutation({
     mutationFn: async (config: { sourceType: string; sourceUrl: string; radioUrl: string; title: string; isLive: boolean }) => {
-      const res = await fetch(api.admin.updateLiveStream.path, {
+      const res = await authFetch(api.admin.updateLiveStream.path, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(config),
@@ -1435,7 +1440,7 @@ export function useAdminUserDetail(userId: number | null) {
     queryKey: [api.admin.getUserDetail.path, userId],
     queryFn: async () => {
       const url = buildUrl(api.admin.getUserDetail.path, { id: userId! });
-      const res = await fetch(url);
+      const res = await authFetch(url);
       if (!res.ok) throw new Error("Error al obtener detalles del usuario");
       return res.json();
     },
@@ -1449,7 +1454,7 @@ export function usePostComments(postId: number) {
     queryKey: [api.postComments.list.path, postId],
     queryFn: async () => {
       const url = buildUrl(api.postComments.list.path, { postId });
-      const res = await fetch(url);
+      const res = await authFetch(url);
       if (!res.ok) throw new Error("Error al obtener comentarios");
       return res.json();
     },
@@ -1463,7 +1468,7 @@ export function useCreatePostComment() {
   return useMutation({
     mutationFn: async ({ postId, content }: { postId: number; content: string }) => {
       const url = buildUrl(api.postComments.create.path, { postId });
-      const res = await fetch(url, {
+      const res = await authFetch(url, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ postId, content }),
@@ -1485,7 +1490,7 @@ export function useDeletePostComment() {
   return useMutation({
     mutationFn: async ({ id, postId }: { id: number; postId: number }) => {
       const url = buildUrl(api.postComments.delete.path, { id });
-      const res = await fetch(url, { method: "DELETE" });
+      const res = await authFetch(url, { method: "DELETE" });
       if (!res.ok) throw new Error("Error al eliminar comentario");
     },
     onSuccess: (_data, variables) => {
@@ -1501,7 +1506,7 @@ export function useConversations() {
   return useQuery({
     queryKey: [api.directMessages.conversations.path],
     queryFn: async () => {
-      const res = await fetch(api.directMessages.conversations.path);
+      const res = await authFetch(api.directMessages.conversations.path);
       if (!res.ok) throw new Error("Error al obtener conversaciones");
       return res.json();
     },
@@ -1514,7 +1519,7 @@ export function useDirectMessages(userId: number | null) {
     queryKey: [api.directMessages.list.path, userId],
     queryFn: async () => {
       const url = buildUrl(api.directMessages.list.path, { userId: userId! });
-      const res = await fetch(url);
+      const res = await authFetch(url);
       if (!res.ok) throw new Error("Error al obtener mensajes");
       return res.json();
     },
@@ -1527,7 +1532,7 @@ export function useSendDirectMessage() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async ({ receiverId, content }: { receiverId: number; content: string }) => {
-      const res = await fetch(api.directMessages.send.path, {
+      const res = await authFetch(api.directMessages.send.path, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ receiverId, content }),
@@ -1546,7 +1551,7 @@ export function useUnreadMessageCount() {
   return useQuery({
     queryKey: [api.directMessages.unreadCount.path],
     queryFn: async () => {
-      const res = await fetch(api.directMessages.unreadCount.path);
+      const res = await authFetch(api.directMessages.unreadCount.path);
       if (!res.ok) throw new Error("Error");
       return res.json();
     },

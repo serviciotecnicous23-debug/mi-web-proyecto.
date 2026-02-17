@@ -65,8 +65,10 @@ export default function Profile() {
   const { data: searchResults = [] } = useQuery<any[]>({
     queryKey: ["/api/friends/search", searchQuery],
     queryFn: async () => {
-      const res = await fetch(`/api/friends/search?q=${encodeURIComponent(searchQuery)}`);
-      if (!res.ok) throw new Error("Error");
+      const res = await fetch(`/api/friends/search?q=${encodeURIComponent(searchQuery)}`, {
+        credentials: "include",
+      });
+      if (!res.ok) throw new Error("Error al buscar usuarios");
       return res.json();
     },
     enabled: !!user && searchQuery.length > 0,
@@ -78,10 +80,11 @@ export default function Profile() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ addresseeId }),
+        credentials: "include",
       });
       if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.message || "Error");
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.message || "Error al enviar solicitud");
       }
       return res.json();
     },
@@ -95,8 +98,11 @@ export default function Profile() {
 
   const acceptMutation = useMutation({
     mutationFn: async (id: number) => {
-      const res = await fetch(`/api/friends/${id}/accept`, { method: "PATCH" });
-      if (!res.ok) throw new Error("Error");
+      const res = await fetch(`/api/friends/${id}/accept`, { method: "PATCH", credentials: "include" });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.message || "Error al aceptar solicitud");
+      }
       return res.json();
     },
     onSuccess: () => {
@@ -108,8 +114,11 @@ export default function Profile() {
 
   const rejectMutation = useMutation({
     mutationFn: async (id: number) => {
-      const res = await fetch(`/api/friends/${id}/reject`, { method: "PATCH" });
-      if (!res.ok) throw new Error("Error");
+      const res = await fetch(`/api/friends/${id}/reject`, { method: "PATCH", credentials: "include" });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.message || "Error al rechazar solicitud");
+      }
       return res.json();
     },
     onSuccess: () => {
@@ -120,8 +129,11 @@ export default function Profile() {
 
   const removeFriendMutation = useMutation({
     mutationFn: async (id: number) => {
-      const res = await fetch(`/api/friends/${id}`, { method: "DELETE" });
-      if (!res.ok) throw new Error("Error");
+      const res = await fetch(`/api/friends/${id}`, { method: "DELETE", credentials: "include" });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.message || "Error al eliminar amigo");
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/friends"] });
@@ -177,6 +189,7 @@ export default function Profile() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ currentPassword, newPassword }),
+        credentials: "include",
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.message);
@@ -210,7 +223,7 @@ export default function Profile() {
     try {
       const formData = new FormData();
       formData.append("avatar", file);
-      const res = await fetch("/api/upload/avatar", { method: "POST", body: formData });
+      const res = await fetch("/api/upload/avatar", { method: "POST", body: formData, credentials: "include" });
       if (!res.ok) throw new Error("Error al subir imagen");
       const data = await res.json();
       // Update user cache immediately with new avatar URL

@@ -27,8 +27,10 @@ export default function Mensajes() {
   const { data: searchResults = [] } = useQuery<any[]>({
     queryKey: ["/api/friends/search", searchQuery],
     queryFn: async () => {
-      const res = await fetch(`/api/friends/search?q=${encodeURIComponent(searchQuery)}`);
-      if (!res.ok) throw new Error("Error");
+      const res = await fetch(`/api/friends/search?q=${encodeURIComponent(searchQuery)}`, {
+        credentials: "include",
+      });
+      if (!res.ok) throw new Error("Error al buscar");
       return res.json();
     },
     enabled: !!user && searchQuery.length > 0,

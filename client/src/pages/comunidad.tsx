@@ -146,7 +146,7 @@ export default function Comunidad() {
     try {
       const formData = new FormData();
       formData.append("image", file);
-      const res = await fetch("/api/upload/post-image", { method: "POST", body: formData });
+      const res = await fetch("/api/upload/post-image", { method: "POST", body: formData, credentials: "include" });
       if (!res.ok) throw new Error("Error al subir imagen");
       const data = await res.json();
       setImageUrl(data.imageUrl);
