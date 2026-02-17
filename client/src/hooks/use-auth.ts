@@ -11,7 +11,7 @@ export function useAuth() {
   const { data: user, isLoading, error } = useQuery({
     queryKey: [api.auth.me.path],
     queryFn: async () => {
-      const res = await fetch(api.auth.me.path);
+      const res = await fetch(api.auth.me.path, { credentials: "include" });
       if (res.status === 401) return null;
       if (!res.ok) throw new Error("Error al obtener usuario");
       return res.json();
@@ -25,6 +25,7 @@ export function useAuth() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(credentials),
+        credentials: "include",
       });
       if (!res.ok) {
         const data = await res.json().catch(() => null);
@@ -47,6 +48,7 @@ export function useAuth() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(data),
+        credentials: "include",
       });
       const responseData = await res.json();
       if (!res.ok) {
@@ -72,7 +74,7 @@ export function useAuth() {
 
   const logoutMutation = useMutation({
     mutationFn: async () => {
-      const res = await fetch(api.auth.logout.path, { method: "POST" });
+      const res = await fetch(api.auth.logout.path, { method: "POST", credentials: "include" });
       if (!res.ok) throw new Error("Error al cerrar sesion");
     },
     onSuccess: () => {

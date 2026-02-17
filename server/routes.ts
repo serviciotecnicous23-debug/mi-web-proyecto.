@@ -196,6 +196,9 @@ export async function registerRoutes(
   // Apply general rate limiter to all API routes
   app.use("/api/", apiLimiter);
 
+  // Trust proxy (needed for Codespaces, Render, and reverse proxy environments)
+  app.set("trust proxy", 1);
+
   // ========== SESSION STORE (PostgreSQL-backed) ==========
   // Sessions persist across deploys/restarts - users stay logged in
   const isProduction = process.env.NODE_ENV === "production";
@@ -675,14 +678,15 @@ export async function registerRoutes(
   });
 
   app.post(api.events.create.path, async (req, res) => {
-    if (!req.isAuthenticated()) return res.sendStatus(401);
+    if (!req.isAuthenticated()) return res.status(401).json({ message: "Debes iniciar sesion para crear eventos" });
     try {
       const input = api.events.create.input.parse(req.body);
       const event = await storage.createEvent({ ...input, createdBy: (req.user as any).id });
       res.status(201).json(event);
     } catch (err) {
+      console.error("Error creating event:", err);
       if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });
-      res.sendStatus(500);
+      res.status(500).json({ message: "Error interno al crear el evento" });
     }
   });
 
@@ -727,32 +731,37 @@ export async function registerRoutes(
   });
 
   app.post(api.eventRsvps.upsert.path, async (req, res) => {
-    if (!req.isAuthenticated()) return res.sendStatus(401);
+    if (!req.isAuthenticated()) return res.status(401).json({ message: "Debes iniciar sesion para confirmar asistencia" });
     try {
       const eventId = parseInt(req.params.eventId);
       const event = await storage.getEvent(eventId);
-      if (!event) return res.sendStatus(404);
+      if (!event) return res.status(404).json({ message: "Evento no encontrado" });
       const input = api.eventRsvps.upsert.input.parse({ ...req.body, eventId });
       const rsvp = await storage.upsertEventRsvp(eventId, (req.user as any).id, input);
       
-      // Create reminder notification for the user
+      // Create reminder notification for the user (non-blocking)
       if (input.status !== "no_asistire") {
-        const eventDate = new Date(event.eventDate as any);
-        const formattedDate = eventDate.toLocaleDateString("es-ES", { weekday: "long", day: "numeric", month: "long" });
-        const formattedTime = eventDate.toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" });
-        await storage.createNotification({
-          userId: (req.user as any).id,
-          type: "evento_recordatorio",
-          title: `Recordatorio: ${event.title}`,
-          content: `Te has confirmado para "${event.title}" el ${formattedDate} a las ${formattedTime}. Ubicacion: ${event.location}${event.meetingUrl ? '. Enlace: ' + event.meetingUrl : ''}`,
-          link: "/eventos",
-        });
+        try {
+          const eventDate = new Date(event.eventDate as any);
+          const formattedDate = eventDate.toLocaleDateString("es-ES", { weekday: "long", day: "numeric", month: "long" });
+          const formattedTime = eventDate.toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" });
+          await storage.createNotification({
+            userId: (req.user as any).id,
+            type: "evento_recordatorio",
+            title: `Recordatorio: ${event.title}`,
+            content: `Te has confirmado para "${event.title}" el ${formattedDate} a las ${formattedTime}. Ubicacion: ${event.location}${event.meetingUrl ? '. Enlace: ' + event.meetingUrl : ''}`,
+            link: "/eventos",
+          });
+        } catch (notifErr) {
+          console.error("Error creating RSVP notification (non-blocking):", notifErr);
+        }
       }
       
       res.json(rsvp);
     } catch (err) {
+      console.error("Error in RSVP upsert:", err);
       if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });
-      res.sendStatus(500);
+      res.status(500).json({ message: "Error interno al confirmar asistencia" });
     }
   });
 

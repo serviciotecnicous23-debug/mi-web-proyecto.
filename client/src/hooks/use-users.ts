@@ -193,7 +193,7 @@ export function useEvents() {
   return useQuery({
     queryKey: [api.events.list.path],
     queryFn: async () => {
-      const res = await fetch(api.events.list.path);
+      const res = await fetch(api.events.list.path, { credentials: "include" });
       if (!res.ok) throw new Error("Error al obtener eventos");
       return res.json();
     },
@@ -205,7 +205,7 @@ export function useEvent(id: number) {
     queryKey: [api.events.get.path, id],
     queryFn: async () => {
       const url = buildUrl(api.events.get.path, { id });
-      const res = await fetch(url);
+      const res = await fetch(url, { credentials: "include" });
       if (!res.ok) throw new Error("Error al obtener evento");
       return res.json();
     },
@@ -218,8 +218,11 @@ export function useCreateEvent() {
   const { toast } = useToast();
   return useMutation({
     mutationFn: async (data: InsertEvent) => {
-      const res = await fetch(api.events.create.path, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) });
-      if (!res.ok) throw new Error("Error al crear evento");
+      const res = await fetch(api.events.create.path, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data), credentials: "include" });
+      if (!res.ok) {
+        const errData = await res.json().catch(() => null);
+        throw new Error(errData?.message || `Error al crear evento (${res.status})`);
+      }
       return res.json();
     },
     onSuccess: () => {
@@ -236,8 +239,11 @@ export function useUpdateEvent() {
   return useMutation({
     mutationFn: async ({ id, updates }: { id: number; updates: UpdateEvent }) => {
       const url = buildUrl(api.events.update.path, { id });
-      const res = await fetch(url, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(updates) });
-      if (!res.ok) throw new Error("Error al actualizar evento");
+      const res = await fetch(url, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(updates), credentials: "include" });
+      if (!res.ok) {
+        const errData = await res.json().catch(() => null);
+        throw new Error(errData?.message || `Error al actualizar evento (${res.status})`);
+      }
       return res.json();
     },
     onSuccess: () => {
@@ -254,7 +260,7 @@ export function useDeleteEvent() {
   return useMutation({
     mutationFn: async (id: number) => {
       const url = buildUrl(api.events.delete.path, { id });
-      const res = await fetch(url, { method: "DELETE" });
+      const res = await fetch(url, { method: "DELETE", credentials: "include" });
       if (!res.ok) throw new Error("Error al eliminar evento");
     },
     onSuccess: () => {
@@ -272,7 +278,7 @@ export function useEventRsvps(eventId: number) {
     queryKey: [api.eventRsvps.list.path, eventId],
     queryFn: async () => {
       const url = buildUrl(api.eventRsvps.list.path, { eventId });
-      const res = await fetch(url);
+      const res = await fetch(url, { credentials: "include" });
       if (!res.ok) throw new Error("Error al obtener confirmaciones");
       return res.json();
     },
@@ -285,7 +291,7 @@ export function useMyEventRsvp(eventId: number) {
     queryKey: [api.eventRsvps.myRsvp.path, eventId],
     queryFn: async () => {
       const url = buildUrl(api.eventRsvps.myRsvp.path, { eventId });
-      const res = await fetch(url);
+      const res = await fetch(url, { credentials: "include" });
       if (!res.ok) throw new Error("Error");
       return res.json();
     },
@@ -303,8 +309,12 @@ export function useRsvpEvent() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ eventId, status: status || "confirmado", reminder: reminder ?? true }),
+        credentials: "include",
       });
-      if (!res.ok) throw new Error("Error al confirmar asistencia");
+      if (!res.ok) {
+        const errData = await res.json().catch(() => null);
+        throw new Error(errData?.message || `Error al confirmar asistencia (${res.status})`);
+      }
       return res.json();
     },
     onSuccess: (_data, variables) => {
@@ -325,7 +335,7 @@ export function useCancelRsvp() {
   return useMutation({
     mutationFn: async (eventId: number) => {
       const url = buildUrl(api.eventRsvps.cancel.path, { eventId });
-      const res = await fetch(url, { method: "DELETE" });
+      const res = await fetch(url, { method: "DELETE", credentials: "include" });
       if (!res.ok) throw new Error("Error al cancelar confirmacion");
     },
     onSuccess: (_data, eventId) => {
