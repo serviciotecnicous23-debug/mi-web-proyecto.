@@ -460,6 +460,18 @@ export async function ensureDatabaseSchema(): Promise<void> {
         }
       }
     }
+
+    // Step 3: Fix corrupted prayer_attendees records (bug: status was stored as "[object Object]")
+    try {
+      const fixResult = await pool.query(
+        `UPDATE prayer_attendees SET status = 'confirmado' WHERE status NOT IN ('confirmado', 'tal_vez', 'no_asistire')`
+      );
+      if (fixResult.rowCount && fixResult.rowCount > 0) {
+        console.log(`  Fixed ${fixResult.rowCount} corrupted prayer_attendees records`);
+      }
+    } catch (_err) {
+      // Table might not exist yet, ignore
+    }
     
     console.log("✓ Database schema verified - all tables and columns present");
   } catch (err) {

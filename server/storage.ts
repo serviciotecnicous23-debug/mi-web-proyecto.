@@ -174,7 +174,7 @@ export interface IStorage {
   deletePrayerActivity(id: number): Promise<void>;
 
   // Prayer Attendees
-  upsertPrayerAttendee(activityId: number, userId: number, status: string): Promise<any>;
+  upsertPrayerAttendee(activityId: number, userId: number, data: { status?: string }): Promise<any>;
   getPrayerAttendee(activityId: number, userId: number): Promise<any>;
   listPrayerAttendees(activityId: number): Promise<any[]>;
   cancelPrayerAttendance(activityId: number, userId: number): Promise<void>;
@@ -1254,7 +1254,8 @@ export class DatabaseStorage implements IStorage {
     await db.delete(prayerActivities).where(eq(prayerActivities.id, id));
   }
 
-  async upsertPrayerAttendee(activityId: number, userId: number, status: string): Promise<any> {
+  async upsertPrayerAttendee(activityId: number, userId: number, data: { status?: string }): Promise<any> {
+    const status = data.status || "confirmado";
     const [existing] = await db.select().from(prayerAttendees)
       .where(and(eq(prayerAttendees.activityId, activityId), eq(prayerAttendees.userId, userId)));
     
