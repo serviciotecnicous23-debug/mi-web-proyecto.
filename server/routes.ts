@@ -158,8 +158,12 @@ export async function registerRoutes(
   // Schema verification is now handled by ensureDatabaseSchema() in index.ts
   // before registerRoutes is called.
 
-  // ========== SEO: robots.txt & sitemap.xml ==========
+  // ========== SEO: Google verification, robots.txt & sitemap.xml ==========
   const SITE_URL = process.env.SITE_URL || "https://ministerio-avivando-el-fuego.onrender.com";
+
+  app.get("/google2dc20426b22c049c.html", (_req, res) => {
+    res.type("text/html").send("google-site-verification: google2dc20426b22c049c.html");
+  });
 
   app.get("/robots.txt", (_req, res) => {
     res.type("text/plain").send(
