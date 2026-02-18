@@ -158,6 +158,59 @@ export async function registerRoutes(
   // Schema verification is now handled by ensureDatabaseSchema() in index.ts
   // before registerRoutes is called.
 
+  // ========== SEO: robots.txt & sitemap.xml ==========
+  const SITE_URL = process.env.SITE_URL || "https://ministerio-avivando-el-fuego.onrender.com";
+
+  app.get("/robots.txt", (_req, res) => {
+    res.type("text/plain").send(
+`User-agent: *
+Allow: /
+Disallow: /admin
+Disallow: /api/
+Disallow: /perfil
+Disallow: /mensajes
+Disallow: /mis-capacitaciones
+Disallow: /maestro
+Disallow: /aula/
+
+Sitemap: ${SITE_URL}/sitemap.xml`
+    );
+  });
+
+  app.get("/sitemap.xml", (_req, res) => {
+    const pages = [
+      { loc: "/", priority: "1.0", changefreq: "weekly" },
+      { loc: "/historia", priority: "0.8", changefreq: "monthly" },
+      { loc: "/equipo", priority: "0.7", changefreq: "monthly" },
+      { loc: "/en-vivo", priority: "0.9", changefreq: "daily" },
+      { loc: "/eventos", priority: "0.9", changefreq: "weekly" },
+      { loc: "/capacitaciones", priority: "0.8", changefreq: "weekly" },
+      { loc: "/contacto", priority: "0.7", changefreq: "yearly" },
+      { loc: "/comunidad", priority: "0.7", changefreq: "daily" },
+      { loc: "/biblioteca", priority: "0.7", changefreq: "weekly" },
+      { loc: "/oracion", priority: "0.8", changefreq: "weekly" },
+      { loc: "/regiones", priority: "0.6", changefreq: "monthly" },
+      { loc: "/login", priority: "0.3", changefreq: "yearly" },
+      { loc: "/registro", priority: "0.5", changefreq: "yearly" },
+    ];
+    const today = new Date().toISOString().split("T")[0];
+    const urls = pages.map(p =>
+      `  <url>
+    <loc>${SITE_URL}${p.loc}</loc>
+    <lastmod>${today}</lastmod>
+    <changefreq>${p.changefreq}</changefreq>
+    <priority>${p.priority}</priority>
+  </url>`
+    ).join("\n");
+
+    res.type("application/xml").send(
+`<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+${urls}
+</urlset>`
+    );
+  });
+
   // Health check endpoint (used by Render)
   app.get("/api/hello", (_req, res) => {
     res.json({ 
