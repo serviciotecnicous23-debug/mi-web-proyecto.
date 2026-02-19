@@ -901,6 +901,24 @@ export function useCreateCourseAnnouncement() {
   });
 }
 
+export function useUpdateCourseAnnouncement() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  return useMutation({
+    mutationFn: async ({ id, courseId, updates }: { id: number; courseId: number; updates: UpdateCourseAnnouncement }) => {
+      const url = buildUrl(api.courseAnnouncements.update.path, { id });
+      const res = await authFetch(url, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(updates) });
+      if (!res.ok) throw new Error("Error al actualizar anuncio");
+      return res.json();
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: [api.courseAnnouncements.list.path, variables.courseId] });
+      toast({ title: "Anuncio actualizado" });
+    },
+    onError: (error: any) => { toast({ title: "Error", description: error.message, variant: "destructive" }); },
+  });
+}
+
 export function useDeleteCourseAnnouncement() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -945,6 +963,24 @@ export function useCreateCourseScheduleEntry() {
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: [api.courseScheduleEntries.list.path, variables.courseId] });
       toast({ title: "Horario agregado" });
+    },
+    onError: (error: any) => { toast({ title: "Error", description: error.message, variant: "destructive" }); },
+  });
+}
+
+export function useUpdateCourseScheduleEntry() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  return useMutation({
+    mutationFn: async ({ id, courseId, updates }: { id: number; courseId: number; updates: UpdateCourseSchedule }) => {
+      const url = buildUrl(api.courseScheduleEntries.update.path, { id });
+      const res = await authFetch(url, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(updates) });
+      if (!res.ok) throw new Error("Error al actualizar horario");
+      return res.json();
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: [api.courseScheduleEntries.list.path, variables.courseId] });
+      toast({ title: "Horario actualizado" });
     },
     onError: (error: any) => { toast({ title: "Error", description: error.message, variant: "destructive" }); },
   });
