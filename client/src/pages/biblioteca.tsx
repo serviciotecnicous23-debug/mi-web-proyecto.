@@ -25,10 +25,7 @@ import {
   useBibleHighlights, useCreateBibleHighlight, useDeleteBibleHighlight,
   useBibleNotes, useCreateBibleNote, useDeleteBibleNote,
   useReadingPlans, useReadingPlan, useCreateReadingPlan, useDeleteReadingPlan,
-  useAddReadingPlanItem, useToggleReadingPlanItem,
-  useReadingClubPosts, useCreateReadingClubPost, useDeleteReadingClubPost,
-  useReadingClubComments, useCreateReadingClubComment,
-  useReadingClubLikedPosts, useToggleReadingClubPostLike,
+  useToggleReadingPlanItem, useBulkAddReadingPlanItems,
   useLibraryResources, useCreateLibraryResource, useDeleteLibraryResource, useToggleLibraryResourceLike,
   useWhatsappLink,
 } from "@/hooks/use-users";
@@ -401,130 +398,556 @@ function ReadingPlansTab() {
   const { toast } = useToast();
   const [viewPublic, setViewPublic] = useState(false);
   const [selectedPlanId, setSelectedPlanId] = useState<number | null>(null);
-  const [showCreate, setShowCreate] = useState(false);
-  const [newTitle, setNewTitle] = useState("");
-  const [newDesc, setNewDesc] = useState("");
+  
+  // Generator wizard states
+  const [showGenerator, setShowGenerator] = useState(false);
+  const [generatorStep, setGeneratorStep] = useState<1 | 2 | 3>(1);
+  const [selectedBooks, setSelectedBooks] = useState<string[]>([]);
+  const [periodType, setPeriodType] = useState<"semanal" | "mensual" | "trimestral" | "anual" | "personalizado">("mensual");
+  const [customDays, setCustomDays] = useState("30");
+  const [planName, setPlanName] = useState("");
   const [isPublic, setIsPublic] = useState(false);
-
-  const [addBook, setAddBook] = useState("Genesis");
-  const [addChapterStart, setAddChapterStart] = useState("1");
-  const [addChapterEnd, setAddChapterEnd] = useState("1");
-  type PlanItem = { id: number; book: string; chapter: number; isCompleted: boolean; sortOrder: number; completedAt: string | null };
+  const [bookSearch, setBookSearch] = useState("");
+  const [isGenerating, setIsGenerating] = useState(false);
 
   const { data: plans = [], isLoading } = useReadingPlans(viewPublic);
   const { data: selectedPlan } = useReadingPlan(selectedPlanId || 0);
   const createPlan = useCreateReadingPlan();
   const deletePlan = useDeleteReadingPlan();
-  const addItem = useAddReadingPlanItem();
   const toggleItem = useToggleReadingPlanItem();
+  const bulkAdd = useBulkAddReadingPlanItems();
 
-  const handleCreatePlan = () => {
-    if (!newTitle.trim()) return;
-    createPlan.mutate({ title: newTitle.trim(), description: newDesc.trim() || null, isPublic }, {
+  const getDays = () => {
+    switch (periodType) {
+      case "semanal": return 7;
+      case "mensual": return 30;
+      case "trimestral": return 90;
+      case "anual": return 365;
+      case "personalizado": return Math.max(1, parseInt(customDays) || 30);
+    }
+  };
+
+  const getTotalChapters = () => {
+    return selectedBooks.reduce((sum, book) => sum + (BOOK_CHAPTERS[book] || 0), 0);
+  };
+
+  const getChaptersPerDay = () => {
+    const total = getTotalChapters();
+    const days = getDays();
+    if (days === 0) return 0;
+    return Math.ceil(total / days);
+  };
+
+  const getEstimatedMinutesPerDay = () => {
+    // Roughly 3-5 min per chapter average
+    return getChaptersPerDay() * 4;
+  };
+
+  const generateSchedule = () => {
+    const allChapters: { book: string; chapter: number }[] = [];
+    for (const book of selectedBooks) {
+      const max = BOOK_CHAPTERS[book] || 1;
+      for (let ch = 1; ch <= max; ch++) {
+        allChapters.push({ book, chapter: ch });
+      }
+    }
+    const days = getDays();
+    const chaptersPerDay = Math.max(1, Math.ceil(allChapters.length / days));
+    const schedule: { day: number; chapters: { book: string; chapter: number }[] }[] = [];
+    for (let d = 0; d < days; d++) {
+      const start = d * chaptersPerDay;
+      const end = Math.min(start + chaptersPerDay, allChapters.length);
+      if (start >= allChapters.length) break;
+      schedule.push({ day: d + 1, chapters: allChapters.slice(start, end) });
+    }
+    return schedule;
+  };
+
+  const toggleBook = (book: string) => {
+    setSelectedBooks((prev) => prev.includes(book) ? prev.filter((b) => b !== book) : [...prev, book]);
+  };
+
+  const handleCreatePlan = async () => {
+    if (!planName.trim() || selectedBooks.length === 0) return;
+    setIsGenerating(true);
+    const periodLabels: Record<string, string> = {
+      semanal: "Semanal (7 dias)",
+      mensual: "Mensual (30 dias)",
+      trimestral: "Trimestral (90 dias)",
+      anual: "Anual (365 dias)",
+      personalizado: `Personalizado (${getDays()} dias)`,
+    };
+    const description = `${periodLabels[periodType]} | ${selectedBooks.join(", ")} | ${getTotalChapters()} capitulos | ~${getChaptersPerDay()} cap/dia`;
+    createPlan.mutate({ title: planName.trim(), description, isPublic }, {
       onSuccess: (data: any) => {
-        setNewTitle("");
-        setNewDesc("");
-        setIsPublic(false);
-        setShowCreate(false);
-        setSelectedPlanId(data.id);
+        const allChapters: { book: string; chapter: number; sortOrder: number }[] = [];
+        let idx = 0;
+        for (const book of selectedBooks) {
+          const max = BOOK_CHAPTERS[book] || 1;
+          for (let ch = 1; ch <= max; ch++) {
+            allChapters.push({ book, chapter: ch, sortOrder: idx++ });
+          }
+        }
+        bulkAdd.mutate({ planId: data.id, items: allChapters }, {
+          onSuccess: () => {
+            setSelectedPlanId(data.id);
+            resetGenerator();
+            setIsGenerating(false);
+          },
+          onError: () => setIsGenerating(false),
+        });
       },
+      onError: () => setIsGenerating(false),
     });
   };
 
-  const handleAddItem = () => {
-    if (!selectedPlanId) return;
-    const start = parseInt(addChapterStart) || 1;
-    const end = parseInt(addChapterEnd) || start;
-    for (let ch = start; ch <= end; ch++) {
-      addItem.mutate({
-        planId: selectedPlanId,
-        data: {
-          book: addBook,
-          chapter: ch,
-          sortOrder: (selectedPlan?.items?.length || 0) + ch - start,
-        },
-      });
-    }
-    toast({ title: "Lecturas agregadas" });
+  const resetGenerator = () => {
+    setShowGenerator(false);
+    setGeneratorStep(1);
+    setSelectedBooks([]);
+    setPeriodType("mensual");
+    setCustomDays("30");
+    setPlanName("");
+    setIsPublic(false);
+    setBookSearch("");
   };
 
-  const completedCount = selectedPlan?.items?.filter((i: any) => i.isCompleted).length || 0;
-  const totalItems = selectedPlan?.items?.length || 0;
-  const progressPct = totalItems > 0 ? Math.round((completedCount / totalItems) * 100) : 0;
-
+  // ===== VIEW: Selected plan detail =====
   if (selectedPlanId && selectedPlan) {
+    const completedCount = selectedPlan.items?.filter((i: any) => i.isCompleted).length || 0;
+    const totalItems = selectedPlan.items?.length || 0;
+    const progressPct = totalItems > 0 ? Math.round((completedCount / totalItems) * 100) : 0;
+
+    // Parse the description to extract period info for daily grouping
+    const descMatch = selectedPlan.description?.match(/(\d+)\s*cap\/dia/);
+    const chaptersPerDayFromDesc = descMatch ? parseInt(descMatch[1]) : Math.max(1, Math.ceil(totalItems / 30));
+
+    // Group items by day
+    const dailyGroups: { day: number; items: any[] }[] = [];
+    const items = selectedPlan.items || [];
+    for (let i = 0; i < items.length; i += chaptersPerDayFromDesc) {
+      const dayItems = items.slice(i, i + chaptersPerDayFromDesc);
+      dailyGroups.push({ day: Math.floor(i / chaptersPerDayFromDesc) + 1, items: dayItems });
+    }
+
+    // Find current day (first day with incomplete items)
+    const currentDayIdx = dailyGroups.findIndex(g => g.items.some((it: any) => !it.isCompleted));
+
     return (
       <div className="space-y-4">
         <Button variant="ghost" onClick={() => setSelectedPlanId(null)} data-testid="button-back-plans">
           <ChevronLeft className="w-4 h-4 mr-1" /> Volver a Planes
         </Button>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>{selectedPlan.title}</CardTitle>
-            {selectedPlan.description && <CardDescription>{selectedPlan.description}</CardDescription>}
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-1">
-              <div className="flex items-center justify-between gap-2">
-                <span className="text-sm text-muted-foreground">Progreso: {completedCount}/{totalItems}</span>
-                <span className="text-sm font-medium">{progressPct}%</span>
-              </div>
-              <Progress value={progressPct} data-testid="progress-reading-plan" />
-            </div>
-
-            {selectedPlan.userId === user?.id && (
-              <div className="flex items-center gap-2 flex-wrap">
-                <Select value={addBook} onValueChange={setAddBook}>
-                  <SelectTrigger className="w-40" data-testid="select-plan-book">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent className="max-h-60">
-                    {BIBLE_BOOKS.map((b) => <SelectItem key={b} value={b}>{b}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-                <Input className="w-20" placeholder="Del" value={addChapterStart} onChange={(e) => setAddChapterStart(e.target.value)} data-testid="input-chapter-start" />
-                <Input className="w-20" placeholder="Al" value={addChapterEnd} onChange={(e) => setAddChapterEnd(e.target.value)} data-testid="input-chapter-end" />
-                <Button size="sm" onClick={handleAddItem} data-testid="button-add-reading">
-                  <Plus className="w-4 h-4 mr-1" /> Agregar
-                </Button>
-              </div>
+        <Card className="bg-gradient-to-r from-primary/10 via-primary/5 to-transparent border-primary/20">
+          <CardContent className="p-5">
+            <h2 className="text-xl font-bold">{selectedPlan.title}</h2>
+            {selectedPlan.description && (
+              <p className="text-sm text-muted-foreground mt-1">{selectedPlan.description}</p>
             )}
-
-            <div className="space-y-1">
-              {(selectedPlan.items || []).map((item: any) => (
-                <div
-                  key={item.id}
-                  className="flex items-center gap-3 p-2 rounded-md hover-elevate"
-                  data-testid={`reading-item-${item.id}`}
-                >
-                  {selectedPlan.userId === user?.id && (
-                    <Checkbox
-                      checked={item.isCompleted}
-                      onCheckedChange={() => toggleItem.mutate({ id: item.id, planId: selectedPlanId! })}
-                      data-testid={`checkbox-item-${item.id}`}
-                    />
-                  )}
-                  <span className={`text-sm flex-1 ${item.isCompleted ? "line-through text-muted-foreground" : ""}`}>
-                    {item.book} {item.chapter}
-                  </span>
-                  {item.isCompleted && <Check className="w-4 h-4 text-green-500" />}
+            <div className="mt-4 space-y-2">
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <BookMarked className="w-4 h-4 text-primary" />
+                  <span className="text-sm font-medium">Progreso: {completedCount} de {totalItems} capitulos</span>
                 </div>
-              ))}
-              {totalItems === 0 && (
-                <p className="text-muted-foreground text-sm text-center py-4">
-                  Agrega capitulos a tu plan de lectura usando el formulario de arriba.
+                <span className="text-lg font-bold text-primary">{progressPct}%</span>
+              </div>
+              <Progress value={progressPct} className="h-3" data-testid="progress-reading-plan" />
+              {progressPct === 100 && (
+                <p className="text-center text-sm font-medium text-green-600 dark:text-green-400 mt-2">
+                  🎉 ¡Felicidades! Has completado todo el plan de lectura.
                 </p>
               )}
             </div>
           </CardContent>
         </Card>
+
+        <div className="space-y-2">
+          {dailyGroups.map((group, gIdx) => {
+            const allCompleted = group.items.every((it: any) => it.isCompleted);
+            const someCompleted = group.items.some((it: any) => it.isCompleted);
+            const isCurrent = gIdx === currentDayIdx;
+            const firstBook = group.items[0]?.book || "";
+            const lastBook = group.items[group.items.length - 1]?.book || "";
+            const rangeLabel = firstBook === lastBook
+              ? `${firstBook} ${group.items[0]?.chapter}${group.items.length > 1 ? `-${group.items[group.items.length - 1]?.chapter}` : ""}`
+              : `${firstBook} ${group.items[0]?.chapter} - ${lastBook} ${group.items[group.items.length - 1]?.chapter}`;
+
+            return (
+              <Card
+                key={gIdx}
+                className={`transition-all ${isCurrent ? "ring-2 ring-primary shadow-md" : ""} ${allCompleted ? "opacity-70" : ""}`}
+                data-testid={`day-group-${group.day}`}
+              >
+                <CardContent className="p-3">
+                  <div className="flex items-center gap-3">
+                    <div className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0 ${
+                      allCompleted ? "bg-green-100 dark:bg-green-900 text-green-600 dark:text-green-400" :
+                      isCurrent ? "bg-primary text-primary-foreground" :
+                      "bg-muted text-muted-foreground"
+                    }`}>
+                      {allCompleted ? <Check className="w-5 h-5" /> : group.day}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between gap-2">
+                        <div>
+                          <p className={`text-sm font-medium ${allCompleted ? "line-through text-muted-foreground" : ""}`}>
+                            Dia {group.day}
+                          </p>
+                          <p className="text-xs text-muted-foreground">{rangeLabel}</p>
+                        </div>
+                        {isCurrent && !allCompleted && (
+                          <Badge className="bg-primary/10 text-primary text-xs">Hoy</Badge>
+                        )}
+                      </div>
+                      <div className="flex flex-wrap gap-1 mt-2">
+                        {group.items.map((item: any) => (
+                          <button
+                            key={item.id}
+                            className={`text-xs px-2 py-1 rounded-md border transition-all ${
+                              item.isCompleted
+                                ? "bg-green-100 dark:bg-green-900/50 border-green-300 dark:border-green-700 text-green-700 dark:text-green-300 line-through"
+                                : "bg-background hover:bg-primary/10 border-border hover:border-primary"
+                            }`}
+                            onClick={() => {
+                              if (selectedPlan.userId === user?.id) {
+                                toggleItem.mutate({ id: item.id, planId: selectedPlanId! });
+                              }
+                            }}
+                            title={item.isCompleted ? "Marcar como pendiente" : "Marcar como leido"}
+                            data-testid={`toggle-item-${item.id}`}
+                          >
+                            {item.isCompleted && <Check className="w-3 h-3 inline mr-0.5" />}
+                            {item.book} {item.chapter}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })}
+        </div>
       </div>
     );
   }
 
+  // ===== VIEW: Generator wizard =====
+  if (showGenerator) {
+    const schedule = generatorStep === 3 ? generateSchedule() : [];
+    const filteredBooks = bookSearch
+      ? BIBLE_BOOKS.filter((b) => b.toLowerCase().includes(bookSearch.toLowerCase()))
+      : BIBLE_BOOKS;
+    const atBooks = BIBLE_BOOKS.filter((b) => b === "Genesis");
+    const ntStart = BIBLE_BOOKS.indexOf("Mateo");
+
+    return (
+      <div className="space-y-4">
+        <Button variant="ghost" onClick={resetGenerator} data-testid="button-cancel-generator">
+          <ChevronLeft className="w-4 h-4 mr-1" /> Cancelar
+        </Button>
+
+        {/* Step indicator */}
+        <div className="flex items-center gap-2 justify-center">
+          {[1, 2, 3].map((step) => (
+            <div key={step} className="flex items-center gap-2">
+              <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${
+                generatorStep === step ? "bg-primary text-primary-foreground" :
+                generatorStep > step ? "bg-green-500 text-white" : "bg-muted text-muted-foreground"
+              }`}>
+                {generatorStep > step ? <Check className="w-4 h-4" /> : step}
+              </div>
+              {step < 3 && <div className={`w-8 h-0.5 ${generatorStep > step ? "bg-green-500" : "bg-muted"}`} />}
+            </div>
+          ))}
+        </div>
+
+        {/* Step 1: Select books */}
+        {generatorStep === 1 && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg">Paso 1: Selecciona los libros</CardTitle>
+              <CardDescription>Elige que libros de la Biblia quieres incluir en tu plan de lectura.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex items-center gap-2 flex-wrap">
+                <Button size="sm" variant="outline" onClick={() => setSelectedBooks([...BIBLE_BOOKS])}>
+                  Toda la Biblia
+                </Button>
+                <Button size="sm" variant="outline" onClick={() => setSelectedBooks(BIBLE_BOOKS.slice(0, ntStart) as unknown as string[])}>
+                  Antiguo Testamento
+                </Button>
+                <Button size="sm" variant="outline" onClick={() => setSelectedBooks(BIBLE_BOOKS.slice(ntStart) as unknown as string[])}>
+                  Nuevo Testamento
+                </Button>
+                <Button size="sm" variant="ghost" onClick={() => setSelectedBooks([])}>
+                  Limpiar
+                </Button>
+              </div>
+
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <Input
+                  className="pl-9"
+                  placeholder="Buscar libro..."
+                  value={bookSearch}
+                  onChange={(e) => setBookSearch(e.target.value)}
+                />
+              </div>
+
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-1 max-h-64 overflow-y-auto pr-1">
+                {filteredBooks.map((book) => {
+                  const isSelected = selectedBooks.includes(book);
+                  return (
+                    <button
+                      key={book}
+                      className={`text-left text-sm px-3 py-2 rounded-md border transition-all ${
+                        isSelected ? "bg-primary/10 border-primary text-primary font-medium" : "hover:bg-muted border-transparent"
+                      }`}
+                      onClick={() => toggleBook(book)}
+                    >
+                      <span className="flex items-center gap-2">
+                        {isSelected && <Check className="w-3 h-3" />}
+                        {book}
+                        <span className="text-xs text-muted-foreground">({BOOK_CHAPTERS[book]})</span>
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {selectedBooks.length > 0 && (
+                <p className="text-sm text-muted-foreground">
+                  {selectedBooks.length} libros seleccionados - {getTotalChapters()} capitulos en total
+                </p>
+              )}
+
+              <div className="flex justify-end">
+                <Button onClick={() => setGeneratorStep(2)} disabled={selectedBooks.length === 0}>
+                  Siguiente <ChevronRight className="w-4 h-4 ml-1" />
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Step 2: Select period */}
+        {generatorStep === 2 && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg">Paso 2: Elige tu ritmo de lectura</CardTitle>
+              <CardDescription>¿En cuanto tiempo quieres completar tu plan? El sistema organizara los capitulos automaticamente.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {([
+                  { value: "semanal" as const, label: "Semanal", days: 7, icon: "⚡", desc: "Lectura intensiva" },
+                  { value: "mensual" as const, label: "Mensual", days: 30, icon: "📅", desc: "Ritmo moderado" },
+                  { value: "trimestral" as const, label: "Trimestral", days: 90, icon: "📚", desc: "Lectura constante" },
+                  { value: "anual" as const, label: "Anual", days: 365, icon: "🌟", desc: "Lectura tranquila" },
+                ]).map((opt) => {
+                  const chapPerDay = Math.ceil(getTotalChapters() / opt.days);
+                  const minsPerDay = chapPerDay * 4;
+                  return (
+                    <button
+                      key={opt.value}
+                      className={`text-left p-4 rounded-lg border-2 transition-all ${
+                        periodType === opt.value ? "border-primary bg-primary/5" : "border-border hover:border-primary/50"
+                      }`}
+                      onClick={() => setPeriodType(opt.value)}
+                    >
+                      <div className="flex items-center gap-2 mb-2">
+                        <span className="text-2xl">{opt.icon}</span>
+                        <div>
+                          <p className="font-semibold">{opt.label}</p>
+                          <p className="text-xs text-muted-foreground">{opt.desc} - {opt.days} dias</p>
+                        </div>
+                      </div>
+                      <div className="text-sm">
+                        <span className="font-medium text-primary">{chapPerDay} cap/dia</span>
+                        <span className="text-muted-foreground"> · ~{minsPerDay} min/dia</span>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+
+              <div className={`p-3 rounded-lg border-2 transition-all ${
+                periodType === "personalizado" ? "border-primary bg-primary/5" : "border-border"
+              }`}>
+                <button
+                  className="w-full text-left"
+                  onClick={() => setPeriodType("personalizado")}
+                >
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="text-2xl">⚙️</span>
+                    <div>
+                      <p className="font-semibold">Personalizado</p>
+                      <p className="text-xs text-muted-foreground">Define tu propio numero de dias</p>
+                    </div>
+                  </div>
+                </button>
+                {periodType === "personalizado" && (
+                  <div className="flex items-center gap-2 mt-2">
+                    <Input
+                      type="number"
+                      className="w-24"
+                      value={customDays}
+                      onChange={(e) => setCustomDays(e.target.value)}
+                      min={1}
+                      max={1095}
+                    />
+                    <span className="text-sm text-muted-foreground">dias</span>
+                    <span className="text-sm ml-auto">
+                      <span className="font-medium text-primary">{getChaptersPerDay()} cap/dia</span>
+                      <span className="text-muted-foreground"> · ~{getEstimatedMinutesPerDay()} min/dia</span>
+                    </span>
+                  </div>
+                )}
+              </div>
+
+              <Card className="bg-blue-50/50 dark:bg-blue-950/20 border-blue-200 dark:border-blue-800">
+                <CardContent className="p-3">
+                  <div className="flex items-start gap-2">
+                    <BookOpen className="w-4 h-4 text-blue-500 flex-shrink-0 mt-0.5" />
+                    <div className="text-sm">
+                      <p className="font-medium text-blue-700 dark:text-blue-300">Recomendacion:</p>
+                      <p className="text-blue-600 dark:text-blue-400">
+                        {getTotalChapters() <= 30
+                          ? "Para pocos capitulos, un plan semanal o mensual es ideal."
+                          : getTotalChapters() <= 100
+                          ? "Un plan mensual o trimestral te permitira estudiar con calma."
+                          : getTotalChapters() <= 500
+                          ? "Para esta cantidad, un plan trimestral o anual es lo mas recomendable."
+                          : "Para la Biblia completa, un plan anual con ~3-4 capitulos diarios es perfecto."}
+                      </p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <div className="flex justify-between">
+                <Button variant="outline" onClick={() => setGeneratorStep(1)}>
+                  <ChevronLeft className="w-4 h-4 mr-1" /> Atras
+                </Button>
+                <Button onClick={() => setGeneratorStep(3)}>
+                  Siguiente <ChevronRight className="w-4 h-4 ml-1" />
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Step 3: Preview & Create */}
+        {generatorStep === 3 && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg">Paso 3: Nombre y Vista Previa</CardTitle>
+              <CardDescription>Dale un nombre a tu plan y revisa el calendario de lectura.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <Input
+                placeholder="Nombre del plan (ej: Mi lectura biblica mensual)"
+                value={planName}
+                onChange={(e) => setPlanName(e.target.value)}
+                data-testid="input-plan-name"
+              />
+              <div className="flex items-center gap-2">
+                <Checkbox
+                  checked={isPublic}
+                  onCheckedChange={(v) => setIsPublic(!!v)}
+                />
+                <Label className="text-sm">Compartir este plan con la comunidad</Label>
+              </div>
+
+              {/* Summary card */}
+              <Card className="bg-gradient-to-r from-primary/10 to-transparent border-primary/20">
+                <CardContent className="p-4">
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-center">
+                    <div>
+                      <p className="text-2xl font-bold text-primary">{selectedBooks.length}</p>
+                      <p className="text-xs text-muted-foreground">Libros</p>
+                    </div>
+                    <div>
+                      <p className="text-2xl font-bold text-primary">{getTotalChapters()}</p>
+                      <p className="text-xs text-muted-foreground">Capitulos</p>
+                    </div>
+                    <div>
+                      <p className="text-2xl font-bold text-primary">{getDays()}</p>
+                      <p className="text-xs text-muted-foreground">Dias</p>
+                    </div>
+                    <div>
+                      <p className="text-2xl font-bold text-primary">~{getEstimatedMinutesPerDay()}</p>
+                      <p className="text-xs text-muted-foreground">Min/dia</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Schedule preview (first 7 days) */}
+              <div>
+                <p className="text-sm font-medium mb-2">Vista previa del calendario (primeros dias):</p>
+                <div className="space-y-1 max-h-48 overflow-y-auto">
+                  {schedule.slice(0, 10).map((day) => (
+                    <div key={day.day} className="flex items-center gap-3 p-2 rounded-md bg-muted/30">
+                      <span className="w-16 text-xs font-medium text-muted-foreground">Dia {day.day}</span>
+                      <span className="text-sm flex-1">
+                        {day.chapters.map((c) => `${c.book} ${c.chapter}`).join(", ")}
+                      </span>
+                    </div>
+                  ))}
+                  {schedule.length > 10 && (
+                    <p className="text-xs text-muted-foreground text-center py-2">
+                      ... y {schedule.length - 10} dias mas
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              <div className="flex justify-between">
+                <Button variant="outline" onClick={() => setGeneratorStep(2)}>
+                  <ChevronLeft className="w-4 h-4 mr-1" /> Atras
+                </Button>
+                <Button
+                  onClick={handleCreatePlan}
+                  disabled={!planName.trim() || isGenerating}
+                  data-testid="button-create-plan-final"
+                >
+                  {isGenerating ? (
+                    <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Generando...</>
+                  ) : (
+                    <><BookMarked className="w-4 h-4 mr-2" /> Crear Mi Plan</>
+                  )}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+      </div>
+    );
+  }
+
+  // ===== VIEW: Plans list =====
   return (
     <div className="space-y-4">
+      {/* Header with motivational message */}
+      <Card className="bg-gradient-to-r from-primary/10 via-primary/5 to-transparent border-primary/20">
+        <CardContent className="p-4">
+          <div className="flex items-start gap-3">
+            <BookMarked className="w-6 h-6 text-primary flex-shrink-0" />
+            <div>
+              <h3 className="font-semibold">Plan de Lectura Inteligente</h3>
+              <p className="text-sm text-muted-foreground mt-1">
+                Crea un plan personalizado que organiza tu lectura biblica automaticamente.
+                Elige los libros, el tiempo disponible y el sistema dividira los capitulos por dia.
+              </p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
       <div className="flex items-center justify-between gap-2 flex-wrap">
         <div className="flex items-center gap-2">
           <Button
@@ -545,46 +968,11 @@ function ReadingPlansTab() {
           </Button>
         </div>
         {user?.isActive && (
-          <Button size="sm" onClick={() => setShowCreate(true)} data-testid="button-create-plan">
-            <Plus className="w-4 h-4 mr-1" /> Nuevo Plan
+          <Button onClick={() => setShowGenerator(true)} data-testid="button-create-plan">
+            <Plus className="w-4 h-4 mr-1" /> Crear Plan de Lectura
           </Button>
         )}
       </div>
-
-      {showCreate && (
-        <Card>
-          <CardContent className="p-4 space-y-3">
-            <Input
-              placeholder="Titulo del plan"
-              value={newTitle}
-              onChange={(e) => setNewTitle(e.target.value)}
-              data-testid="input-plan-title"
-            />
-            <Textarea
-              placeholder="Descripcion (opcional)"
-              value={newDesc}
-              onChange={(e) => setNewDesc(e.target.value)}
-              data-testid="input-plan-description"
-            />
-            <div className="flex items-center gap-2">
-              <Checkbox
-                checked={isPublic}
-                onCheckedChange={(v) => setIsPublic(!!v)}
-                data-testid="checkbox-plan-public"
-              />
-              <Label className="text-sm">Compartir con la comunidad</Label>
-            </div>
-            <div className="flex items-center gap-2">
-              <Button size="sm" onClick={handleCreatePlan} disabled={!newTitle.trim()} data-testid="button-save-plan">
-                Crear Plan
-              </Button>
-              <Button size="sm" variant="ghost" onClick={() => setShowCreate(false)} data-testid="button-cancel-plan">
-                Cancelar
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      )}
 
       {isLoading ? (
         <div className="space-y-2">
@@ -594,43 +982,74 @@ function ReadingPlansTab() {
         <Card>
           <CardContent className="p-8 text-center">
             <BookMarked className="w-12 h-12 mx-auto text-muted-foreground mb-3" />
-            <p className="text-muted-foreground">
-              {viewPublic ? "No hay planes compartidos aun." : "No tienes planes de lectura. Crea uno para comenzar."}
+            <h3 className="font-medium mb-1">
+              {viewPublic ? "No hay planes compartidos aun" : "Aun no tienes planes de lectura"}
+            </h3>
+            <p className="text-sm text-muted-foreground mb-4">
+              {viewPublic
+                ? "Se el primero en compartir tu plan con la comunidad."
+                : "Crea tu primer plan y organiza tu lectura biblica de forma inteligente."}
             </p>
+            {!viewPublic && user?.isActive && (
+              <Button onClick={() => setShowGenerator(true)} data-testid="button-empty-create-plan">
+                <Plus className="w-4 h-4 mr-1" /> Crear Mi Primer Plan
+              </Button>
+            )}
           </CardContent>
         </Card>
       ) : (
         <div className="grid gap-3">
-          {plans.map((plan: any) => (
-            <Card key={plan.id} className="hover-elevate cursor-pointer" onClick={() => setSelectedPlanId(plan.id)} data-testid={`card-plan-${plan.id}`}>
-              <CardContent className="p-4">
-                <div className="flex items-center justify-between gap-2">
-                  <div>
-                    <h3 className="font-medium">{plan.title}</h3>
-                    {plan.description && <p className="text-sm text-muted-foreground">{plan.description}</p>}
-                    {plan.user && (
-                      <p className="text-xs text-muted-foreground mt-1">
-                        Por {plan.user.displayName || plan.user.username}
-                      </p>
-                    )}
+          {plans.map((plan: any) => {
+            const completedCount = plan.completedCount || 0;
+            const totalCount = plan.totalCount || 0;
+            const progressPct = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
+            return (
+              <Card
+                key={plan.id}
+                className="hover-elevate cursor-pointer transition-all hover:shadow-md"
+                onClick={() => setSelectedPlanId(plan.id)}
+                data-testid={`card-plan-${plan.id}`}
+              >
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1">
+                        <h3 className="font-medium truncate">{plan.title}</h3>
+                        {plan.isPublic && <Badge variant="secondary" className="text-xs">Compartido</Badge>}
+                      </div>
+                      {plan.description && (
+                        <p className="text-xs text-muted-foreground line-clamp-1">{plan.description}</p>
+                      )}
+                      {plan.user && (
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                          Por {plan.user.displayName || plan.user.username}
+                        </p>
+                      )}
+                      {totalCount > 0 && (
+                        <div className="mt-2 space-y-1">
+                          <Progress value={progressPct} className="h-2" />
+                          <p className="text-xs text-muted-foreground">{completedCount}/{totalCount} capitulos · {progressPct}%</p>
+                        </div>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-1">
+                      {progressPct === 100 && <Badge className="bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300">Completado</Badge>}
+                      {plan.userId === user?.id && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={(e) => { e.stopPropagation(); deletePlan.mutate(plan.id); }}
+                          data-testid={`button-delete-plan-${plan.id}`}
+                        >
+                          <Trash2 className="w-4 h-4 text-destructive" />
+                        </Button>
+                      )}
+                    </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    {plan.isPublic && <Badge variant="secondary">Compartido</Badge>}
-                    {plan.userId === user?.id && (
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={(e) => { e.stopPropagation(); deletePlan.mutate(plan.id); }}
-                        data-testid={`button-delete-plan-${plan.id}`}
-                      >
-                        <Trash2 className="w-4 h-4 text-destructive" />
-                      </Button>
-                    )}
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+                </CardContent>
+              </Card>
+            );
+          })}
         </div>
       )}
     </div>
@@ -639,224 +1058,185 @@ function ReadingPlansTab() {
 
 function ReadingClubTab() {
   const { user } = useAuth();
-  const [content, setContent] = useState("");
-  const [refBook, setRefBook] = useState("");
-  const [refChapter, setRefChapter] = useState("");
-  const [refVerse, setRefVerse] = useState("");
-  const [expandedPostId, setExpandedPostId] = useState<number | null>(null);
-
-  const { data: posts = [], isLoading } = useReadingClubPosts();
-  const createPost = useCreateReadingClubPost();
-  const { data: likedPosts = [] } = useReadingClubLikedPosts();
-  const toggleLike = useToggleReadingClubPostLike();
   const { data: whatsappData } = useWhatsappLink();
 
-  const handlePost = () => {
-    if (!content.trim()) return;
-    createPost.mutate({
-      content: content.trim(),
-      book: (refBook && refBook !== "none") ? refBook : "",
-      chapter: refChapter ? parseInt(refChapter) : 0,
-      verseStart: refVerse ? parseInt(refVerse) : null,
-      verseEnd: null,
-    }, {
-      onSuccess: () => {
-        setContent("");
-        setRefBook("");
-        setRefChapter("");
-        setRefVerse("");
-      },
-    });
-  };
+  // Motivational daily content
+  const today = new Date();
+  const dayOfYear = Math.floor((today.getTime() - new Date(today.getFullYear(), 0, 0).getTime()) / 86400000);
+  const dailyVerse = DAILY_VERSES[dayOfYear % DAILY_VERSES.length];
+
+  const READING_CHALLENGES = [
+    { icon: "📖", title: "Lectura Diaria", desc: "Lee al menos un capitulo de la Biblia cada dia. La constancia es la clave.", tip: "Comienza con un libro corto como Filipenses o Santiago." },
+    { icon: "✍️", title: "Diario Espiritual", desc: "Anota lo que Dios te habla cada dia a traves de su Palabra.", tip: "Usa la seccion de notas en la Biblia para guardar tus reflexiones." },
+    { icon: "🙏", title: "Lectura + Oracion", desc: "Lee un pasaje y luego ora sobre lo que leiste.", tip: "Convierte los versiculos en oraciones personales." },
+    { icon: "👥", title: "Comparte con Alguien", desc: "Lee junto a un amigo o familiar y compartan lo aprendido.", tip: "Unete al grupo de WhatsApp para compartir con la comunidad." },
+    { icon: "🎯", title: "Memoriza un Versiculo", desc: "Escoge un versiculo cada semana y memorizalo.", tip: "Escribirlo varias veces ayuda a memorizarlo mas rapido." },
+    { icon: "📚", title: "Lee un Libro Completo", desc: "Propon te leer un libro completo de la Biblia este mes.", tip: "El Evangelio de Juan es excelente para comenzar." },
+  ];
+  const todayChallenge = READING_CHALLENGES[dayOfYear % READING_CHALLENGES.length];
+
+  const READING_TIPS = [
+    "Escoge un lugar tranquilo y un horario fijo para tu lectura diaria.",
+    "No te preocupes por la cantidad, sino por la calidad de tu tiempo con Dios.",
+    "Lee con un corazon abierto, pidiendo al Espiritu Santo que te guie.",
+    "Subraya o resalta los versiculos que mas te impacten.",
+    "Cuando un versiculo te hable, detente y medita en el.",
+    "Relaciona lo que lees con tu vida diaria.",
+    "Lee diferentes traducciones para entender mejor el texto.",
+    "Comparte lo que aprendes con otros, esto fortalece tu fe.",
+    "No te desanimes si pierdes un dia, simplemente reanuda al siguiente.",
+    "Celebra cada capitulo y libro que termines de leer.",
+  ];
+  const todayTip = READING_TIPS[dayOfYear % READING_TIPS.length];
+
+  const BIBLE_READING_PLANS_SUGGESTIONS = [
+    { name: "Lectura del Nuevo Testamento", books: "Mateo a Apocalipsis", time: "~3 meses", chapters: 260 },
+    { name: "Evangelios en un Mes", books: "Mateo, Marcos, Lucas, Juan", time: "30 dias", chapters: 89 },
+    { name: "Proverbios en un Mes", books: "Proverbios", time: "31 dias", chapters: 31 },
+    { name: "Salmos en 2 Meses", books: "Salmos", time: "60 dias", chapters: 150 },
+    { name: "Biblia Completa en un Año", books: "Genesis a Apocalipsis", time: "365 dias", chapters: 1189 },
+    { name: "Cartas de Pablo", books: "Romanos a Filemon", time: "2 semanas", chapters: 87 },
+  ];
 
   return (
-    <div className="space-y-4">
-      {/* WhatsApp Group Link Banner */}
-      {whatsappData?.link && (
-        <Card className="border-green-200 dark:border-green-800 bg-green-50/50 dark:bg-green-950/20">
-          <CardContent className="p-4">
-            <div className="flex items-center gap-3 flex-wrap">
-              <SiWhatsapp className="h-6 w-6 text-green-500 flex-shrink-0" />
-              <div className="flex-1 min-w-0">
-                <p className="font-medium text-sm">Grupo de WhatsApp del Club de Lectura</p>
-                <p className="text-xs text-muted-foreground">Unete a nuestro grupo para compartir reflexiones y estar al dia con las lecturas.</p>
+    <div className="space-y-5">
+      {/* Hero: WhatsApp Group - Most Prominent */}
+      {whatsappData?.link ? (
+        <Card className="border-green-300 dark:border-green-700 bg-gradient-to-r from-green-50 via-green-50/50 to-white dark:from-green-950/40 dark:via-green-950/20 dark:to-transparent shadow-md">
+          <CardContent className="p-5">
+            <div className="flex flex-col sm:flex-row items-center gap-4">
+              <div className="w-16 h-16 rounded-full bg-green-500 flex items-center justify-center flex-shrink-0">
+                <SiWhatsapp className="h-8 w-8 text-white" />
+              </div>
+              <div className="flex-1 text-center sm:text-left">
+                <h3 className="text-lg font-bold text-green-700 dark:text-green-300">Club de Lectura Biblica</h3>
+                <p className="text-sm text-green-600 dark:text-green-400 mt-1">
+                  Unete a nuestro grupo de WhatsApp donde compartimos lecturas diarias, reflexiones y nos animamos mutuamente en el estudio de la Palabra de Dios.
+                </p>
               </div>
               <Button
-                size="sm"
-                variant="outline"
-                className="border-green-300 dark:border-green-700"
+                size="lg"
+                className="bg-green-600 hover:bg-green-700 text-white shadow-lg flex-shrink-0"
                 onClick={() => window.open(whatsappData.link, "_blank")}
                 data-testid="button-join-whatsapp"
               >
-                <SiWhatsapp className="w-4 h-4 mr-1 text-green-500" /> Unirse al Grupo
+                <SiWhatsapp className="w-5 h-5 mr-2" /> Unirse al Grupo
               </Button>
             </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {user?.isActive && (
-        <Card>
-          <CardContent className="p-4 space-y-3">
-            <Textarea
-              placeholder="Comparte una reflexion biblica con la comunidad..."
-              value={content}
-              onChange={(e) => setContent(e.target.value)}
-              data-testid="input-club-post"
-            />
-            <div className="flex items-center gap-2 flex-wrap">
-              <Select value={refBook} onValueChange={setRefBook}>
-                <SelectTrigger className="w-40" data-testid="select-ref-book">
-                  <SelectValue placeholder="Libro (opc.)" />
-                </SelectTrigger>
-                <SelectContent className="max-h-60">
-                  <SelectItem value="none">Sin referencia</SelectItem>
-                  {BIBLE_BOOKS.map((b) => <SelectItem key={b} value={b}>{b}</SelectItem>)}
-                </SelectContent>
-              </Select>
-              {refBook && refBook !== "none" && (
-                <>
-                  <Input className="w-20" placeholder="Cap." value={refChapter} onChange={(e) => setRefChapter(e.target.value)} data-testid="input-ref-chapter" />
-                  <Input className="w-20" placeholder="Vers." value={refVerse} onChange={(e) => setRefVerse(e.target.value)} data-testid="input-ref-verse" />
-                </>
-              )}
-              <Button
-                size="sm"
-                className="ml-auto"
-                onClick={handlePost}
-                disabled={!content.trim() || createPost.isPending}
-                data-testid="button-post-reflection"
-              >
-                <Send className="w-4 h-4 mr-1" /> Publicar
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {isLoading ? (
-        <div className="space-y-2">
-          {Array.from({ length: 3 }, (_, i) => <Skeleton key={i} className="h-24 w-full" />)}
-        </div>
-      ) : posts.length === 0 ? (
-        <Card>
-          <CardContent className="p-8 text-center">
-            <Users className="w-12 h-12 mx-auto text-muted-foreground mb-3" />
-            <p className="text-muted-foreground">No hay reflexiones aun. Se el primero en compartir.</p>
           </CardContent>
         </Card>
       ) : (
-        <div className="space-y-3">
-          {posts.map((post: any) => (
-            <Card key={post.id} data-testid={`card-club-post-${post.id}`}>
-              <CardContent className="p-4 space-y-2">
-                <div className="flex items-start gap-3">
-                  <Avatar className="h-8 w-8">
-                    {post.user.avatarUrl && <AvatarImage src={post.user.avatarUrl} />}
-                    <AvatarFallback className="text-xs bg-primary/10 text-primary">
-                      {(post.user.displayName || post.user.username).slice(0, 2).toUpperCase()}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="font-medium text-sm">{post.user.displayName || post.user.username}</span>
-                      {post.user.cargo && <Badge variant="outline" className="text-[10px] py-0">{post.user.cargo}</Badge>}
-                      {post.user.country && <span className="text-[10px] text-muted-foreground">{post.user.country}</span>}
-                      <span className="text-xs text-muted-foreground">
-                        {new Date(post.createdAt).toLocaleDateString("es")}
-                      </span>
-                    </div>
-                    {post.book && (
-                      <Badge variant="secondary" className="mt-1">
-                        {post.book} {post.chapter ? `${post.chapter}` : ""}{post.verseStart ? `:${post.verseStart}` : ""}
-                      </Badge>
-                    )}
-                    <p className="mt-2 text-sm whitespace-pre-wrap">{post.content}</p>
-                  </div>
-                </div>
+        <Card className="border-green-200 dark:border-green-800 bg-green-50/30 dark:bg-green-950/10">
+          <CardContent className="p-5 text-center">
+            <div className="w-14 h-14 rounded-full bg-green-100 dark:bg-green-900 flex items-center justify-center mx-auto mb-3">
+              <SiWhatsapp className="h-7 w-7 text-green-500" />
+            </div>
+            <h3 className="font-semibold text-green-700 dark:text-green-300">Club de Lectura Biblica</h3>
+            <p className="text-sm text-muted-foreground mt-1">
+              Pronto estara disponible el grupo de WhatsApp. ¡Estate pendiente!
+            </p>
+          </CardContent>
+        </Card>
+      )}
 
-                <div className="flex items-center gap-2 flex-wrap">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => toggleLike.mutate(post.id)}
-                    disabled={toggleLike.isPending}
-                    data-testid={`button-like-${post.id}`}
-                  >
-                    <Heart className={`w-4 h-4 mr-1 ${likedPosts.includes(post.id) ? "fill-red-500 text-red-500" : ""}`} />
-                    {post.likeCount || 0}
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setExpandedPostId(expandedPostId === post.id ? null : post.id)}
-                    data-testid={`button-comments-${post.id}`}
-                  >
-                    <MessageCircle className="w-4 h-4 mr-1" />
-                    {post.commentCount} comentario{post.commentCount !== 1 ? "s" : ""}
-                  </Button>
-                </div>
+      {/* Daily Verse - Prominent */}
+      <Card className="bg-gradient-to-r from-primary/10 via-primary/5 to-transparent border-primary/20">
+        <CardContent className="p-5">
+          <div className="flex items-start gap-4">
+            <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+              <BookOpen className="w-6 h-6 text-primary" />
+            </div>
+            <div>
+              <p className="text-xs font-semibold text-primary uppercase tracking-wide mb-2">Versiculo del Dia</p>
+              <p className="text-base italic leading-relaxed font-medium">&ldquo;{dailyVerse.text}&rdquo;</p>
+              <p className="text-sm text-primary font-medium mt-2">{dailyVerse.ref}</p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
-                {expandedPostId === post.id && <CommentsSection postId={post.id} />}
+      {/* Daily Challenge */}
+      <Card className="border-amber-200 dark:border-amber-800 bg-amber-50/30 dark:bg-amber-950/10">
+        <CardContent className="p-5">
+          <div className="flex items-start gap-4">
+            <span className="text-3xl flex-shrink-0">{todayChallenge.icon}</span>
+            <div>
+              <p className="text-xs font-semibold text-amber-600 dark:text-amber-400 uppercase tracking-wide mb-1">Desafio del Dia</p>
+              <h3 className="font-bold text-lg">{todayChallenge.title}</h3>
+              <p className="text-sm text-muted-foreground mt-1">{todayChallenge.desc}</p>
+              <p className="text-sm mt-2 flex items-start gap-1">
+                <span className="text-amber-500">💡</span>
+                <span className="text-amber-700 dark:text-amber-300 font-medium">{todayChallenge.tip}</span>
+              </p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Reading Tips */}
+      <Card>
+        <CardContent className="p-5">
+          <div className="flex items-start gap-3">
+            <div className="w-10 h-10 rounded-full bg-blue-100 dark:bg-blue-900 flex items-center justify-center flex-shrink-0">
+              <Highlighter className="w-5 h-5 text-blue-500" />
+            </div>
+            <div>
+              <p className="text-xs font-semibold text-blue-600 dark:text-blue-400 uppercase tracking-wide mb-1">Consejo de Lectura</p>
+              <p className="text-sm leading-relaxed">{todayTip}</p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Suggested reading plans */}
+      <div>
+        <h3 className="font-semibold mb-3 flex items-center gap-2">
+          <BookMarked className="w-5 h-5 text-primary" />
+          Ideas para tu Proximo Plan de Lectura
+        </h3>
+        <div className="grid gap-3 sm:grid-cols-2">
+          {BIBLE_READING_PLANS_SUGGESTIONS.map((plan, idx) => (
+            <Card key={idx} className="hover:shadow-sm transition-shadow">
+              <CardContent className="p-4">
+                <h4 className="font-medium text-sm">{plan.name}</h4>
+                <p className="text-xs text-muted-foreground mt-1">{plan.books}</p>
+                <div className="flex items-center gap-3 mt-2 text-xs">
+                  <Badge variant="outline" className="text-xs">{plan.chapters} capitulos</Badge>
+                  <span className="text-muted-foreground">{plan.time}</span>
+                </div>
               </CardContent>
             </Card>
           ))}
         </div>
-      )}
-    </div>
-  );
-}
+        <p className="text-sm text-muted-foreground text-center mt-3">
+          Ve a la pestaña de <strong>Planes</strong> para crear tu plan personalizado con cualquiera de estas ideas.
+        </p>
+      </div>
 
-function CommentsSection({ postId }: { postId: number }) {
-  const { user } = useAuth();
-  const [text, setText] = useState("");
-  const { data: comments = [], isLoading } = useReadingClubComments(postId);
-  const createComment = useCreateReadingClubComment();
-
-  const handleComment = () => {
-    if (!text.trim()) return;
-    createComment.mutate({ postId, content: text.trim() }, {
-      onSuccess: () => setText(""),
-    });
-  };
-
-  return (
-    <div className="space-y-2 pl-4 border-l-2 border-muted">
-      {isLoading ? (
-        <Skeleton className="h-12 w-full" />
-      ) : (
-        comments.map((c: any) => (
-          <div key={c.id} className="flex items-start gap-2" data-testid={`comment-${c.id}`}>
-            <Avatar className="h-6 w-6">
-              {c.user.avatarUrl && <AvatarImage src={c.user.avatarUrl} />}
-              <AvatarFallback className="text-xs bg-primary/10 text-primary">
-                {(c.user.displayName || c.user.username).slice(0, 2).toUpperCase()}
-              </AvatarFallback>
-            </Avatar>
-            <div>
-              <div className="flex items-center gap-1">
-                <span className="text-xs font-medium">{c.user.displayName || c.user.username}</span>
-                <span className="text-xs text-muted-foreground">{new Date(c.createdAt).toLocaleDateString("es")}</span>
-              </div>
-              <p className="text-sm">{c.content}</p>
+      {/* Motivational section */}
+      <Card className="bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-950/20 dark:to-pink-950/20 border-purple-200 dark:border-purple-800">
+        <CardContent className="p-5 text-center">
+          <p className="text-3xl mb-3">✨</p>
+          <h3 className="font-bold text-lg mb-2">¿Por que leer la Biblia?</h3>
+          <div className="grid gap-3 sm:grid-cols-3 mt-4">
+            <div className="text-center">
+              <p className="text-2xl mb-1">🌱</p>
+              <p className="text-sm font-medium">Crecimiento Espiritual</p>
+              <p className="text-xs text-muted-foreground">La Palabra de Dios transforma tu vida dia a dia.</p>
+            </div>
+            <div className="text-center">
+              <p className="text-2xl mb-1">💪</p>
+              <p className="text-sm font-medium">Fortaleza</p>
+              <p className="text-xs text-muted-foreground">Encuentra fuerzas en los momentos mas dificiles.</p>
+            </div>
+            <div className="text-center">
+              <p className="text-2xl mb-1">🧭</p>
+              <p className="text-sm font-medium">Direccion</p>
+              <p className="text-xs text-muted-foreground">La Biblia es lampara a tus pies y lumbrera a tu camino.</p>
             </div>
           </div>
-        ))
-      )}
-      {user?.isActive && (
-        <div className="flex items-center gap-2">
-          <Input
-            placeholder="Escribe un comentario..."
-            value={text}
-            onChange={(e) => setText(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && handleComment()}
-            data-testid={`input-comment-${postId}`}
-          />
-          <Button size="icon" onClick={handleComment} disabled={!text.trim()} data-testid={`button-send-comment-${postId}`}>
-            <Send className="w-4 h-4" />
-          </Button>
-        </div>
-      )}
+        </CardContent>
+      </Card>
     </div>
   );
 }

@@ -185,6 +185,7 @@ export const api = {
     create: { method: "POST" as const, path: "/api/reading-plans" as const, input: insertReadingPlanSchema },
     delete: { method: "DELETE" as const, path: "/api/reading-plans/:id" as const },
     addItem: { method: "POST" as const, path: "/api/reading-plans/:id/items" as const, input: insertReadingPlanItemSchema },
+    bulkAddItems: { method: "POST" as const, path: "/api/reading-plans/:id/items/bulk" as const },
     toggleItem: { method: "PATCH" as const, path: "/api/reading-plan-items/:id/toggle" as const },
     deleteItem: { method: "DELETE" as const, path: "/api/reading-plan-items/:id" as const },
   },

@@ -1224,6 +1224,25 @@ export function useDeleteReadingPlanItem() {
   });
 }
 
+export function useBulkAddReadingPlanItems() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  return useMutation({
+    mutationFn: async ({ planId, items }: { planId: number; items: { book: string; chapter: number; sortOrder: number }[] }) => {
+      const url = buildUrl(api.readingPlans.bulkAddItems.path, { id: planId });
+      const res = await authFetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ items }) });
+      if (!res.ok) throw new Error("Error al agregar lecturas");
+      return res.json();
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: [api.readingPlans.get.path, variables.planId] });
+      queryClient.invalidateQueries({ queryKey: [api.readingPlans.list.path] });
+      toast({ title: "Plan de lectura generado exitosamente" });
+    },
+    onError: (error: any) => { toast({ title: "Error", description: error.message, variant: "destructive" }); },
+  });
+}
+
 // ========== BIBLIOTECA: READING CLUB ==========
 export function useReadingClubPosts() {
   return useQuery({

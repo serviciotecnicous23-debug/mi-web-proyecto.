@@ -146,6 +146,7 @@ export interface IStorage {
   listPublicReadingPlans(): Promise<(ReadingPlan & { user: { username: string; displayName: string | null } })[]>;
   deleteReadingPlan(id: number): Promise<void>;
   addReadingPlanItem(data: InsertReadingPlanItem): Promise<ReadingPlanItem>;
+  bulkAddReadingPlanItems(items: InsertReadingPlanItem[]): Promise<ReadingPlanItem[]>;
   listReadingPlanItems(planId: number): Promise<ReadingPlanItem[]>;
   toggleReadingPlanItem(id: number): Promise<ReadingPlanItem | undefined>;
   deleteReadingPlanItem(id: number): Promise<void>;
@@ -1023,6 +1024,12 @@ export class DatabaseStorage implements IStorage {
 
   async addReadingPlanItem(data: InsertReadingPlanItem): Promise<ReadingPlanItem> {
     const [created] = await db.insert(readingPlanItems).values(data).returning();
+    return created;
+  }
+
+  async bulkAddReadingPlanItems(items: InsertReadingPlanItem[]): Promise<ReadingPlanItem[]> {
+    if (items.length === 0) return [];
+    const created = await db.insert(readingPlanItems).values(items).returning();
     return created;
   }
 

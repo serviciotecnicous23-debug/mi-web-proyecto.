@@ -1563,6 +1563,31 @@ ${urls}
     }
   });
 
+  // Bulk add items to a reading plan
+  app.post(api.readingPlans.bulkAddItems.path, async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    if (!(req.user as any).isActive) return res.sendStatus(403);
+    try {
+      const planId = parseInt(req.params.id);
+      const plan = await storage.getReadingPlan(planId);
+      if (!plan) return res.sendStatus(404);
+      if (plan.userId !== (req.user as any).id) return res.sendStatus(403);
+      const { items } = req.body;
+      if (!Array.isArray(items) || items.length === 0) return res.status(400).json({ message: "Se requiere un arreglo de items" });
+      const validItems = items.map((item: any, idx: number) => ({
+        planId,
+        book: String(item.book || ""),
+        chapter: Number(item.chapter || 1),
+        sortOrder: item.sortOrder ?? idx,
+      }));
+      const created = await storage.bulkAddReadingPlanItems(validItems);
+      res.status(201).json(created);
+    } catch (err) {
+      console.error("Bulk add items error:", err);
+      res.sendStatus(500);
+    }
+  });
+
   app.patch(api.readingPlans.toggleItem.path, async (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
     const item = await storage.toggleReadingPlanItem(parseInt(req.params.id));
