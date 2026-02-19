@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Layout } from "@/components/layout";
 import { useAuth } from "@/hooks/use-auth";
 import { Link } from "wouter";
@@ -69,7 +69,14 @@ const BOOK_CHAPTERS: Record<string, number> = {
 interface BibleVerse {
   verse: number;
   text: string;
+  study?: string;
 }
+
+const BIBLE_VERSIONS: Record<string, { label: string; desc: string }> = {
+  rv1960: { label: "RV1960", desc: "Reina Valera 1960 - Clásica" },
+  nvi: { label: "NVI", desc: "Nueva Version Internacional - Moderna" },
+  rv1995: { label: "RV1995", desc: "Reina Valera 1995 - Actualizada" },
+};
 
 const DAILY_VERSES = [
   { ref: "Josue 1:9", text: "Mira que te mando que te esfuerces y seas valiente; no temas ni desmayes, porque Jehova tu Dios estara contigo en dondequiera que vayas." },
@@ -139,6 +146,7 @@ function BibleTab() {
   const [noteText, setNoteText] = useState("");
   const [showNoteForm, setShowNoteForm] = useState(false);
   const [showBookSelector, setShowBookSelector] = useState(false);
+  const [bibleVersion, setBibleVersion] = useState("rv1960");
 
   const maxChapters = BOOK_CHAPTERS[selectedBook] || 1;
   const { data: highlights = [] } = useBibleHighlights(selectedBook, chapter);
@@ -154,18 +162,20 @@ function BibleTab() {
       setError(null);
       try {
         const slug = BIBLE_BOOK_SLUG_MAP[selectedBook] || selectedBook.toLowerCase();
-        const res = await fetch(`https://bible-api.deno.dev/api/read/rv1960/${slug}/${chapter}`);
+        const res = await fetch(`https://bible-api.deno.dev/api/read/${bibleVersion}/${slug}/${chapter}`);
         if (!res.ok) throw new Error("Error al cargar texto biblico");
         const data = await res.json();
         if (data.vers && Array.isArray(data.vers)) {
           setVerses(data.vers.map((v: any) => ({
             verse: v.number || v.verse,
             text: v.verse || v.text || "",
+            study: v.study || undefined,
           })));
         } else if (Array.isArray(data)) {
           setVerses(data.map((v: any) => ({
             verse: v.number || v.verse || 0,
             text: v.text || v.verse || "",
+            study: v.study || undefined,
           })));
         } else {
           setVerses([]);
@@ -178,7 +188,7 @@ function BibleTab() {
       }
     };
     fetchVerses();
-  }, [selectedBook, chapter]);
+  }, [selectedBook, chapter, bibleVersion]);
 
   const getVerseHighlight = (verse: number) => {
     return highlights.find((h: any) => verse >= h.verseStart && verse <= h.verseEnd);
@@ -220,6 +230,28 @@ function BibleTab() {
   return (
     <div className="space-y-4">
       <VerseOfTheDay />
+
+      {/* Bible Version Selector */}
+      <div className="flex items-center gap-2 flex-wrap bg-muted/30 rounded-lg p-2">
+        <span className="text-xs font-medium text-muted-foreground mr-1">Version:</span>
+        {Object.entries(BIBLE_VERSIONS).map(([key, val]) => (
+          <Button
+            key={key}
+            variant={bibleVersion === key ? "default" : "ghost"}
+            size="sm"
+            className={`text-xs h-7 ${bibleVersion === key ? "" : "text-muted-foreground"}`}
+            onClick={() => setBibleVersion(key)}
+            title={val.desc}
+            data-testid={`button-version-${key}`}
+          >
+            {val.label}
+          </Button>
+        ))}
+        <span className="text-xs text-muted-foreground ml-auto hidden sm:inline">
+          {BIBLE_VERSIONS[bibleVersion]?.desc}
+        </span>
+      </div>
+
       <div className="flex items-center gap-2 flex-wrap">
         <Dialog open={showBookSelector} onOpenChange={setShowBookSelector}>
           <DialogTrigger asChild>
@@ -286,9 +318,21 @@ function BibleTab() {
 
       <Card>
         <CardContent className="p-4 md:p-6">
-          <h2 className="text-xl font-bold mb-4" data-testid="text-bible-heading">
-            {selectedBook} {chapter}
-          </h2>
+          <div className="flex items-center justify-between gap-2 mb-4">
+            <h2 className="text-xl font-bold" data-testid="text-bible-heading">
+              {selectedBook} {chapter}
+            </h2>
+            <Badge variant="outline" className="text-xs">{BIBLE_VERSIONS[bibleVersion]?.label}</Badge>
+          </div>
+
+          {/* Study section header for NVI */}
+          {bibleVersion === "nvi" && verses.length > 0 && verses[0].study && (
+            <div className="mb-3 p-2 rounded-md bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800">
+              <p className="text-sm font-semibold text-blue-700 dark:text-blue-300 flex items-center gap-1">
+                <BookOpen className="w-4 h-4" /> {verses[0].study}
+              </p>
+            </div>
+          )}
 
           {loading ? (
             <div className="space-y-2">
@@ -302,27 +346,37 @@ function BibleTab() {
             </p>
           ) : (
             <div className="space-y-1 leading-relaxed text-base">
-              {verses.map((v) => {
+              {verses.map((v, idx) => {
                 const hl = getVerseHighlight(v.verse);
                 const vNotes = getVerseNotes(v.verse);
                 const isSelected = selectedVerse === v.verse;
+                const prevStudy = idx > 0 ? verses[idx - 1].study : verses[0].study;
+                const showStudyHeader = bibleVersion === "nvi" && v.study && idx > 0 && v.study !== prevStudy;
                 return (
-                  <span
-                    key={v.verse}
-                    className={`inline cursor-pointer transition-colors rounded-sm px-0.5 ${isSelected ? "ring-2 ring-primary" : ""}`}
-                    style={hl ? { backgroundColor: hl.color + "40" } : undefined}
-                    onClick={() => {
-                      setSelectedVerse(isSelected ? null : v.verse);
-                      setShowNoteForm(false);
-                    }}
-                    data-testid={`verse-${v.verse}`}
-                  >
-                    <sup className="text-xs font-bold text-muted-foreground mr-0.5">{v.verse}</sup>
-                    {v.text}{" "}
-                    {vNotes.length > 0 && (
-                      <StickyNote className="inline w-3 h-3 text-primary" />
+                  <React.Fragment key={v.verse}>
+                    {showStudyHeader && (
+                      <div className="block my-3 p-2 rounded-md bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800">
+                        <p className="text-sm font-semibold text-blue-700 dark:text-blue-300 flex items-center gap-1">
+                          <BookOpen className="w-4 h-4" /> {v.study}
+                        </p>
+                      </div>
                     )}
-                  </span>
+                    <span
+                      className={`inline cursor-pointer transition-colors rounded-sm px-0.5 ${isSelected ? "ring-2 ring-primary" : ""}`}
+                      style={hl ? { backgroundColor: hl.color + "40" } : undefined}
+                      onClick={() => {
+                        setSelectedVerse(isSelected ? null : v.verse);
+                        setShowNoteForm(false);
+                      }}
+                      data-testid={`verse-${v.verse}`}
+                    >
+                      <sup className="text-xs font-bold text-muted-foreground mr-0.5">{v.verse}</sup>
+                      {v.text}{" "}
+                      {vNotes.length > 0 && (
+                        <StickyNote className="inline w-3 h-3 text-primary" />
+                      )}
+                    </span>
+                  </React.Fragment>
                 );
               })}
             </div>
@@ -393,7 +447,7 @@ function BibleTab() {
   );
 }
 
-function ReadingPlansTab() {
+function ReadingPlansTab({ prefillBooks, prefillPeriod }: { prefillBooks?: string[]; prefillPeriod?: string }) {
   const { user } = useAuth();
   const { toast } = useToast();
   const [viewPublic, setViewPublic] = useState(false);
@@ -409,6 +463,20 @@ function ReadingPlansTab() {
   const [isPublic, setIsPublic] = useState(false);
   const [bookSearch, setBookSearch] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
+
+  // Handle pre-fill from Club suggestions
+  const prefillApplied = useRef(false);
+  useEffect(() => {
+    if (prefillBooks && prefillBooks.length > 0 && !prefillApplied.current) {
+      prefillApplied.current = true;
+      setSelectedBooks(prefillBooks);
+      if (prefillPeriod && ["semanal", "mensual", "trimestral", "anual", "personalizado"].includes(prefillPeriod)) {
+        setPeriodType(prefillPeriod as any);
+      }
+      setShowGenerator(true);
+      setGeneratorStep(2); // Go directly to period selection since books are pre-filled
+    }
+  }, [prefillBooks, prefillPeriod]);
 
   const { data: plans = [], isLoading } = useReadingPlans(viewPublic);
   const { data: selectedPlan } = useReadingPlan(selectedPlanId || 0);
@@ -1056,9 +1124,24 @@ function ReadingPlansTab() {
   );
 }
 
-function ReadingClubTab() {
+function ReadingClubTab({ onNavigateToPlan }: { onNavigateToPlan?: (books: string[], period: string) => void }) {
   const { user } = useAuth();
   const { data: whatsappData } = useWhatsappLink();
+  const { data: allNotes = [] } = useBibleNotes();
+
+  // Challenge completion tracking via localStorage
+  const getChallengeKey = (idx: number) => `club_challenge_${new Date().toISOString().slice(0, 10)}_${idx}`;
+  const [completedChallenges, setCompletedChallenges] = useState<Record<string, boolean>>(() => {
+    try {
+      return JSON.parse(localStorage.getItem("club_completed_challenges") || "{}");
+    } catch { return {}; }
+  });
+  const toggleChallenge = (idx: number) => {
+    const key = getChallengeKey(idx);
+    const updated = { ...completedChallenges, [key]: !completedChallenges[key] };
+    setCompletedChallenges(updated);
+    localStorage.setItem("club_completed_challenges", JSON.stringify(updated));
+  };
 
   // Motivational daily content
   const today = new Date();
@@ -1066,12 +1149,12 @@ function ReadingClubTab() {
   const dailyVerse = DAILY_VERSES[dayOfYear % DAILY_VERSES.length];
 
   const READING_CHALLENGES = [
-    { icon: "📖", title: "Lectura Diaria", desc: "Lee al menos un capitulo de la Biblia cada dia. La constancia es la clave.", tip: "Comienza con un libro corto como Filipenses o Santiago." },
-    { icon: "✍️", title: "Diario Espiritual", desc: "Anota lo que Dios te habla cada dia a traves de su Palabra.", tip: "Usa la seccion de notas en la Biblia para guardar tus reflexiones." },
-    { icon: "🙏", title: "Lectura + Oracion", desc: "Lee un pasaje y luego ora sobre lo que leiste.", tip: "Convierte los versiculos en oraciones personales." },
-    { icon: "👥", title: "Comparte con Alguien", desc: "Lee junto a un amigo o familiar y compartan lo aprendido.", tip: "Unete al grupo de WhatsApp para compartir con la comunidad." },
-    { icon: "🎯", title: "Memoriza un Versiculo", desc: "Escoge un versiculo cada semana y memorizalo.", tip: "Escribirlo varias veces ayuda a memorizarlo mas rapido." },
-    { icon: "📚", title: "Lee un Libro Completo", desc: "Propon te leer un libro completo de la Biblia este mes.", tip: "El Evangelio de Juan es excelente para comenzar." },
+    { icon: "📖", title: "Lectura Diaria", desc: "Lee al menos un capitulo de la Biblia cada dia. La constancia es la clave.", tip: "Comienza con un libro corto como Filipenses o Santiago.", action: "bible" as const },
+    { icon: "✍️", title: "Diario Espiritual", desc: "Anota lo que Dios te habla cada dia a traves de su Palabra.", tip: "Usa la seccion de notas en la Biblia para guardar tus reflexiones.", action: "journal" as const },
+    { icon: "🙏", title: "Lectura + Oracion", desc: "Lee un pasaje y luego ora sobre lo que leiste.", tip: "Convierte los versiculos en oraciones personales.", action: "bible" as const },
+    { icon: "👥", title: "Comparte con Alguien", desc: "Lee junto a un amigo o familiar y compartan lo aprendido.", tip: "Unete al grupo de WhatsApp para compartir con la comunidad.", action: "whatsapp" as const },
+    { icon: "🎯", title: "Memoriza un Versiculo", desc: "Escoge un versiculo cada semana y memorizalo.", tip: "Escribirlo varias veces ayuda a memorizarlo mas rapido.", action: "bible" as const },
+    { icon: "📚", title: "Lee un Libro Completo", desc: "Propon te leer un libro completo de la Biblia este mes.", tip: "El Evangelio de Juan es excelente para comenzar.", action: "plan" as const },
   ];
   const todayChallenge = READING_CHALLENGES[dayOfYear % READING_CHALLENGES.length];
 
@@ -1090,13 +1173,20 @@ function ReadingClubTab() {
   const todayTip = READING_TIPS[dayOfYear % READING_TIPS.length];
 
   const BIBLE_READING_PLANS_SUGGESTIONS = [
-    { name: "Lectura del Nuevo Testamento", books: "Mateo a Apocalipsis", time: "~3 meses", chapters: 260 },
-    { name: "Evangelios en un Mes", books: "Mateo, Marcos, Lucas, Juan", time: "30 dias", chapters: 89 },
-    { name: "Proverbios en un Mes", books: "Proverbios", time: "31 dias", chapters: 31 },
-    { name: "Salmos en 2 Meses", books: "Salmos", time: "60 dias", chapters: 150 },
-    { name: "Biblia Completa en un Año", books: "Genesis a Apocalipsis", time: "365 dias", chapters: 1189 },
-    { name: "Cartas de Pablo", books: "Romanos a Filemon", time: "2 semanas", chapters: 87 },
+    { name: "Lectura del Nuevo Testamento", books: ["Mateo","Marcos","Lucas","Juan","Hechos","Romanos","1 Corintios","2 Corintios","Galatas","Efesios","Filipenses","Colosenses","1 Tesalonicenses","2 Tesalonicenses","1 Timoteo","2 Timoteo","Tito","Filemon","Hebreos","Santiago","1 Pedro","2 Pedro","1 Juan","2 Juan","3 Juan","Judas","Apocalipsis"], booksLabel: "Mateo a Apocalipsis", time: "~3 meses", period: "trimestral" },
+    { name: "Evangelios en un Mes", books: ["Mateo","Marcos","Lucas","Juan"], booksLabel: "Mateo, Marcos, Lucas, Juan", time: "30 dias", period: "mensual" },
+    { name: "Proverbios en un Mes", books: ["Proverbios"], booksLabel: "Proverbios", time: "31 dias", period: "mensual" },
+    { name: "Salmos en 2 Meses", books: ["Salmos"], booksLabel: "Salmos", time: "60 dias", period: "personalizado" },
+    { name: "Biblia Completa en un Año", books: Object.keys(BOOK_CHAPTERS), booksLabel: "Genesis a Apocalipsis", time: "365 dias", period: "anual" },
+    { name: "Cartas de Pablo", books: ["Romanos","1 Corintios","2 Corintios","Galatas","Efesios","Filipenses","Colosenses","1 Tesalonicenses","2 Tesalonicenses","1 Timoteo","2 Timoteo","Tito","Filemon"], booksLabel: "Romanos a Filemon", time: "2 semanas", period: "semanal" },
   ];
+
+  // Sort notes by most recent (by id desc as proxy for time)
+  const recentNotes = [...allNotes]
+    .sort((a: any, b: any) => (b.id || 0) - (a.id || 0))
+    .slice(0, 10);
+
+  const completedTodayCount = READING_CHALLENGES.filter((_, idx) => completedChallenges[getChallengeKey(idx)]).length;
 
   return (
     <div className="space-y-5">
@@ -1155,23 +1245,63 @@ function ReadingClubTab() {
         </CardContent>
       </Card>
 
-      {/* Daily Challenge */}
-      <Card className="border-amber-200 dark:border-amber-800 bg-amber-50/30 dark:bg-amber-950/10">
-        <CardContent className="p-5">
-          <div className="flex items-start gap-4">
-            <span className="text-3xl flex-shrink-0">{todayChallenge.icon}</span>
-            <div>
-              <p className="text-xs font-semibold text-amber-600 dark:text-amber-400 uppercase tracking-wide mb-1">Desafio del Dia</p>
-              <h3 className="font-bold text-lg">{todayChallenge.title}</h3>
-              <p className="text-sm text-muted-foreground mt-1">{todayChallenge.desc}</p>
-              <p className="text-sm mt-2 flex items-start gap-1">
-                <span className="text-amber-500">💡</span>
-                <span className="text-amber-700 dark:text-amber-300 font-medium">{todayChallenge.tip}</span>
-              </p>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+      {/* Interactive Daily Challenges */}
+      <div>
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="font-semibold flex items-center gap-2">
+            🎯 Desafios del Dia
+          </h3>
+          <Badge variant={completedTodayCount === READING_CHALLENGES.length ? "default" : "secondary"} className="text-xs">
+            {completedTodayCount}/{READING_CHALLENGES.length} completados
+          </Badge>
+        </div>
+        {completedTodayCount === READING_CHALLENGES.length && (
+          <Card className="mb-3 border-green-300 dark:border-green-700 bg-green-50/50 dark:bg-green-950/20">
+            <CardContent className="p-3 text-center">
+              <span className="text-2xl">🏆</span>
+              <p className="text-sm font-bold text-green-700 dark:text-green-300">¡Felicidades! Has completado todos los desafios del dia.</p>
+            </CardContent>
+          </Card>
+        )}
+        <div className="grid gap-2 sm:grid-cols-2">
+          {READING_CHALLENGES.map((challenge, idx) => {
+            const isCompleted = !!completedChallenges[getChallengeKey(idx)];
+            const isTodays = idx === (dayOfYear % READING_CHALLENGES.length);
+            return (
+              <Card
+                key={idx}
+                className={`transition-all cursor-pointer hover:shadow-md ${isCompleted ? "bg-green-50/40 dark:bg-green-950/10 border-green-200 dark:border-green-800" : ""} ${isTodays && !isCompleted ? "ring-2 ring-amber-400 dark:ring-amber-600" : ""}`}
+                onClick={() => toggleChallenge(idx)}
+              >
+                <CardContent className="p-3">
+                  <div className="flex items-start gap-3">
+                    <div className="flex flex-col items-center gap-1">
+                      <span className="text-xl">{challenge.icon}</span>
+                      <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors ${isCompleted ? "bg-green-500 border-green-500" : "border-muted-foreground/30"}`}>
+                        {isCompleted && <Check className="w-3 h-3 text-white" />}
+                      </div>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <h4 className={`font-medium text-sm ${isCompleted ? "line-through text-muted-foreground" : ""}`}>{challenge.title}</h4>
+                        {isTodays && <Badge variant="outline" className="text-xs border-amber-400 text-amber-600">Hoy</Badge>}
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-0.5">{challenge.desc}</p>
+                      <p className="text-xs mt-1 flex items-start gap-1">
+                        <span className="text-amber-500">💡</span>
+                        <span className="text-amber-700 dark:text-amber-300">{challenge.tip}</span>
+                      </p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })}
+        </div>
+        {completedTodayCount > 0 && completedTodayCount < READING_CHALLENGES.length && (
+          <Progress value={(completedTodayCount / READING_CHALLENGES.length) * 100} className="h-2 mt-3" />
+        )}
+      </div>
 
       {/* Reading Tips */}
       <Card>
@@ -1188,28 +1318,95 @@ function ReadingClubTab() {
         </CardContent>
       </Card>
 
-      {/* Suggested reading plans */}
+      {/* Diario Espiritual - Real Notes */}
+      <div>
+        <h3 className="font-semibold mb-3 flex items-center gap-2">
+          <StickyNote className="w-5 h-5 text-primary" />
+          Diario Espiritual
+        </h3>
+        {recentNotes.length > 0 ? (
+          <div className="space-y-2">
+            {recentNotes.map((note: any) => (
+              <Card key={note.id} className="hover:shadow-sm transition-shadow">
+                <CardContent className="p-3">
+                  <div className="flex items-start gap-3">
+                    <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0 mt-0.5">
+                      <StickyNote className="w-4 h-4 text-primary" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1">
+                        <Badge variant="outline" className="text-xs">
+                          {note.book} {note.chapter}:{note.verse}
+                        </Badge>
+                        {note.createdAt && (
+                          <span className="text-xs text-muted-foreground">
+                            {new Date(note.createdAt).toLocaleDateString("es", { day: "numeric", month: "short" })}
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-sm leading-relaxed">{note.content}</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+            {allNotes.length > 10 && (
+              <p className="text-xs text-muted-foreground text-center">
+                Mostrando las 10 notas mas recientes de {allNotes.length} total.
+              </p>
+            )}
+          </div>
+        ) : (
+          <Card className="border-dashed">
+            <CardContent className="p-5 text-center">
+              <StickyNote className="w-10 h-10 text-muted-foreground/30 mx-auto mb-2" />
+              <p className="text-sm text-muted-foreground">
+                Aun no tienes notas. Ve a la pestaña <strong>Biblia</strong>, selecciona un versiculo y agrega una reflexion.
+              </p>
+              <p className="text-xs text-muted-foreground mt-1">
+                Tus notas espirituales aparecerán aqui como un diario de fe.
+              </p>
+            </CardContent>
+          </Card>
+        )}
+      </div>
+
+      {/* Suggested reading plans - Now clickable */}
       <div>
         <h3 className="font-semibold mb-3 flex items-center gap-2">
           <BookMarked className="w-5 h-5 text-primary" />
           Ideas para tu Proximo Plan de Lectura
         </h3>
         <div className="grid gap-3 sm:grid-cols-2">
-          {BIBLE_READING_PLANS_SUGGESTIONS.map((plan, idx) => (
-            <Card key={idx} className="hover:shadow-sm transition-shadow">
-              <CardContent className="p-4">
-                <h4 className="font-medium text-sm">{plan.name}</h4>
-                <p className="text-xs text-muted-foreground mt-1">{plan.books}</p>
-                <div className="flex items-center gap-3 mt-2 text-xs">
-                  <Badge variant="outline" className="text-xs">{plan.chapters} capitulos</Badge>
-                  <span className="text-muted-foreground">{plan.time}</span>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+          {BIBLE_READING_PLANS_SUGGESTIONS.map((plan, idx) => {
+            const totalChapters = plan.books.reduce((sum, book) => sum + (BOOK_CHAPTERS[book] || 0), 0);
+            return (
+              <Card
+                key={idx}
+                className="hover:shadow-md transition-all cursor-pointer hover:border-primary/50 group"
+                onClick={() => onNavigateToPlan?.(plan.books, plan.period)}
+              >
+                <CardContent className="p-4">
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <h4 className="font-medium text-sm group-hover:text-primary transition-colors">{plan.name}</h4>
+                      <p className="text-xs text-muted-foreground mt-1">{plan.booksLabel}</p>
+                      <div className="flex items-center gap-3 mt-2 text-xs">
+                        <Badge variant="outline" className="text-xs">{totalChapters} capitulos</Badge>
+                        <span className="text-muted-foreground">{plan.time}</span>
+                      </div>
+                    </div>
+                    <Button variant="ghost" size="icon" className="opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0" tabIndex={-1}>
+                      <Plus className="w-4 h-4 text-primary" />
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })}
         </div>
         <p className="text-sm text-muted-foreground text-center mt-3">
-          Ve a la pestaña de <strong>Planes</strong> para crear tu plan personalizado con cualquiera de estas ideas.
+          Haz clic en cualquier idea para crear ese plan de lectura automaticamente.
         </p>
       </div>
 
@@ -1550,6 +1747,22 @@ function ResourcesTab() {
 export default function BibliotecaPage() {
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState("biblia");
+  const [prefillBooks, setPrefillBooks] = useState<string[] | undefined>();
+  const [prefillPeriod, setPrefillPeriod] = useState<string | undefined>();
+
+  const handleNavigateToPlan = (books: string[], period: string) => {
+    setPrefillBooks(books);
+    setPrefillPeriod(period);
+    setActiveTab("planes");
+  };
+
+  // Reset prefill when leaving planes tab
+  useEffect(() => {
+    if (activeTab !== "planes") {
+      setPrefillBooks(undefined);
+      setPrefillPeriod(undefined);
+    }
+  }, [activeTab]);
 
   if (!user) {
     return (
@@ -1620,10 +1833,10 @@ export default function BibliotecaPage() {
             <BibleTab />
           </TabsContent>
           <TabsContent value="planes" className="mt-4">
-            <ReadingPlansTab />
+            <ReadingPlansTab prefillBooks={prefillBooks} prefillPeriod={prefillPeriod} />
           </TabsContent>
           <TabsContent value="club" className="mt-4">
-            <ReadingClubTab />
+            <ReadingClubTab onNavigateToPlan={handleNavigateToPlan} />
           </TabsContent>
           <TabsContent value="recursos" className="mt-4">
             <ResourcesTab />
