@@ -36,6 +36,9 @@ import {
   type RegionPostPoll, type RegionPostPollOption, type RegionPostPollVote, type RegionPostReaction,
   ministryRegions, teamMembers,
   type MinistryRegion, type InsertMinistryRegion, type UpdateMinistryRegion,
+  ministryChurches, churchPosts,
+  type MinistryChurch, type InsertMinistryChurch, type UpdateMinistryChurch,
+  type ChurchPost, type InsertChurchPost,
   type TeamMember, type InsertTeamMember, type UpdateTeamMember,
   friendships, type Friendship,
   postComments, type PostComment, type InsertPostComment,
@@ -189,6 +192,18 @@ export interface IStorage {
   createMinistryRegion(data: InsertMinistryRegion): Promise<MinistryRegion>;
   updateMinistryRegion(id: number, data: UpdateMinistryRegion): Promise<MinistryRegion | undefined>;
   deleteMinistryRegion(id: number): Promise<void>;
+
+  // Ministry Churches
+  listMinistryChurches(churchType?: string): Promise<MinistryChurch[]>;
+  getMinistryChurch(id: number): Promise<MinistryChurch | undefined>;
+  createMinistryChurch(data: InsertMinistryChurch): Promise<MinistryChurch>;
+  updateMinistryChurch(id: number, data: UpdateMinistryChurch): Promise<MinistryChurch | undefined>;
+  deleteMinistryChurch(id: number): Promise<void>;
+
+  // Church Posts
+  createChurchPost(userId: number, data: InsertChurchPost): Promise<ChurchPost>;
+  listChurchPosts(churchId?: number): Promise<(ChurchPost & { user: { username: string; displayName: string | null; avatarUrl: string | null }; church: { name: string; churchType: string } })[]>;
+  deleteChurchPost(id: number): Promise<void>;
 
   listTeamMembers(): Promise<TeamMember[]>;
   createTeamMember(data: InsertTeamMember): Promise<TeamMember>;
@@ -1372,6 +1387,75 @@ export class DatabaseStorage implements IStorage {
 
   async deleteMinistryRegion(id: number): Promise<void> {
     await db.delete(ministryRegions).where(eq(ministryRegions.id, id));
+  }
+
+  // ========== MINISTRY CHURCHES ==========
+  async listMinistryChurches(churchType?: string): Promise<MinistryChurch[]> {
+    if (churchType) {
+      return db.select().from(ministryChurches)
+        .where(eq(ministryChurches.churchType, churchType))
+        .orderBy(asc(ministryChurches.sortOrder), asc(ministryChurches.name));
+    }
+    return db.select().from(ministryChurches).orderBy(asc(ministryChurches.sortOrder), asc(ministryChurches.name));
+  }
+
+  async getMinistryChurch(id: number): Promise<MinistryChurch | undefined> {
+    const [church] = await db.select().from(ministryChurches).where(eq(ministryChurches.id, id));
+    return church;
+  }
+
+  async createMinistryChurch(data: InsertMinistryChurch): Promise<MinistryChurch> {
+    const [created] = await db.insert(ministryChurches).values(data).returning();
+    return created;
+  }
+
+  async updateMinistryChurch(id: number, data: UpdateMinistryChurch): Promise<MinistryChurch | undefined> {
+    const [updated] = await db.update(ministryChurches).set(data).where(eq(ministryChurches.id, id)).returning();
+    return updated;
+  }
+
+  async deleteMinistryChurch(id: number): Promise<void> {
+    // Delete posts associated with this church first
+    await db.delete(churchPosts).where(eq(churchPosts.churchId, id));
+    await db.delete(ministryChurches).where(eq(ministryChurches.id, id));
+  }
+
+  // ========== CHURCH POSTS ==========
+  async createChurchPost(userId: number, data: InsertChurchPost): Promise<ChurchPost> {
+    const [created] = await db.insert(churchPosts).values({ ...data, userId }).returning();
+    return created;
+  }
+
+  async listChurchPosts(churchId?: number): Promise<any[]> {
+    const conditions = churchId ? eq(churchPosts.churchId, churchId) : undefined;
+    const rows = await db.select({
+      id: churchPosts.id,
+      userId: churchPosts.userId,
+      churchId: churchPosts.churchId,
+      content: churchPosts.content,
+      imageUrl: churchPosts.imageUrl,
+      createdAt: churchPosts.createdAt,
+      username: users.username,
+      displayName: users.displayName,
+      avatarUrl: users.avatarUrl,
+      churchName: ministryChurches.name,
+      churchType: ministryChurches.churchType,
+    })
+    .from(churchPosts)
+    .innerJoin(users, eq(churchPosts.userId, users.id))
+    .innerJoin(ministryChurches, eq(churchPosts.churchId, ministryChurches.id))
+    .where(conditions)
+    .orderBy(desc(churchPosts.createdAt));
+    return rows.map(r => ({
+      id: r.id, userId: r.userId, churchId: r.churchId, content: r.content,
+      imageUrl: r.imageUrl, createdAt: r.createdAt,
+      user: { username: r.username!, displayName: r.displayName, avatarUrl: r.avatarUrl },
+      church: { name: r.churchName!, churchType: r.churchType! },
+    }));
+  }
+
+  async deleteChurchPost(id: number): Promise<void> {
+    await db.delete(churchPosts).where(eq(churchPosts.id, id));
   }
 
   async listTeamMembers(): Promise<any[]> {

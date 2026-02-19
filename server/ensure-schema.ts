@@ -186,6 +186,34 @@ CREATE TABLE IF NOT EXISTS "ministry_regions" (
   "created_at" timestamp DEFAULT now()
 );
 
+-- Ministry churches (cobertura y respaldo)
+CREATE TABLE IF NOT EXISTS "ministry_churches" (
+  "id" serial PRIMARY KEY,
+  "name" text NOT NULL,
+  "church_type" text NOT NULL DEFAULT 'respaldo',
+  "pastor" text,
+  "city" text,
+  "country" text,
+  "address" text,
+  "phone" text,
+  "email" text,
+  "description" text,
+  "image_url" text,
+  "is_active" boolean NOT NULL DEFAULT true,
+  "sort_order" integer NOT NULL DEFAULT 0,
+  "created_at" timestamp DEFAULT now()
+);
+
+-- Church posts
+CREATE TABLE IF NOT EXISTS "church_posts" (
+  "id" serial PRIMARY KEY,
+  "user_id" integer NOT NULL REFERENCES "users"("id"),
+  "church_id" integer NOT NULL REFERENCES "ministry_churches"("id"),
+  "content" text NOT NULL,
+  "image_url" text,
+  "created_at" timestamp DEFAULT now()
+);
+
 -- Team members
 CREATE TABLE IF NOT EXISTS "team_members" (
   "id" serial PRIMARY KEY,

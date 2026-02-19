@@ -421,6 +421,67 @@ export type MinistryRegion = typeof ministryRegions.$inferSelect;
 export type InsertMinistryRegion = z.infer<typeof insertMinistryRegionSchema>;
 export type UpdateMinistryRegion = z.infer<typeof updateMinistryRegionSchema>;
 
+// ========== IGLESIAS (COBERTURA Y RESPALDO) ==========
+
+export const CHURCH_TYPES = {
+  cobertura: "Iglesia Cobertura",
+  respaldo: "Iglesia en Respaldo",
+} as const;
+
+export const ministryChurches = pgTable("ministry_churches", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  churchType: text("church_type").notNull().default("respaldo"),
+  pastor: text("pastor"),
+  city: text("city"),
+  country: text("country"),
+  address: text("address"),
+  phone: text("phone"),
+  email: text("email"),
+  description: text("description"),
+  imageUrl: text("image_url"),
+  isActive: boolean("is_active").notNull().default(true),
+  sortOrder: integer("sort_order").notNull().default(0),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertMinistryChurchSchema = createInsertSchema(ministryChurches).pick({
+  name: true,
+  churchType: true,
+  pastor: true,
+  city: true,
+  country: true,
+  address: true,
+  phone: true,
+  email: true,
+  description: true,
+  imageUrl: true,
+  isActive: true,
+  sortOrder: true,
+});
+export const updateMinistryChurchSchema = insertMinistryChurchSchema.partial();
+export type MinistryChurch = typeof ministryChurches.$inferSelect;
+export type InsertMinistryChurch = z.infer<typeof insertMinistryChurchSchema>;
+export type UpdateMinistryChurch = z.infer<typeof updateMinistryChurchSchema>;
+
+export const churchPosts = pgTable("church_posts", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull().references(() => users.id),
+  churchId: integer("church_id").notNull().references(() => ministryChurches.id),
+  content: text("content").notNull(),
+  imageUrl: text("image_url"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertChurchPostSchema = z.object({
+  churchId: z.number(),
+  content: z.string().min(1),
+  imageUrl: z.string().optional().nullable(),
+});
+
+export type ChurchPost = typeof churchPosts.$inferSelect;
+export type InsertChurchPost = z.infer<typeof insertChurchPostSchema>;
+
 export const teamMembers = pgTable("team_members", {
   id: serial("id").primaryKey(),
   userId: integer("user_id").references(() => users.id),

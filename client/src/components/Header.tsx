@@ -36,6 +36,7 @@ const navLinks = [
   { href: '/biblioteca', label: 'Biblioteca' },
   { href: '/oracion', label: 'Oracion' },
   { href: '/regiones', label: 'Regiones' },
+  { href: '/iglesias', label: 'Iglesias' },
   { href: '/en-vivo', label: 'En Vivo' },
   { href: '/contacto', label: 'Contacto' },
 ]

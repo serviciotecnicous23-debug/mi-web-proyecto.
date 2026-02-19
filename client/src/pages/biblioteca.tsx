@@ -447,6 +447,64 @@ function BibleTab() {
   );
 }
 
+// ========== PLANES DE LECTURA SUGERIDOS ==========
+const SUGGESTED_PLANS = [
+  {
+    id: "nuevo-testamento-30",
+    name: "Nuevo Testamento en 30 dias",
+    description: "Lee todo el Nuevo Testamento en un mes con lecturas diarias guiadas.",
+    books: ["Mateo", "Marcos", "Lucas", "Juan", "Hechos", "Romanos", "1 Corintios", "2 Corintios", "Galatas", "Efesios", "Filipenses", "Colosenses", "1 Tesalonicenses", "2 Tesalonicenses", "1 Timoteo", "2 Timoteo", "Tito", "Filemon", "Hebreos", "Santiago", "1 Pedro", "2 Pedro", "1 Juan", "2 Juan", "3 Juan", "Judas", "Apocalipsis"],
+    period: "mensual" as const,
+    icon: "📖",
+    color: "from-blue-500/20 to-blue-600/10",
+  },
+  {
+    id: "evangelios-7",
+    name: "Los 4 Evangelios en 1 semana",
+    description: "Sumérgete en la vida de Jesús leyendo los cuatro Evangelios en una semana intensa.",
+    books: ["Mateo", "Marcos", "Lucas", "Juan"],
+    period: "semanal" as const,
+    icon: "✝️",
+    color: "from-purple-500/20 to-purple-600/10",
+  },
+  {
+    id: "sabiduria-30",
+    name: "Libros de Sabiduria (30 dias)",
+    description: "Job, Salmos, Proverbios, Eclesiastés y Cantares para crecer en sabiduria.",
+    books: ["Job", "Salmos", "Proverbios", "Eclesiastes", "Cantares"],
+    period: "mensual" as const,
+    icon: "🕊️",
+    color: "from-amber-500/20 to-amber-600/10",
+  },
+  {
+    id: "biblia-completa-365",
+    name: "Biblia Completa en 1 año",
+    description: "El plan clásico para leer toda la Biblia en 365 días, de Génesis a Apocalipsis.",
+    books: [...BIBLE_BOOKS],
+    period: "anual" as const,
+    icon: "📚",
+    color: "from-green-500/20 to-green-600/10",
+  },
+  {
+    id: "cartas-pablo-14",
+    name: "Cartas de Pablo (14 dias)",
+    description: "Las 13 epístolas del apóstol Pablo en dos semanas de estudio enfocado.",
+    books: ["Romanos", "1 Corintios", "2 Corintios", "Galatas", "Efesios", "Filipenses", "Colosenses", "1 Tesalonicenses", "2 Tesalonicenses", "1 Timoteo", "2 Timoteo", "Tito", "Filemon"],
+    period: "personalizado" as const,
+    icon: "✉️",
+    color: "from-red-500/20 to-red-600/10",
+  },
+  {
+    id: "profetas-90",
+    name: "Profetas Mayores (90 dias)",
+    description: "Isaías, Jeremías, Lamentaciones, Ezequiel y Daniel en un trimestre.",
+    books: ["Isaias", "Jeremias", "Lamentaciones", "Ezequiel", "Daniel"],
+    period: "trimestral" as const,
+    icon: "🔥",
+    color: "from-orange-500/20 to-orange-600/10",
+  },
+];
+
 function ReadingPlansTab({ prefillBooks, prefillPeriod }: { prefillBooks?: string[]; prefillPeriod?: string }) {
   const { user } = useAuth();
   const { toast } = useToast();
@@ -578,6 +636,22 @@ function ReadingPlansTab({ prefillBooks, prefillPeriod }: { prefillBooks?: strin
     setPlanName("");
     setIsPublic(false);
     setBookSearch("");
+  };
+
+  const applySuggestion = (suggestion: typeof SUGGESTED_PLANS[0]) => {
+    setSelectedBooks([...suggestion.books]);
+    setPeriodType(suggestion.period);
+    if (suggestion.period === "personalizado") {
+      const totalChapters = suggestion.books.reduce((sum, book) => sum + (BOOK_CHAPTERS[book] || 0), 0);
+      setCustomDays("14");
+    }
+    setPlanName(suggestion.name);
+    setShowGenerator(true);
+    setGeneratorStep(2);
+    toast({
+      title: "Plan sugerido aplicado",
+      description: `Se cargó "${suggestion.name}". Puedes ajustar los detalles.`,
+    });
   };
 
   // ===== VIEW: Selected plan detail =====
@@ -1015,6 +1089,42 @@ function ReadingPlansTab({ prefillBooks, prefillPeriod }: { prefillBooks?: strin
           </div>
         </CardContent>
       </Card>
+
+      {/* Planes Sugeridos */}
+      {user?.isActive && !viewPublic && (
+        <div>
+          <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3 flex items-center gap-2">
+            <BookMarked className="w-4 h-4" /> Planes Sugeridos
+          </h3>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            {SUGGESTED_PLANS.map((suggestion) => {
+              const totalChapters = suggestion.books.reduce((sum, book) => sum + (BOOK_CHAPTERS[book] || 0), 0);
+              return (
+                <Card
+                  key={suggestion.id}
+                  className={`cursor-pointer transition-all hover:shadow-md hover:-translate-y-0.5 bg-gradient-to-br ${suggestion.color} border-primary/10`}
+                  onClick={() => applySuggestion(suggestion)}
+                  data-testid={`card-suggestion-${suggestion.id}`}
+                >
+                  <CardContent className="p-4">
+                    <div className="flex items-start gap-3">
+                      <span className="text-2xl">{suggestion.icon}</span>
+                      <div className="flex-1 min-w-0">
+                        <h4 className="font-semibold text-sm leading-tight">{suggestion.name}</h4>
+                        <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{suggestion.description}</p>
+                        <div className="flex items-center gap-2 mt-2">
+                          <Badge variant="secondary" className="text-xs">{suggestion.books.length} libros</Badge>
+                          <Badge variant="outline" className="text-xs">{totalChapters} cap.</Badge>
+                        </div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       <div className="flex items-center justify-between gap-2 flex-wrap">
         <div className="flex items-center gap-2">

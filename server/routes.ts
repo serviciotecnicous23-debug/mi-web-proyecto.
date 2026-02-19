@@ -2044,6 +2044,81 @@ ${urls}
     res.json({ success: true });
   });
 
+  // ========== IGLESIAS DEL MINISTERIO (COBERTURA Y RESPALDO) ==========
+  app.get(api.ministryChurches.list.path, async (req, res) => {
+    const churchType = req.query.type as string | undefined;
+    const churches = await storage.listMinistryChurches(churchType);
+    res.json(churches);
+  });
+
+  app.get(api.ministryChurches.get.path, async (req, res) => {
+    const church = await storage.getMinistryChurch(parseInt(req.params.id));
+    if (!church) return res.status(404).json({ message: "Iglesia no encontrada" });
+    res.json(church);
+  });
+
+  app.post(api.ministryChurches.create.path, async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    if (!isAdmin(req)) return res.sendStatus(403);
+    try {
+      const input = api.ministryChurches.create.input.parse(req.body);
+      const church = await storage.createMinistryChurch(input);
+      res.status(201).json(church);
+    } catch (err) {
+      if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });
+      res.status(500).json({ message: "Error al crear la iglesia" });
+    }
+  });
+
+  app.patch(api.ministryChurches.update.path, async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    if (!isAdmin(req)) return res.sendStatus(403);
+    try {
+      const input = api.ministryChurches.update.input.parse(req.body);
+      const updated = await storage.updateMinistryChurch(parseInt(req.params.id), input);
+      if (!updated) return res.status(404).json({ message: "Iglesia no encontrada" });
+      res.json(updated);
+    } catch (err) {
+      if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });
+      res.status(500).json({ message: "Error al actualizar la iglesia" });
+    }
+  });
+
+  app.delete(api.ministryChurches.delete.path, async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    if (!isAdmin(req)) return res.sendStatus(403);
+    await storage.deleteMinistryChurch(parseInt(req.params.id));
+    res.json({ success: true });
+  });
+
+  // ========== PUBLICACIONES DE IGLESIAS ==========
+  app.get(api.churchPosts.list.path, async (req, res) => {
+    const churchId = req.query.churchId ? parseInt(req.query.churchId as string) : undefined;
+    const posts = await storage.listChurchPosts(churchId);
+    res.json(posts);
+  });
+
+  app.post(api.churchPosts.create.path, async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    try {
+      const input = api.churchPosts.create.input.parse(req.body);
+      const church = await storage.getMinistryChurch(input.churchId);
+      if (!church || !church.isActive) return res.status(400).json({ message: "Iglesia no valida o inactiva" });
+      const post = await storage.createChurchPost((req.user as any).id, input);
+      res.status(201).json(post);
+    } catch (err) {
+      if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });
+      res.status(500).json({ message: "Error al crear la publicacion" });
+    }
+  });
+
+  app.delete(api.churchPosts.delete.path, async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    const id = parseInt(req.params.id);
+    await storage.deleteChurchPost(id);
+    res.json({ success: true });
+  });
+
   // ========== PUBLICACIONES REGIONALES ==========
   app.get(api.regionPosts.list.path, async (req, res) => {
     const region = req.query.region as string | undefined;

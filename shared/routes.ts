@@ -18,6 +18,8 @@ import {
   insertPrayerActivitySchema, insertRegionPostSchema,
   insertNotificationSchema, insertPrayerAttendeeSchema,
   insertMinistryRegionSchema, updateMinistryRegionSchema,
+  insertMinistryChurchSchema, updateMinistryChurchSchema,
+  insertChurchPostSchema,
   insertTeamMemberSchema, updateTeamMemberSchema,
   insertPostCommentSchema, insertDirectMessageSchema,
 } from "./schema";
@@ -248,6 +250,18 @@ export const api = {
     create: { method: "POST" as const, path: "/api/ministry-regions" as const, input: insertMinistryRegionSchema },
     update: { method: "PATCH" as const, path: "/api/ministry-regions/:id" as const, input: updateMinistryRegionSchema },
     delete: { method: "DELETE" as const, path: "/api/ministry-regions/:id" as const },
+  },
+  ministryChurches: {
+    list: { method: "GET" as const, path: "/api/ministry-churches" as const },
+    get: { method: "GET" as const, path: "/api/ministry-churches/:id" as const },
+    create: { method: "POST" as const, path: "/api/ministry-churches" as const, input: insertMinistryChurchSchema },
+    update: { method: "PATCH" as const, path: "/api/ministry-churches/:id" as const, input: updateMinistryChurchSchema },
+    delete: { method: "DELETE" as const, path: "/api/ministry-churches/:id" as const },
+  },
+  churchPosts: {
+    list: { method: "GET" as const, path: "/api/church-posts" as const },
+    create: { method: "POST" as const, path: "/api/church-posts" as const, input: insertChurchPostSchema },
+    delete: { method: "DELETE" as const, path: "/api/church-posts/:id" as const },
   },
   teamMembers: {
     list: { method: "GET" as const, path: "/api/team-members" as const },
