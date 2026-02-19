@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { Layout } from "@/components/layout";
 import { useQuery, useMutation } from "@tanstack/react-query";
@@ -29,6 +29,7 @@ import {
   Building2, Shield, HandHeart,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { SocialLinksDisplay, SocialLinksFormFields, YouTubeLinkPreview, PostContentWithLinks } from "@/components/SocialLinks";
 
 type ChurchPostData = {
   id: number;
@@ -49,6 +50,7 @@ function ChurchManagementPanel() {
   const [formData, setFormData] = useState({
     name: "", churchType: "respaldo", pastor: "", city: "", country: "",
     address: "", phone: "", email: "", description: "",
+    facebook: "", instagram: "", youtube: "", tiktok: "", twitter: "", website: "",
   });
 
   const { data: churches = [] } = useQuery<MinistryChurch[]>({
@@ -103,6 +105,7 @@ function ChurchManagementPanel() {
     setFormData({
       name: "", churchType: "respaldo", pastor: "", city: "", country: "",
       address: "", phone: "", email: "", description: "",
+      facebook: "", instagram: "", youtube: "", tiktok: "", twitter: "", website: "",
     });
   };
 
@@ -118,6 +121,12 @@ function ChurchManagementPanel() {
       phone: church.phone || "",
       email: church.email || "",
       description: church.description || "",
+      facebook: (church as any).facebook || "",
+      instagram: (church as any).instagram || "",
+      youtube: (church as any).youtube || "",
+      tiktok: (church as any).tiktok || "",
+      twitter: (church as any).twitter || "",
+      website: (church as any).website || "",
     });
   };
 
@@ -214,6 +223,10 @@ function ChurchManagementPanel() {
           rows={3}
         />
       </div>
+      <SocialLinksFormFields
+        values={formData}
+        onChange={(field, value) => setFormData({ ...formData, [field]: value })}
+      />
     </div>
   );
 
@@ -318,6 +331,12 @@ function ChurchManagementPanel() {
                     phone: formData.phone.trim() || undefined,
                     email: formData.email.trim() || undefined,
                     description: formData.description.trim() || undefined,
+                    facebook: formData.facebook.trim() || undefined,
+                    instagram: formData.instagram.trim() || undefined,
+                    youtube: formData.youtube.trim() || undefined,
+                    tiktok: formData.tiktok.trim() || undefined,
+                    twitter: formData.twitter.trim() || undefined,
+                    website: formData.website.trim() || undefined,
                   });
                 }
               }}
@@ -355,6 +374,12 @@ function ChurchManagementPanel() {
                       phone: formData.phone.trim() || null,
                       email: formData.email.trim() || null,
                       description: formData.description.trim() || null,
+                      facebook: formData.facebook.trim() || null,
+                      instagram: formData.instagram.trim() || null,
+                      youtube: formData.youtube.trim() || null,
+                      tiktok: formData.tiktok.trim() || null,
+                      twitter: formData.twitter.trim() || null,
+                      website: formData.website.trim() || null,
                     },
                   });
                 }
@@ -427,6 +452,7 @@ function ChurchCard({ church }: { church: MinistryChurch }) {
             {church.description && (
               <p className="text-sm text-muted-foreground mt-2 leading-relaxed">{church.description}</p>
             )}
+            <SocialLinksDisplay data={church as any} />
           </div>
         </div>
       </CardContent>
@@ -441,6 +467,9 @@ export default function IglesiasPage() {
   const [activeTab, setActiveTab] = useState("cobertura");
   const [postContent, setPostContent] = useState("");
   const [selectedChurchId, setSelectedChurchId] = useState<number | null>(null);
+  const [postImageUrl, setPostImageUrl] = useState<string | null>(null);
+  const [uploadingImage, setUploadingImage] = useState(false);
+  const postImageRef = useRef<HTMLInputElement>(null);
   const isAdmin = user?.role === "admin";
 
   const { data: churches = [], isLoading: loadingChurches } = useQuery<MinistryChurch[]>({
@@ -462,12 +491,13 @@ export default function IglesiasPage() {
   });
 
   const createPostMutation = useMutation({
-    mutationFn: async (data: { churchId: number; content: string }) => {
+    mutationFn: async (data: { churchId: number; content: string; imageUrl?: string | null }) => {
       await apiRequest("POST", "/api/church-posts", data);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/church-posts"] });
       setPostContent("");
+      setPostImageUrl(null);
       toast({ title: "Publicacion creada" });
     },
     onError: () => {
@@ -487,7 +517,40 @@ export default function IglesiasPage() {
 
   const handleSubmitPost = () => {
     if (!postContent.trim() || !selectedChurchId) return;
-    createPostMutation.mutate({ churchId: selectedChurchId, content: postContent.trim() });
+    createPostMutation.mutate({
+      churchId: selectedChurchId,
+      content: postContent.trim(),
+      imageUrl: postImageUrl,
+    });
+  };
+
+  const handlePostImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      toast({ title: "Error", description: "Solo se permiten imagenes.", variant: "destructive" });
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      toast({ title: "Error", description: "La imagen no debe superar 5MB.", variant: "destructive" });
+      return;
+    }
+    setUploadingImage(true);
+    try {
+      const formData = new FormData();
+      formData.append("image", file);
+      const res = await fetch("/api/upload/post-image", {
+        method: "POST", body: formData, credentials: "include",
+      });
+      if (!res.ok) throw new Error("Error al subir imagen");
+      const data = await res.json();
+      setPostImageUrl(data.imageUrl);
+    } catch {
+      toast({ title: "Error", description: "No se pudo subir la imagen.", variant: "destructive" });
+    } finally {
+      setUploadingImage(false);
+      if (postImageRef.current) postImageRef.current.value = "";
+    }
   };
 
   const renderChurchSection = (churchList: MinistryChurch[], type: string) => {
@@ -560,18 +623,57 @@ export default function IglesiasPage() {
                     rows={2}
                     className="flex-1"
                   />
-                  <Button
-                    size="icon"
-                    onClick={handleSubmitPost}
-                    disabled={!postContent.trim() || !selectedChurchId || createPostMutation.isPending}
-                  >
-                    {createPostMutation.isPending ? (
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                    ) : (
-                      <Send className="w-4 h-4" />
-                    )}
-                  </Button>
+                  <div className="flex flex-col gap-1">
+                    <Button
+                      size="icon"
+                      variant="outline"
+                      onClick={() => postImageRef.current?.click()}
+                      disabled={uploadingImage}
+                      title="Adjuntar imagen"
+                    >
+                      {uploadingImage ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <ImagePlus className="w-4 h-4" />
+                      )}
+                    </Button>
+                    <input
+                      ref={postImageRef}
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={handlePostImageUpload}
+                    />
+                    <Button
+                      size="icon"
+                      onClick={handleSubmitPost}
+                      disabled={!postContent.trim() || !selectedChurchId || createPostMutation.isPending}
+                    >
+                      {createPostMutation.isPending ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <Send className="w-4 h-4" />
+                      )}
+                    </Button>
+                  </div>
                 </div>
+                {postImageUrl && (
+                  <div className="relative inline-block">
+                    <img
+                      src={postImageUrl}
+                      alt="Vista previa"
+                      className="max-h-32 rounded-md border"
+                    />
+                    <Button
+                      variant="destructive"
+                      size="icon"
+                      className="absolute -top-2 -right-2 w-6 h-6"
+                      onClick={() => setPostImageUrl(null)}
+                    >
+                      <X className="w-3 h-3" />
+                    </Button>
+                  </div>
+                )}
               </div>
 
               {/* Posts list */}
@@ -603,7 +705,15 @@ export default function IglesiasPage() {
                               })}
                             </span>
                           </div>
-                          <p className="text-sm mt-1 whitespace-pre-wrap">{post.content}</p>
+                          <PostContentWithLinks content={post.content} />
+                          <YouTubeLinkPreview content={post.content} />
+                          {post.imageUrl && (
+                            <img
+                              src={post.imageUrl}
+                              alt="Imagen de publicacion"
+                              className="mt-2 rounded-lg max-h-64 object-cover border"
+                            />
+                          )}
                         </div>
                         {(post.userId === user?.id || isAdmin) && (
                           <Button

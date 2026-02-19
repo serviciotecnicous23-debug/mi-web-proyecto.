@@ -25,6 +25,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Loader2, Save, Camera, Lock, UserPlus, UserMinus, Check, X, Search, Users } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { SocialLinksDisplay, SocialLinksFormFields } from "@/components/SocialLinks";
 import { useQueryClient, useQuery, useMutation } from "@tanstack/react-query";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -48,7 +49,8 @@ export default function Profile() {
 
   const form = useForm<z.infer<typeof updateUserSchema>>({
     resolver: zodResolver(updateUserSchema),
-    defaultValues: { displayName: "", bio: "", country: "", phone: "", email: "", username: "" },
+    defaultValues: { displayName: "", bio: "", country: "", phone: "", email: "", username: "",
+      facebook: "", instagram: "", youtube: "", tiktok: "", twitter: "", website: "" },
   });
 
   // Friends queries
@@ -152,6 +154,12 @@ export default function Profile() {
         phone: user.phone || "",
         email: user.email || "",
         username: user.username || "",
+        facebook: (user as any).facebook || "",
+        instagram: (user as any).instagram || "",
+        youtube: (user as any).youtube || "",
+        tiktok: (user as any).tiktok || "",
+        twitter: (user as any).twitter || "",
+        website: (user as any).website || "",
       });
     } else if (!isLoading && !user) {
       setLocation("/login");
@@ -304,6 +312,9 @@ export default function Profile() {
                       {user.phone && <p data-testid="text-profile-phone">{user.phone}</p>}
                     </div>
                   )}
+                  <div className="mt-3 flex justify-center">
+                    <SocialLinksDisplay data={user as any} size="md" />
+                  </div>
                   <div className="mt-4">
                     <Button variant="outline" size="sm" onClick={() => setShowPasswordDialog(true)}>
                       <Lock className="mr-2 h-4 w-4" />
@@ -428,6 +439,23 @@ export default function Profile() {
                           </FormItem>
                         )}
                       />
+
+                      {/* Social media links */}
+                      <div className="border-t pt-4 mt-2">
+                        <SocialLinksFormFields
+                          values={{
+                            facebook: form.watch("facebook") || "",
+                            instagram: form.watch("instagram") || "",
+                            youtube: form.watch("youtube") || "",
+                            tiktok: form.watch("tiktok") || "",
+                            twitter: form.watch("twitter") || "",
+                            website: form.watch("website") || "",
+                          }}
+                          onChange={(field, value) => form.setValue(field as any, value)}
+                        />
+                        <p className="text-xs text-muted-foreground mt-1">Opcional: agrega tus redes sociales a tu perfil.</p>
+                      </div>
+
                       <div className="flex justify-end pt-4">
                         <Button type="submit" disabled={updateMutation.isPending} data-testid="button-save-profile">
                           {updateMutation.isPending ? (

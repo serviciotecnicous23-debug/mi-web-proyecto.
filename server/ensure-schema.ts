@@ -23,6 +23,12 @@ CREATE TABLE IF NOT EXISTS "users" (
   "country" text,
   "phone" text,
   "email" text,
+  "facebook" text,
+  "instagram" text,
+  "youtube" text,
+  "tiktok" text,
+  "twitter" text,
+  "website" text,
   "created_at" timestamp DEFAULT now()
 );
 
@@ -183,6 +189,12 @@ CREATE TABLE IF NOT EXISTS "ministry_regions" (
   "name" text NOT NULL UNIQUE,
   "is_active" boolean NOT NULL DEFAULT true,
   "sort_order" integer NOT NULL DEFAULT 0,
+  "facebook" text,
+  "instagram" text,
+  "youtube" text,
+  "tiktok" text,
+  "twitter" text,
+  "website" text,
   "created_at" timestamp DEFAULT now()
 );
 
@@ -199,6 +211,12 @@ CREATE TABLE IF NOT EXISTS "ministry_churches" (
   "email" text,
   "description" text,
   "image_url" text,
+  "facebook" text,
+  "instagram" text,
+  "youtube" text,
+  "tiktok" text,
+  "twitter" text,
+  "website" text,
   "is_active" boolean NOT NULL DEFAULT true,
   "sort_order" integer NOT NULL DEFAULT 0,
   "created_at" timestamp DEFAULT now()
@@ -463,6 +481,27 @@ const ADD_COLUMNS_SQL = [
   `ALTER TABLE "team_members" ADD COLUMN IF NOT EXISTS "verse" text`,
   `ALTER TABLE "team_members" ADD COLUMN IF NOT EXISTS "initials" text`,
   `ALTER TABLE "team_members" ADD COLUMN IF NOT EXISTS "user_id" integer REFERENCES "users"("id")`,
+  // Social media columns for users
+  `ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "facebook" text`,
+  `ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "instagram" text`,
+  `ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "youtube" text`,
+  `ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "tiktok" text`,
+  `ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "twitter" text`,
+  `ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "website" text`,
+  // Social media columns for ministry_regions
+  `ALTER TABLE "ministry_regions" ADD COLUMN IF NOT EXISTS "facebook" text`,
+  `ALTER TABLE "ministry_regions" ADD COLUMN IF NOT EXISTS "instagram" text`,
+  `ALTER TABLE "ministry_regions" ADD COLUMN IF NOT EXISTS "youtube" text`,
+  `ALTER TABLE "ministry_regions" ADD COLUMN IF NOT EXISTS "tiktok" text`,
+  `ALTER TABLE "ministry_regions" ADD COLUMN IF NOT EXISTS "twitter" text`,
+  `ALTER TABLE "ministry_regions" ADD COLUMN IF NOT EXISTS "website" text`,
+  // Social media columns for ministry_churches
+  `ALTER TABLE "ministry_churches" ADD COLUMN IF NOT EXISTS "facebook" text`,
+  `ALTER TABLE "ministry_churches" ADD COLUMN IF NOT EXISTS "instagram" text`,
+  `ALTER TABLE "ministry_churches" ADD COLUMN IF NOT EXISTS "youtube" text`,
+  `ALTER TABLE "ministry_churches" ADD COLUMN IF NOT EXISTS "tiktok" text`,
+  `ALTER TABLE "ministry_churches" ADD COLUMN IF NOT EXISTS "twitter" text`,
+  `ALTER TABLE "ministry_churches" ADD COLUMN IF NOT EXISTS "website" text`,
 ];
 
 export async function ensureDatabaseSchema(): Promise<void> {

@@ -15,6 +15,12 @@ export const users = pgTable("users", {
   country: text("country"),
   phone: text("phone"),
   email: text("email"),
+  facebook: text("facebook"),
+  instagram: text("instagram"),
+  youtube: text("youtube"),
+  tiktok: text("tiktok"),
+  twitter: text("twitter"),
+  website: text("website"),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -142,6 +148,12 @@ export const insertUserSchema = createInsertSchema(users).pick({
   country: true,
   phone: true,
   email: true,
+  facebook: true,
+  instagram: true,
+  youtube: true,
+  tiktok: true,
+  twitter: true,
+  website: true,
 });
 
 export const updateUserSchema = createInsertSchema(users).pick({
@@ -152,6 +164,12 @@ export const updateUserSchema = createInsertSchema(users).pick({
   phone: true,
   email: true,
   username: true,
+  facebook: true,
+  instagram: true,
+  youtube: true,
+  tiktok: true,
+  twitter: true,
+  website: true,
 }).partial();
 
 export const changePasswordSchema = z.object({
@@ -408,6 +426,12 @@ export const ministryRegions = pgTable("ministry_regions", {
   name: text("name").notNull().unique(),
   isActive: boolean("is_active").notNull().default(true),
   sortOrder: integer("sort_order").notNull().default(0),
+  facebook: text("facebook"),
+  instagram: text("instagram"),
+  youtube: text("youtube"),
+  tiktok: text("tiktok"),
+  twitter: text("twitter"),
+  website: text("website"),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -415,6 +439,12 @@ export const insertMinistryRegionSchema = createInsertSchema(ministryRegions).pi
   name: true,
   isActive: true,
   sortOrder: true,
+  facebook: true,
+  instagram: true,
+  youtube: true,
+  tiktok: true,
+  twitter: true,
+  website: true,
 });
 export const updateMinistryRegionSchema = insertMinistryRegionSchema.partial();
 export type MinistryRegion = typeof ministryRegions.$inferSelect;
@@ -440,6 +470,12 @@ export const ministryChurches = pgTable("ministry_churches", {
   email: text("email"),
   description: text("description"),
   imageUrl: text("image_url"),
+  facebook: text("facebook"),
+  instagram: text("instagram"),
+  youtube: text("youtube"),
+  tiktok: text("tiktok"),
+  twitter: text("twitter"),
+  website: text("website"),
   isActive: boolean("is_active").notNull().default(true),
   sortOrder: integer("sort_order").notNull().default(0),
   createdAt: timestamp("created_at").defaultNow(),
@@ -456,6 +492,12 @@ export const insertMinistryChurchSchema = createInsertSchema(ministryChurches).p
   email: true,
   description: true,
   imageUrl: true,
+  facebook: true,
+  instagram: true,
+  youtube: true,
+  tiktok: true,
+  twitter: true,
+  website: true,
   isActive: true,
   sortOrder: true,
 });

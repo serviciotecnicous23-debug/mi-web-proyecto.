@@ -28,6 +28,7 @@ import {
   Settings, Pencil, Check,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { SocialLinksDisplay, SocialLinksFormFields } from "@/components/SocialLinks";
 
 type RegionPost = {
   id: number;
@@ -200,6 +201,9 @@ function RegionManagementPanel() {
   const [editRegion, setEditRegion] = useState<MinistryRegion | null>(null);
   const [newRegionName, setNewRegionName] = useState("");
   const [editRegionName, setEditRegionName] = useState("");
+  const [editSocial, setEditSocial] = useState({
+    facebook: "", instagram: "", youtube: "", tiktok: "", twitter: "", website: "",
+  });
 
   const { data: regions = [] } = useQuery<MinistryRegion[]>({
     queryKey: ["/api/ministry-regions"],
@@ -298,6 +302,14 @@ function RegionManagementPanel() {
                     onClick={() => {
                       setEditRegion(region);
                       setEditRegionName(region.name);
+                      setEditSocial({
+                        facebook: (region as any).facebook || "",
+                        instagram: (region as any).instagram || "",
+                        youtube: (region as any).youtube || "",
+                        tiktok: (region as any).tiktok || "",
+                        twitter: (region as any).twitter || "",
+                        website: (region as any).website || "",
+                      });
                     }}
                     data-testid={`button-edit-region-${region.id}`}
                   >
@@ -359,17 +371,23 @@ function RegionManagementPanel() {
       </Dialog>
 
       <Dialog open={!!editRegion} onOpenChange={(open) => { if (!open) setEditRegion(null); }}>
-        <DialogContent>
+        <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Editar Region</DialogTitle>
-            <DialogDescription>Modifica el nombre de la region.</DialogDescription>
+            <DialogDescription>Modifica el nombre y redes sociales de la region.</DialogDescription>
           </DialogHeader>
-          <Input
-            placeholder="Nombre de la region"
-            value={editRegionName}
-            onChange={(e) => setEditRegionName(e.target.value)}
-            data-testid="input-edit-region-name"
-          />
+          <div className="space-y-3">
+            <Input
+              placeholder="Nombre de la region"
+              value={editRegionName}
+              onChange={(e) => setEditRegionName(e.target.value)}
+              data-testid="input-edit-region-name"
+            />
+            <SocialLinksFormFields
+              values={editSocial}
+              onChange={(field, value) => setEditSocial({ ...editSocial, [field]: value })}
+            />
+          </div>
           <DialogFooter>
             <Button
               variant="outline"
@@ -381,7 +399,18 @@ function RegionManagementPanel() {
             <Button
               onClick={() => {
                 if (editRegion && editRegionName.trim()) {
-                  updateMutation.mutate({ id: editRegion.id, data: { name: editRegionName.trim() } });
+                  updateMutation.mutate({
+                    id: editRegion.id,
+                    data: {
+                      name: editRegionName.trim(),
+                      facebook: editSocial.facebook.trim() || null,
+                      instagram: editSocial.instagram.trim() || null,
+                      youtube: editSocial.youtube.trim() || null,
+                      tiktok: editSocial.tiktok.trim() || null,
+                      twitter: editSocial.twitter.trim() || null,
+                      website: editSocial.website.trim() || null,
+                    } as any,
+                  });
                 }
               }}
               disabled={!editRegionName.trim() || updateMutation.isPending}
@@ -594,6 +623,14 @@ export default function RegionesPage() {
             {activeRegions.map((region) => (
               <TabsContent key={region.id} value={region.name}>
                 <div className="space-y-4">
+                  {/* Region social links */}
+                  {((region as any).facebook || (region as any).instagram || (region as any).youtube ||
+                    (region as any).tiktok || (region as any).twitter || (region as any).website) && (
+                    <div className="flex items-center gap-2 px-1">
+                      <span className="text-xs text-muted-foreground">Redes:</span>
+                      <SocialLinksDisplay data={region as any} />
+                    </div>
+                  )}
                   {user && (
                     <Card>
                       <CardContent className="pt-4">
