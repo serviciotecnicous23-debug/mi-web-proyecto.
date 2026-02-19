@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { Layout } from "@/components/layout";
 import { useQuery, useMutation } from "@tanstack/react-query";
