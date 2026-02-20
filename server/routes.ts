@@ -1949,6 +1949,67 @@ ${urls}
     res.json({ success: true });
   });
 
+  // ========== CARTELERA CENTRAL ==========
+  // Aggregation endpoints (must be before parameterized routes)
+  app.get(api.cartelera.allAnnouncements.path, async (_req, res) => {
+    const all = await storage.listAllCourseAnnouncements();
+    res.json(all);
+  });
+
+  app.get(api.cartelera.allSessions.path, async (_req, res) => {
+    const sessions = await storage.listAllUpcomingSessions();
+    res.json(sessions);
+  });
+
+  app.get(api.cartelera.allSchedules.path, async (_req, res) => {
+    const schedules = await storage.listAllSchedules();
+    res.json(schedules);
+  });
+
+  app.get(api.cartelera.stats.path, async (_req, res) => {
+    const stats = await storage.getCarteleraStats();
+    res.json(stats);
+  });
+
+  // Own announcements (admin/teacher only)
+  app.get(api.cartelera.list.path, async (_req, res) => {
+    const announcements = await storage.listCarteleraAnnouncements();
+    res.json(announcements);
+  });
+
+  app.post(api.cartelera.create.path, async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    if (!isTeacherOrAdmin(req)) return res.sendStatus(403);
+    const parsed = api.cartelera.create.input.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ message: parsed.error.message });
+    const ann = await storage.createCarteleraAnnouncement((req.user as any).id, parsed.data);
+    res.json(ann);
+  });
+
+  app.patch(api.cartelera.update.path, async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    if (!isTeacherOrAdmin(req)) return res.sendStatus(403);
+    const id = parseInt(req.params.id);
+    const existing = await storage.getCarteleraAnnouncement(id);
+    if (!existing) return res.status(404).json({ message: "Anuncio no encontrado" });
+    if (!isAdmin(req) && existing.authorId !== (req.user as any).id) return res.sendStatus(403);
+    const parsed = api.cartelera.update.input.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ message: parsed.error.message });
+    const updated = await storage.updateCarteleraAnnouncement(id, parsed.data);
+    res.json(updated);
+  });
+
+  app.delete(api.cartelera.delete.path, async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    if (!isTeacherOrAdmin(req)) return res.sendStatus(403);
+    const id = parseInt(req.params.id);
+    const existing = await storage.getCarteleraAnnouncement(id);
+    if (!existing) return res.status(404).json({ message: "Anuncio no encontrado" });
+    if (!isAdmin(req) && existing.authorId !== (req.user as any).id) return res.sendStatus(403);
+    await storage.deleteCarteleraAnnouncement(id);
+    res.json({ success: true });
+  });
+
   // ========== POST IMAGE UPLOAD ==========
   const postImgDir = path.join(process.cwd(), "uploads", "posts");
   if (!fs.existsSync(postImgDir)) {

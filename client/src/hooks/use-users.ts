@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api, buildUrl } from "@shared/routes";
-import { type UpdateUser, type InsertEvent, type UpdateEvent, type InsertEventRsvp, type UpdateSiteContent, type InsertCourse, type UpdateCourse, type InsertCourseMaterial, type UpdateCourseMaterial, type InsertCourseSession, type UpdateCourseSession, type UpdateEnrollment, type UpdateTeacherRequest, type InsertCourseAnnouncement, type UpdateCourseAnnouncement, type InsertCourseSchedule, type UpdateCourseSchedule, type InsertBibleHighlight, type InsertBibleNote, type InsertReadingPlan, type InsertReadingPlanItem, type InsertReadingClubPost, type InsertReadingClubComment, type InsertLibraryResource } from "@shared/schema";
+import { type UpdateUser, type InsertEvent, type UpdateEvent, type InsertEventRsvp, type UpdateSiteContent, type InsertCourse, type UpdateCourse, type InsertCourseMaterial, type UpdateCourseMaterial, type InsertCourseSession, type UpdateCourseSession, type UpdateEnrollment, type UpdateTeacherRequest, type InsertCourseAnnouncement, type UpdateCourseAnnouncement, type InsertCourseSchedule, type UpdateCourseSchedule, type InsertBibleHighlight, type InsertBibleNote, type InsertReadingPlan, type InsertReadingPlanItem, type InsertReadingClubPost, type InsertReadingClubComment, type InsertLibraryResource, type InsertCarteleraAnnouncement, type UpdateCarteleraAnnouncement } from "@shared/schema";
 import { useToast } from "@/hooks/use-toast";
 
 // Wrapper around fetch that always includes credentials for auth cookies
@@ -1611,5 +1611,123 @@ export function useUnreadMessageCount() {
       return res.json();
     },
     refetchInterval: 15000,
+  });
+}
+
+// ========== CARTELERA CENTRAL ==========
+export function useCarteleraAnnouncements() {
+  return useQuery({
+    queryKey: [api.cartelera.list.path],
+    queryFn: async () => {
+      const res = await authFetch(api.cartelera.list.path);
+      if (!res.ok) throw new Error("Error al cargar anuncios de cartelera");
+      return res.json();
+    },
+  });
+}
+
+export function useCreateCarteleraAnnouncement() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  return useMutation({
+    mutationFn: async (data: InsertCarteleraAnnouncement) => {
+      const res = await authFetch(api.cartelera.create.path, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+      if (!res.ok) throw new Error("Error al crear anuncio");
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [api.cartelera.list.path] });
+      toast({ title: "Anuncio creado", description: "El anuncio de cartelera fue creado exitosamente" });
+    },
+    onError: () => toast({ title: "Error", description: "No se pudo crear el anuncio", variant: "destructive" }),
+  });
+}
+
+export function useUpdateCarteleraAnnouncement() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  return useMutation({
+    mutationFn: async ({ id, data }: { id: number; data: UpdateCarteleraAnnouncement }) => {
+      const url = buildUrl(api.cartelera.update.path, { id });
+      const res = await authFetch(url, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+      if (!res.ok) throw new Error("Error al actualizar anuncio");
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [api.cartelera.list.path] });
+      toast({ title: "Anuncio actualizado" });
+    },
+    onError: () => toast({ title: "Error", description: "No se pudo actualizar", variant: "destructive" }),
+  });
+}
+
+export function useDeleteCarteleraAnnouncement() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  return useMutation({
+    mutationFn: async (id: number) => {
+      const url = buildUrl(api.cartelera.delete.path, { id });
+      const res = await authFetch(url, { method: "DELETE" });
+      if (!res.ok) throw new Error("Error al eliminar anuncio");
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [api.cartelera.list.path] });
+      toast({ title: "Anuncio eliminado" });
+    },
+    onError: () => toast({ title: "Error", description: "No se pudo eliminar", variant: "destructive" }),
+  });
+}
+
+export function useAllCourseAnnouncements() {
+  return useQuery({
+    queryKey: [api.cartelera.allAnnouncements.path],
+    queryFn: async () => {
+      const res = await authFetch(api.cartelera.allAnnouncements.path);
+      if (!res.ok) throw new Error("Error");
+      return res.json();
+    },
+  });
+}
+
+export function useAllUpcomingSessions() {
+  return useQuery({
+    queryKey: [api.cartelera.allSessions.path],
+    queryFn: async () => {
+      const res = await authFetch(api.cartelera.allSessions.path);
+      if (!res.ok) throw new Error("Error");
+      return res.json();
+    },
+  });
+}
+
+export function useAllSchedules() {
+  return useQuery({
+    queryKey: [api.cartelera.allSchedules.path],
+    queryFn: async () => {
+      const res = await authFetch(api.cartelera.allSchedules.path);
+      if (!res.ok) throw new Error("Error");
+      return res.json();
+    },
+  });
+}
+
+export function useCarteleraStats() {
+  return useQuery({
+    queryKey: [api.cartelera.stats.path],
+    queryFn: async () => {
+      const res = await authFetch(api.cartelera.stats.path);
+      if (!res.ok) throw new Error("Error");
+      return res.json();
+    },
+    refetchInterval: 30000,
   });
 }

@@ -325,10 +325,23 @@ export const courseSchedule = pgTable("course_schedule", {
   dayOfWeek: integer("day_of_week").notNull(),
   startTime: text("start_time").notNull(),
   endTime: text("end_time").notNull(),
+  specificDate: text("specific_date"),
   meetingUrl: text("meeting_url"),
   meetingPlatform: text("meeting_platform").default("zoom"),
   description: text("description"),
   isActive: boolean("is_active").notNull().default(true),
+});
+
+// ========== CARTELERA CENTRAL ==========
+export const carteleraAnnouncements = pgTable("cartelera_announcements", {
+  id: serial("id").primaryKey(),
+  authorId: integer("author_id").notNull().references(() => users.id),
+  title: text("title").notNull(),
+  content: text("content").notNull(),
+  category: text("category").notNull().default("general"),
+  isPinned: boolean("is_pinned").notNull().default(false),
+  expiresAt: timestamp("expires_at"),
+  createdAt: timestamp("created_at").defaultNow(),
 });
 
 export const sessionAttendance = pgTable("session_attendance", {
@@ -357,11 +370,24 @@ export const insertCourseScheduleSchema = z.object({
   dayOfWeek: z.number().min(0).max(6),
   startTime: z.string(),
   endTime: z.string(),
+  specificDate: z.string().optional().nullable(),
   meetingUrl: z.string().optional().nullable(),
   meetingPlatform: z.string().optional(),
   description: z.string().optional().nullable(),
   isActive: z.boolean().optional(),
 });
+
+export const insertCarteleraAnnouncementSchema = z.object({
+  title: z.string().min(1),
+  content: z.string().min(1),
+  category: z.string().optional(),
+  isPinned: z.boolean().optional(),
+  expiresAt: z.string().optional().nullable(),
+});
+export const updateCarteleraAnnouncementSchema = insertCarteleraAnnouncementSchema.partial();
+export type CarteleraAnnouncement = typeof carteleraAnnouncements.$inferSelect;
+export type InsertCarteleraAnnouncement = z.infer<typeof insertCarteleraAnnouncementSchema>;
+export type UpdateCarteleraAnnouncement = z.infer<typeof updateCarteleraAnnouncementSchema>;
 
 export const updateCourseScheduleSchema = insertCourseScheduleSchema.omit({ courseId: true }).partial();
 
@@ -395,6 +421,14 @@ export const MEETING_PLATFORMS = {
   google_meet: "Google Meet",
   teams: "Microsoft Teams",
   otro: "Otro",
+} as const;
+
+export const CARTELERA_CATEGORIES = {
+  general: "General",
+  urgente: "Urgente",
+  academico: "Academico",
+  evento: "Evento",
+  devocional: "Devocional",
 } as const;
 
 export const ATTENDANCE_STATUSES = {

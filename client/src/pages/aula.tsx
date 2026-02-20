@@ -736,6 +736,7 @@ function ScheduleEntryCard({
   const [editing, setEditing] = useState(false);
   const [startTime, setStartTime] = useState(entry.startTime);
   const [endTime, setEndTime] = useState(entry.endTime);
+  const [specificDate, setSpecificDate] = useState(entry.specificDate || "");
   const [description, setDescription] = useState(entry.description || "");
   const [meetingUrl, setMeetingUrl] = useState(entry.meetingUrl || "");
   const [meetingPlatform, setMeetingPlatform] = useState(entry.meetingPlatform || "zoom");
@@ -746,6 +747,7 @@ function ScheduleEntryCard({
       id: entry.id, courseId,
       updates: {
         startTime, endTime,
+        specificDate: specificDate || undefined,
         description: description || undefined,
         meetingUrl: meetingUrl || undefined,
         meetingPlatform,
@@ -770,6 +772,10 @@ function ScheduleEntryCard({
             <Label className="text-xs">Hora Fin</Label>
             <Input type="time" value={endTime} onChange={(e) => setEndTime(e.target.value)} />
           </div>
+        </div>
+        <div>
+          <Label className="text-xs">Fecha Especifica</Label>
+          <Input type="date" value={specificDate} onChange={(e) => setSpecificDate(e.target.value)} className="h-8" />
         </div>
         <div>
           <Label className="text-xs">Plataforma</Label>
@@ -802,6 +808,7 @@ function ScheduleEntryCard({
     <div className="flex items-center gap-2 p-2 rounded-md bg-background group">
       <Clock className="w-4 h-4 text-primary shrink-0" />
       <span className="text-sm font-medium">{entry.startTime} - {entry.endTime}</span>
+      {entry.specificDate && <span className="text-xs bg-primary/10 text-primary px-1.5 py-0.5 rounded">{entry.specificDate}</span>}
       {entry.description && <span className="text-xs text-muted-foreground">- {entry.description}</span>}
       {entry.meetingUrl && (
         <a href={entry.meetingUrl} target="_blank" rel="noopener noreferrer">
@@ -834,6 +841,7 @@ function CreateScheduleDialog({ courseId, onSubmit, isPending }: { courseId: num
   const [dayOfWeek, setDayOfWeek] = useState("1");
   const [startTime, setStartTime] = useState("09:00");
   const [endTime, setEndTime] = useState("10:00");
+  const [specificDate, setSpecificDate] = useState("");
   const [description, setDescription] = useState("");
   const [meetingUrl, setMeetingUrl] = useState("");
   const [meetingPlatform, setMeetingPlatform] = useState("zoom");
@@ -843,11 +851,12 @@ function CreateScheduleDialog({ courseId, onSubmit, isPending }: { courseId: num
       courseId,
       dayOfWeek: parseInt(dayOfWeek),
       startTime, endTime,
+      specificDate: specificDate || undefined,
       description: description.trim() || undefined,
       meetingUrl: meetingUrl.trim() || undefined,
       meetingPlatform,
     });
-    setDayOfWeek("1"); setStartTime("09:00"); setEndTime("10:00"); setDescription(""); setMeetingUrl(""); setMeetingPlatform("zoom");
+    setDayOfWeek("1"); setStartTime("09:00"); setEndTime("10:00"); setSpecificDate(""); setDescription(""); setMeetingUrl(""); setMeetingPlatform("zoom");
     setOpen(false);
   };
 
@@ -872,6 +881,11 @@ function CreateScheduleDialog({ courseId, onSubmit, isPending }: { courseId: num
                 ))}
               </SelectContent>
             </Select>
+          </div>
+          <div>
+            <Label>Fecha Especifica</Label>
+            <Input type="date" value={specificDate} onChange={(e) => setSpecificDate(e.target.value)} />
+            <p className="text-xs text-muted-foreground mt-1">Opcional: fecha exacta para este horario</p>
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>

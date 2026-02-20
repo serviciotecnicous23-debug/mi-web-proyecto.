@@ -22,6 +22,7 @@ import {
   insertChurchPostSchema,
   insertTeamMemberSchema, updateTeamMemberSchema,
   insertPostCommentSchema, insertDirectMessageSchema,
+  insertCarteleraAnnouncementSchema, updateCarteleraAnnouncementSchema,
 } from "./schema";
 
 export { insertUserSchema, updateUserSchema, users };
@@ -269,6 +270,16 @@ export const api = {
     create: { method: "POST" as const, path: "/api/team-members" as const, input: insertTeamMemberSchema },
     update: { method: "PATCH" as const, path: "/api/team-members/:id" as const, input: updateTeamMemberSchema },
     delete: { method: "DELETE" as const, path: "/api/team-members/:id" as const },
+  },
+  cartelera: {
+    list: { method: "GET" as const, path: "/api/cartelera/announcements" as const },
+    create: { method: "POST" as const, path: "/api/cartelera/announcements" as const, input: insertCarteleraAnnouncementSchema },
+    update: { method: "PATCH" as const, path: "/api/cartelera/announcements/:id" as const, input: updateCarteleraAnnouncementSchema },
+    delete: { method: "DELETE" as const, path: "/api/cartelera/announcements/:id" as const },
+    allAnnouncements: { method: "GET" as const, path: "/api/cartelera/all-announcements" as const },
+    allSessions: { method: "GET" as const, path: "/api/cartelera/all-sessions" as const },
+    allSchedules: { method: "GET" as const, path: "/api/cartelera/all-schedules" as const },
+    stats: { method: "GET" as const, path: "/api/cartelera/stats" as const },
   },
   friends: {
     list: { method: "GET" as const, path: "/api/friends" as const },
