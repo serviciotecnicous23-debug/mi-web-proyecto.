@@ -15,7 +15,7 @@ import {
   insertReadingPlanSchema, insertReadingPlanItemSchema,
   insertReadingClubPostSchema, insertReadingClubCommentSchema,
   insertLibraryResourceSchema,
-  insertPrayerActivitySchema, insertRegionPostSchema,
+  insertPrayerActivitySchema, updatePrayerActivitySchema, insertRegionPostSchema,
   insertNotificationSchema, insertPrayerAttendeeSchema,
   insertMinistryRegionSchema, updateMinistryRegionSchema,
   insertMinistryChurchSchema, updateMinistryChurchSchema,
@@ -232,6 +232,7 @@ export const api = {
   prayerActivities: {
     list: { method: "GET" as const, path: "/api/prayer-activities" as const },
     create: { method: "POST" as const, path: "/api/prayer-activities" as const, input: insertPrayerActivitySchema },
+    update: { method: "PATCH" as const, path: "/api/prayer-activities/:id" as const, input: updatePrayerActivitySchema },
     delete: { method: "DELETE" as const, path: "/api/prayer-activities/:id" as const },
   },
   prayerAttendees: {

@@ -785,8 +785,10 @@ export const insertPrayerActivitySchema = z.object({
   scheduledDate: z.string().optional().nullable(),
 });
 
+export const updatePrayerActivitySchema = insertPrayerActivitySchema.partial();
 export type PrayerActivity = typeof prayerActivities.$inferSelect;
 export type InsertPrayerActivity = z.infer<typeof insertPrayerActivitySchema>;
+export type UpdatePrayerActivity = z.infer<typeof updatePrayerActivitySchema>;
 
 // ========== ASISTENCIA A ORACION ==========
 

@@ -14,7 +14,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Loader2, Plus, Trash2, ExternalLink, Video, Calendar, Users, CheckCircle, HelpCircle, XCircle, Bell, Clock, Link2 } from "lucide-react";
+import { Loader2, Plus, Trash2, Pencil, ExternalLink, Video, Calendar, Users, CheckCircle, HelpCircle, XCircle, Bell, Clock, Link2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { usePrayerAttendees, useMyPrayerAttendance, useAttendPrayer, useCancelPrayerAttendance } from "@/hooks/use-users";
@@ -44,12 +44,18 @@ export default function OracionPage() {
   const { user } = useAuth();
   const { toast } = useToast();
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [editActivity, setEditActivity] = useState<PrayerActivity | null>(null);
 
   const { data: activities = [], isLoading } = useQuery<PrayerActivity[]>({
     queryKey: ["/api/prayer-activities"],
   });
 
   const form = useForm<z.infer<typeof createPrayerSchema>>({
+    resolver: zodResolver(createPrayerSchema),
+    defaultValues: { title: "", description: "", meetingUrl: "", meetingPlatform: "zoom", scheduledDate: "" },
+  });
+
+  const editForm = useForm<z.infer<typeof createPrayerSchema>>({
     resolver: zodResolver(createPrayerSchema),
     defaultValues: { title: "", description: "", meetingUrl: "", meetingPlatform: "zoom", scheduledDate: "" },
   });
@@ -75,6 +81,29 @@ export default function OracionPage() {
     },
     onError: (error: Error) => {
       toast({ title: "Error", description: error.message || "No se pudo crear la actividad.", variant: "destructive" });
+    },
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: number; data: z.infer<typeof createPrayerSchema> }) => {
+      const body: any = { ...data };
+      if (body.scheduledDate) {
+        body.scheduledDate = new Date(body.scheduledDate).toISOString();
+      } else {
+        body.scheduledDate = null;
+      }
+      if (!body.meetingUrl) body.meetingUrl = null;
+      if (!body.description) body.description = null;
+      const res = await apiRequest("PATCH", `/api/prayer-activities/${id}`, body);
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/prayer-activities"] });
+      toast({ title: "Actividad actualizada", description: "La actividad ha sido editada exitosamente." });
+      setEditActivity(null);
+    },
+    onError: (error: Error) => {
+      toast({ title: "Error", description: error.message || "No se pudo editar la actividad.", variant: "destructive" });
     },
   });
 
@@ -196,20 +225,102 @@ export default function OracionPage() {
         ) : (
           <div className="grid gap-4">
             {activities.map((activity) => (
-              <PrayerActivityCard key={activity.id} activity={activity} user={user} deleteMutation={deleteMutation} getPlatformLabel={getPlatformLabel} />
+              <PrayerActivityCard
+                key={activity.id}
+                activity={activity}
+                user={user}
+                deleteMutation={deleteMutation}
+                getPlatformLabel={getPlatformLabel}
+                onEdit={(a) => {
+                  setEditActivity(a);
+                  editForm.reset({
+                    title: a.title,
+                    description: a.description || "",
+                    meetingUrl: a.meetingUrl || "",
+                    meetingPlatform: a.meetingPlatform || "zoom",
+                    scheduledDate: a.scheduledDate ? new Date(a.scheduledDate).toISOString().slice(0, 16) : "",
+                  });
+                }}
+              />
             ))}
           </div>
         )}
+
+        {/* Edit Activity Dialog */}
+        <Dialog open={!!editActivity} onOpenChange={(open) => { if (!open) setEditActivity(null); }}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>Editar Actividad de Oracion</DialogTitle>
+              <DialogDescription>Modifica los datos de la actividad.</DialogDescription>
+            </DialogHeader>
+            <Form {...editForm}>
+              <form onSubmit={editForm.handleSubmit((d) => editActivity && updateMutation.mutate({ id: editActivity.id, data: d }))} className="space-y-4">
+                <FormField control={editForm.control} name="title" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Titulo</FormLabel>
+                    <FormControl><Input placeholder="Vigilia de oracion..." {...field} /></FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )} />
+                <FormField control={editForm.control} name="description" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Descripcion</FormLabel>
+                    <FormControl><Textarea placeholder="Detalles de la actividad..." className="resize-none" {...field} /></FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )} />
+                <FormField control={editForm.control} name="meetingPlatform" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Plataforma</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value}>
+                      <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
+                      <SelectContent>
+                        <SelectItem value="zoom">Zoom</SelectItem>
+                        <SelectItem value="google_meet">Google Meet</SelectItem>
+                        <SelectItem value="youtube">YouTube Live</SelectItem>
+                        <SelectItem value="facebook">Facebook Live</SelectItem>
+                        <SelectItem value="otro">Otro</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )} />
+                <FormField control={editForm.control} name="meetingUrl" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Enlace de Reunion</FormLabel>
+                    <FormControl><Input type="url" placeholder="https://zoom.us/j/..." {...field} /></FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )} />
+                <FormField control={editForm.control} name="scheduledDate" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Fecha y Hora</FormLabel>
+                    <FormControl><Input type="datetime-local" {...field} /></FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )} />
+                <DialogFooter>
+                  <Button variant="outline" type="button" onClick={() => setEditActivity(null)}>Cancelar</Button>
+                  <Button type="submit" disabled={updateMutation.isPending}>
+                    {updateMutation.isPending && <Loader2 className="w-4 h-4 mr-1 animate-spin" />}
+                    Guardar Cambios
+                  </Button>
+                </DialogFooter>
+              </form>
+            </Form>
+          </DialogContent>
+        </Dialog>
       </div>
     </Layout>
   );
 }
 
-function PrayerActivityCard({ activity, user, deleteMutation, getPlatformLabel }: {
+function PrayerActivityCard({ activity, user, deleteMutation, getPlatformLabel, onEdit }: {
   activity: PrayerActivity;
   user: any;
   deleteMutation: any;
   getPlatformLabel: (p: string | null) => string;
+  onEdit: (activity: PrayerActivity) => void;
 }) {
   const [detailOpen, setDetailOpen] = useState(false);
   const { data: attendeesData } = usePrayerAttendees(activity.id);
@@ -267,15 +378,25 @@ function PrayerActivityCard({ activity, user, deleteMutation, getPlatformLabel }
             </CardDescription>
           </div>
           {user && (user.role === "admin" || user.id === activity.userId) && (
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => deleteMutation.mutate(activity.id)}
-              disabled={deleteMutation.isPending}
-              data-testid={`button-delete-prayer-${activity.id}`}
-            >
-              <Trash2 className="w-4 h-4" />
-            </Button>
+            <div className="flex items-center gap-1">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => onEdit(activity)}
+                data-testid={`button-edit-prayer-${activity.id}`}
+              >
+                <Pencil className="w-4 h-4" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => deleteMutation.mutate(activity.id)}
+                disabled={deleteMutation.isPending}
+                data-testid={`button-delete-prayer-${activity.id}`}
+              >
+                <Trash2 className="w-4 h-4" />
+              </Button>
+            </div>
           )}
         </CardHeader>
         {(activity.description || activity.meetingUrl) && (

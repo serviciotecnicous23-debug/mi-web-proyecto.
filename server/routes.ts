@@ -1762,6 +1762,28 @@ ${urls}
     }
   });
 
+  app.patch(api.prayerActivities.update.path, async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ message: "Debes iniciar sesion para editar actividades" });
+    }
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) return res.status(400).json({ message: "ID de actividad invalido" });
+      const activity = await storage.getPrayerActivity(id);
+      if (!activity) return res.status(404).json({ message: "Actividad no encontrada" });
+      if (activity.userId !== (req.user as any).id && !isAdmin(req)) {
+        return res.status(403).json({ message: "No tienes permiso para editar esta actividad" });
+      }
+      const input = api.prayerActivities.update.input.parse(req.body);
+      const updated = await storage.updatePrayerActivity(id, input);
+      res.json(updated);
+    } catch (err: any) {
+      console.error("Error updating prayer activity:", err);
+      if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });
+      res.status(500).json({ message: err?.message || "Error interno al editar la actividad" });
+    }
+  });
+
   app.delete(api.prayerActivities.delete.path, async (req, res) => {
     if (!req.isAuthenticated()) {
       console.log("Prayer delete: user not authenticated. Session:", req.sessionID);

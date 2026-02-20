@@ -31,7 +31,7 @@ import {
   type LibraryResource, type InsertLibraryResource,
   type LibraryResourceLike,
   type Notification, type InsertNotification,
-  type PrayerActivity, type InsertPrayerActivity,
+  type PrayerActivity, type InsertPrayerActivity, type UpdatePrayerActivity,
   type RegionPost, type InsertRegionPost,
   type RegionPostPoll, type RegionPostPollOption, type RegionPostPollVote, type RegionPostReaction,
   ministryRegions, teamMembers,
@@ -174,6 +174,7 @@ export interface IStorage {
 
   createPrayerActivity(userId: number, data: InsertPrayerActivity): Promise<PrayerActivity>;
   getPrayerActivity(id: number): Promise<PrayerActivity | undefined>;
+  updatePrayerActivity(id: number, data: UpdatePrayerActivity): Promise<PrayerActivity | undefined>;
   listPrayerActivities(): Promise<(PrayerActivity & { user: { username: string; displayName: string | null } })[]>;
   deletePrayerActivity(id: number): Promise<void>;
 
@@ -1249,6 +1250,15 @@ export class DatabaseStorage implements IStorage {
     return activity;
   }
 
+  async updatePrayerActivity(id: number, data: UpdatePrayerActivity): Promise<PrayerActivity | undefined> {
+    const updateData: any = { ...data };
+    if (data.scheduledDate !== undefined) {
+      updateData.scheduledDate = data.scheduledDate ? new Date(data.scheduledDate) : null;
+    }
+    const [updated] = await db.update(prayerActivities).set(updateData).where(eq(prayerActivities.id, id)).returning();
+    return updated;
+  }
+
   async listPrayerActivities(): Promise<(PrayerActivity & { user: { username: string; displayName: string | null } })[]> {
     const rows = await db
       .select({
@@ -1368,6 +1378,19 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteRegionPost(id: number): Promise<void> {
+    // Delete cascading: votes -> options -> polls, reactions, then the post
+    const polls = await db.select({ id: regionPostPolls.id }).from(regionPostPolls).where(eq(regionPostPolls.postId, id));
+    if (polls.length > 0) {
+      const pollIds = polls.map(p => p.id);
+      const options = await db.select({ id: regionPostPollOptions.id }).from(regionPostPollOptions).where(inArray(regionPostPollOptions.pollId, pollIds));
+      if (options.length > 0) {
+        const optionIds = options.map(o => o.id);
+        await db.delete(regionPostPollVotes).where(inArray(regionPostPollVotes.optionId, optionIds));
+      }
+      await db.delete(regionPostPollOptions).where(inArray(regionPostPollOptions.pollId, pollIds));
+      await db.delete(regionPostPolls).where(inArray(regionPostPolls.id, pollIds));
+    }
+    await db.delete(regionPostReactions).where(eq(regionPostReactions.postId, id));
     await db.delete(regionPosts).where(eq(regionPosts.id, id));
   }
 

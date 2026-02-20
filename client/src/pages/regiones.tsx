@@ -537,6 +537,9 @@ export default function RegionesPage() {
       queryClient.invalidateQueries({ queryKey: ["/api/region-posts"] });
       toast({ title: "Eliminado", description: "El mensaje ha sido eliminado." });
     },
+    onError: (error: Error) => {
+      toast({ title: "Error al eliminar", description: error.message || "No se pudo eliminar la publicacion.", variant: "destructive" });
+    },
   });
 
   function handleSubmit(e: React.FormEvent) {
