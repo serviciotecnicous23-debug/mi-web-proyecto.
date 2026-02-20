@@ -557,6 +557,7 @@ function CreateCarteleraAnnouncementDialog({ onSubmit, isPending }: { onSubmit: 
             />
             {uploadingFile && <p className="text-xs text-muted-foreground">Cargando...</p>}
           </div>
+          )}
           {fileUrl && (
             <p className="text-sm mt-1">
               <a href={fileUrl} target="_blank" rel="noopener noreferrer" className="underline">
