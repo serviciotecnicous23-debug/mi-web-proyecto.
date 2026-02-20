@@ -4,8 +4,22 @@ import { type UpdateUser, type InsertEvent, type UpdateEvent, type InsertEventRs
 import { useToast } from "@/hooks/use-toast";
 
 // Wrapper around fetch that always includes credentials for auth cookies
+import { queryClient } from "@/lib/queryClient";
+
+// Custom error for authorization failures so callers can react specially if needed
+export class AuthError extends Error {}
+
 function authFetch(url: string, init?: RequestInit): Promise<Response> {
-  return fetch(url, { ...init, credentials: "include" });
+  return fetch(url, { ...init, credentials: "include" }).then(res => {
+    if (res.status === 401) {
+      // Clear the cached user immediately so UI can update to logged‑out state
+      queryClient.setQueryData([api.auth.me.path], null);
+      // Optionally clear everything else to avoid stale data after logout
+      queryClient.clear();
+      throw new AuthError("Tu sesión ha expirado. Por favor, cierra sesión e inicia sesión nuevamente.");
+    }
+    return res;
+  });
 }
 
 export function useUser(id: number) {

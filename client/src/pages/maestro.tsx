@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import {
   useCourses, useCourse, useCourseMaterials, useCourseSessions,
@@ -69,7 +69,14 @@ export default function MaestroPanel() {
 }
 
 function CourseList({ userId, onSelect }: { userId: number; onSelect: (id: number) => void }) {
-  const { data: courses, isLoading } = useCourses({ teacher: userId });
+  const { data: courses, isLoading, isError, error } = useCourses({ teacher: userId });
+  const { toast } = useToast();
+
+  useEffect(() => {
+    if (isError && error instanceof Error) {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    }
+  }, [isError, error, toast]);
   const createCourse = useCreateCourse();
   const [createDialog, setCreateDialog] = useState(false);
   const [createForm, setCreateForm] = useState({ title: "", description: "", category: "general", maxStudents: "" });

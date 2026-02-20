@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -587,8 +587,16 @@ function CreateCarteleraAnnouncementDialog({ onSubmit, isPending }: { onSubmit: 
 function CursosTab({ user }: { user: any }) {
   const [searchQuery, setSearchQuery] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("all");
-  const { data: courses, isLoading } = useCourses({ search: searchQuery, category: categoryFilter !== "all" ? categoryFilter : undefined });
+  const { data: courses, isLoading, isError, error } = useCourses({ search: searchQuery, category: categoryFilter !== "all" ? categoryFilter : undefined });
   const { data: myEnrollments } = useMyEnrollments();
+  const { toast } = useToast();
+
+  // show any query error (including session expiration)
+  useEffect(() => {
+    if (isError && error instanceof Error) {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    }
+  }, [isError, error, toast]);
   const createEnrollment = useCreateEnrollment();
 
   const enrollmentMap = new Map<number, string>();
