@@ -433,7 +433,7 @@ function CreateCarteleraAnnouncementDialog({ onSubmit, isPending }: { onSubmit: 
   const [expiresAt, setExpiresAt] = useState("");
   const [fileUrl, setFileUrl] = useState("");
   const [fileDataBase64, setFileDataBase64] = useState<string | null>(null);
-  const [uploadMode, setUploadMode] = useState<"enlace" | "archivo">("archivo");
+  const [uploadMode, setUploadMode] = useState<"enlace" | "archivo">("enlace");
   const [uploadingFile, setUploadingFile] = useState(false);
   const [uploadedFileName, setUploadedFileName] = useState("");
   const [uploadedFileSize, setUploadedFileSize] = useState<number | null>(null);
@@ -451,22 +451,21 @@ function CreateCarteleraAnnouncementDialog({ onSubmit, isPending }: { onSubmit: 
     const errs = validate();
     setErrors(errs);
     if (Object.keys(errs).length > 0) return;
-    if (uploadMode === "enlace" && !fileUrl.trim()) return;
-    if (uploadMode === "archivo" && !fileDataBase64) return;
+    // file is optional; only include if present
     onSubmit({
       title: title.trim(),
       content: content.trim(),
       category,
       isPinned,
       expiresAt: expiresAt || undefined,
-      fileUrl: uploadMode === "enlace" ? fileUrl.trim() : fileUrl,
-      fileName: uploadMode === "archivo" ? uploadedFileName : undefined,
-      fileSize: uploadMode === "archivo" ? uploadedFileSize : undefined,
-      fileData: uploadMode === "archivo" ? fileDataBase64 : undefined,
+      fileUrl: fileUrl ? (uploadMode === "enlace" ? fileUrl.trim() : fileUrl) : undefined,
+      fileName: uploadedFileName || undefined,
+      fileSize: uploadedFileSize || undefined,
+      fileData: fileDataBase64 || undefined,
     });
     setTitle(""); setContent(""); setCategory("general"); setIsPinned(false); setExpiresAt("");
     setFileUrl(""); setFileDataBase64(null); setUploadedFileName(""); setUploadedFileSize(null);
-    setUploadMode("archivo");
+    setUploadMode("enlace");
     setErrors({});
     setOpen(false);
   };

@@ -1062,15 +1062,13 @@ function CreateMaterialDialog({ courseId, onSubmit, isPending }: { courseId: num
 
   const handleSubmit = () => {
     if (!title.trim()) return;
-    if (uploadMode === "enlace" && !fileUrl.trim()) return;
-    if (uploadMode === "archivo" && !fileDataBase64) return;
     onSubmit({
       courseId, title: title.trim(),
       description: description.trim() || undefined,
-      fileUrl: uploadMode === "enlace" ? fileUrl.trim() : fileUrl,
-      fileName: uploadMode === "archivo" ? uploadedFileName : undefined,
-      fileSize: uploadMode === "archivo" ? uploadedFileSize : undefined,
-      fileData: uploadMode === "archivo" ? fileDataBase64 : undefined,
+      fileUrl: fileUrl ? (uploadMode === "enlace" ? fileUrl.trim() : fileUrl) : undefined,
+      fileName: uploadedFileName || undefined,
+      fileSize: uploadedFileSize || undefined,
+      fileData: fileDataBase64 || undefined,
       materialType,
     });
     setTitle(""); setDescription(""); setFileUrl(""); setFileDataBase64(null);
