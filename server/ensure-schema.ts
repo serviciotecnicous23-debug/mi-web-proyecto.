@@ -110,6 +110,10 @@ CREATE TABLE IF NOT EXISTS "course_materials" (
   "description" text,
   "file_url" text,
   "material_type" text NOT NULL DEFAULT 'documento',
+  -- file attachment
+  "file_name" text,
+  "file_size" integer,
+  "file_data" text,
   "sort_order" integer NOT NULL DEFAULT 0,
   "created_at" timestamp DEFAULT now()
 );
@@ -158,6 +162,28 @@ CREATE TABLE IF NOT EXISTS "course_announcements" (
   "title" text NOT NULL,
   "content" text NOT NULL,
   "is_pinned" boolean NOT NULL DEFAULT false,
+  -- file attachment columns
+  "file_url" text,
+  "file_name" text,
+  "file_size" integer,
+  "file_data" text,
+  "created_at" timestamp DEFAULT now()
+);
+
+-- Cartelera central announcements
+CREATE TABLE IF NOT EXISTS "cartelera_announcements" (
+  "id" serial PRIMARY KEY,
+  "author_id" integer NOT NULL REFERENCES "users"("id"),
+  "title" text NOT NULL,
+  "content" text NOT NULL,
+  "category" text NOT NULL DEFAULT 'general',
+  "is_pinned" boolean NOT NULL DEFAULT false,
+  "expires_at" timestamp,
+  -- file attachment
+  "file_url" text,
+  "file_name" text,
+  "file_size" integer,
+  "file_data" text,
   "created_at" timestamp DEFAULT now()
 );
 
@@ -477,6 +503,19 @@ const ADD_COLUMNS_SQL = [
   `ALTER TABLE "library_resources" ADD COLUMN IF NOT EXISTS "file_url" text`,
   `ALTER TABLE "library_resources" ADD COLUMN IF NOT EXISTS "file_name" text`,
   `ALTER TABLE "library_resources" ADD COLUMN IF NOT EXISTS "file_size" integer`,
+  // course material attachments
+  `ALTER TABLE "course_materials" ADD COLUMN IF NOT EXISTS "file_name" text`,
+  `ALTER TABLE "course_materials" ADD COLUMN IF NOT EXISTS "file_size" integer`,
+  `ALTER TABLE "course_materials" ADD COLUMN IF NOT EXISTS "file_data" text`,
+  // announcement attachments
+  `ALTER TABLE "course_announcements" ADD COLUMN IF NOT EXISTS "file_url" text`,
+  `ALTER TABLE "course_announcements" ADD COLUMN IF NOT EXISTS "file_name" text`,
+  `ALTER TABLE "course_announcements" ADD COLUMN IF NOT EXISTS "file_size" integer`,
+  `ALTER TABLE "course_announcements" ADD COLUMN IF NOT EXISTS "file_data" text`,
+  `ALTER TABLE "cartelera_announcements" ADD COLUMN IF NOT EXISTS "file_url" text`,
+  `ALTER TABLE "cartelera_announcements" ADD COLUMN IF NOT EXISTS "file_name" text`,
+  `ALTER TABLE "cartelera_announcements" ADD COLUMN IF NOT EXISTS "file_size" integer`,
+  `ALTER TABLE "cartelera_announcements" ADD COLUMN IF NOT EXISTS "file_data" text`,
   // Team members - newer columns
   `ALTER TABLE "team_members" ADD COLUMN IF NOT EXISTS "verse" text`,
   `ALTER TABLE "team_members" ADD COLUMN IF NOT EXISTS "initials" text`,

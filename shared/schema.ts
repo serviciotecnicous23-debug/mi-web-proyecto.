@@ -109,6 +109,10 @@ export const courseMaterials = pgTable("course_materials", {
   description: text("description"),
   fileUrl: text("file_url"),
   materialType: text("material_type").notNull().default("documento"),
+  // file attachment attributes
+  fileName: text("file_name"),
+  fileSize: integer("file_size"),
+  fileData: text("file_data"),
   sortOrder: integer("sort_order").notNull().default(0),
   createdAt: timestamp("created_at").defaultNow(),
 });
@@ -230,6 +234,9 @@ export const insertCourseMaterialSchema = createInsertSchema(courseMaterials).pi
   description: true,
   fileUrl: true,
   materialType: true,
+  fileName: true,
+  fileSize: true,
+  fileData: true,
   sortOrder: true,
 });
 
@@ -316,6 +323,11 @@ export const courseAnnouncements = pgTable("course_announcements", {
   title: text("title").notNull(),
   content: text("content").notNull(),
   isPinned: boolean("is_pinned").notNull().default(false),
+  // file attachment optional fields
+  fileUrl: text("file_url"),
+  fileName: text("file_name"),
+  fileSize: integer("file_size"),
+  fileData: text("file_data"),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -341,6 +353,11 @@ export const carteleraAnnouncements = pgTable("cartelera_announcements", {
   category: text("category").notNull().default("general"),
   isPinned: boolean("is_pinned").notNull().default(false),
   expiresAt: timestamp("expires_at"),
+  // file attachment support
+  fileUrl: text("file_url"),
+  fileName: text("file_name"),
+  fileSize: integer("file_size"),
+  fileData: text("file_data"),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -383,6 +400,10 @@ export const insertCarteleraAnnouncementSchema = z.object({
   category: z.string().optional(),
   isPinned: z.boolean().optional(),
   expiresAt: z.string().optional().nullable(),
+  fileUrl: z.string().optional().nullable(),
+  fileName: z.string().optional().nullable(),
+  fileSize: z.number().optional().nullable(),
+  fileData: z.string().optional().nullable(),
 });
 export const updateCarteleraAnnouncementSchema = insertCarteleraAnnouncementSchema.partial();
 export type CarteleraAnnouncement = typeof carteleraAnnouncements.$inferSelect;

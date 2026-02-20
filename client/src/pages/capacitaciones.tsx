@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import {
   useCourses, useCreateEnrollment, useMyEnrollments,
@@ -225,6 +225,12 @@ function CarteleraAnnouncementCard({ announcement, canManage, currentUserId, onU
   const [editContent, setEditContent] = useState(announcement.content);
   const [editCategory, setEditCategory] = useState(announcement.category);
   const [editExpiresAt, setEditExpiresAt] = useState(announcement.expiresAt ? announcement.expiresAt.slice(0, 10) : "");
+  const [editFileUrl, setEditFileUrl] = useState(announcement.fileUrl || "");
+  const [editFileName, setEditFileName] = useState(announcement.fileName || "");
+  const [editFileSize, setEditFileSize] = useState<number | null>(announcement.fileSize || null);
+  const [editFileData, setEditFileData] = useState<string | null>(announcement.fileData || null);
+  const [editUploadingFile, setEditUploadingFile] = useState(false);
+  const editFileInputRef = useRef<HTMLInputElement>(null);
   const [editError, setEditError] = useState<string | null>(null);
   const isUrgent = announcement.category === "urgente";
   const catLabel = CARTELERA_CATEGORIES[announcement.category as keyof typeof CARTELERA_CATEGORIES] || announcement.category;
@@ -239,6 +245,10 @@ function CarteleraAnnouncementCard({ announcement, canManage, currentUserId, onU
       content: editContent.trim(),
       category: editCategory,
       expiresAt: editExpiresAt || undefined,
+      fileUrl: editFileUrl || undefined,
+      fileName: editFileName || undefined,
+      fileSize: editFileSize || undefined,
+      fileData: editFileData || undefined,
     });
     setEditing(false);
     setEditError(null);
@@ -270,6 +280,51 @@ function CarteleraAnnouncementCard({ announcement, canManage, currentUserId, onU
                   </Select>
                   <Input type="date" value={editExpiresAt} onChange={e => setEditExpiresAt(e.target.value)} className="w-full sm:w-36" aria-label="Editar fecha de expiración" />
                 </div>
+                <div>
+                  <Label>Adjuntar archivo</Label>
+                  <Input
+                    type="file"
+                    ref={editFileInputRef}
+                    onChange={async (e) => {
+                      const f = e.target.files?.[0];
+                      if (!f) return;
+                      if (f.size > 20 * 1024 * 1024) {
+                        toast({ title: "Archivo muy grande", description: "Tamaño máximo 20MB", variant: "destructive" });
+                        return;
+                      }
+                      setEditUploadingFile(true);
+                      try {
+                        const formData = new FormData();
+                        formData.append("file", f);
+                        const res = await fetch("/api/upload/library-file", { method: "POST", body: formData, credentials: "include" });
+                        if (!res.ok) throw new Error("Error al subir archivo");
+                        const data = await res.json();
+                        setEditFileData(data.fileData || null);
+                        setEditFileUrl(data.fileData ? "uploaded" : data.fileUrl);
+                        setEditFileName(f.name);
+                        setEditFileSize(f.size);
+                        toast({ title: "Archivo subido", description: f.name });
+                      } catch (err: any) {
+                        toast({ title: "Error", description: err.message, variant: "destructive" });
+                      } finally {
+                        setEditUploadingFile(false);
+                      }
+                    }}
+                  />
+                  {editUploadingFile && <p className="text-xs text-muted-foreground">Cargando...</p>}
+                </div>
+                {editFileUrl && (
+                  <div className="flex items-center gap-2 text-sm mt-1">
+                    <a href={editFileUrl} target="_blank" rel="noopener noreferrer" className="underline">
+                      {editFileName || editFileUrl}
+                    </a>
+                    <Button size="xs" variant="ghost" onClick={() => {
+                      setEditFileUrl(""); setEditFileName(""); setEditFileSize(null); setEditFileData(null);
+                    }} title="Eliminar adjunto">
+                      <X className="w-3 h-3" />
+                    </Button>
+                  </div>
+                )}
                 {editError && <span className="text-xs text-red-600">{editError}</span>}
                 <div className="flex flex-col sm:flex-row gap-2 mt-2">
                   <Button size="sm" onClick={handleEditSave} variant="default">Guardar</Button>
@@ -280,6 +335,13 @@ function CarteleraAnnouncementCard({ announcement, canManage, currentUserId, onU
               <>
                 <h3 className="font-semibold text-base break-words">{announcement.title}</h3>
                 <p className="text-sm text-muted-foreground mt-1 whitespace-pre-wrap break-words">{announcement.content}</p>
+                {announcement.fileUrl && (
+                  <p className="mt-2">
+                    <a href={announcement.fileUrl} target="_blank" rel="noopener noreferrer" className="text-sm underline">
+                      {announcement.fileName || announcement.fileUrl}
+                    </a>
+                  </p>
+                )}
               </>
             )}
             <div className="flex flex-wrap items-center gap-2 mt-3 text-xs text-muted-foreground">
@@ -360,6 +422,7 @@ function CourseAnnouncementCard({ announcement }: { announcement: any }) {
 }
 
 function CreateCarteleraAnnouncementDialog({ onSubmit, isPending }: { onSubmit: (data: any) => void; isPending: boolean }) {
+  const { toast } = useToast();
 
   const [open, setOpen] = useState(false);
   const [title, setTitle] = useState("");
@@ -367,7 +430,13 @@ function CreateCarteleraAnnouncementDialog({ onSubmit, isPending }: { onSubmit: 
   const [category, setCategory] = useState("general");
   const [isPinned, setIsPinned] = useState(false);
   const [expiresAt, setExpiresAt] = useState("");
-  const [file, setFile] = useState<File | null>(null);
+  const [fileUrl, setFileUrl] = useState("");
+  const [fileDataBase64, setFileDataBase64] = useState<string | null>(null);
+  const [uploadMode, setUploadMode] = useState<"enlace" | "archivo">("archivo");
+  const [uploadingFile, setUploadingFile] = useState(false);
+  const [uploadedFileName, setUploadedFileName] = useState("");
+  const [uploadedFileSize, setUploadedFileSize] = useState<number | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [errors, setErrors] = useState<{ title?: string; content?: string }>({});
 
   const validate = () => {
@@ -381,15 +450,22 @@ function CreateCarteleraAnnouncementDialog({ onSubmit, isPending }: { onSubmit: 
     const errs = validate();
     setErrors(errs);
     if (Object.keys(errs).length > 0) return;
+    if (uploadMode === "enlace" && !fileUrl.trim()) return;
+    if (uploadMode === "archivo" && !fileDataBase64) return;
     onSubmit({
       title: title.trim(),
       content: content.trim(),
       category,
       isPinned,
       expiresAt: expiresAt || undefined,
-      // file: file, // Preparado para adjuntos
+      fileUrl: uploadMode === "enlace" ? fileUrl.trim() : fileUrl,
+      fileName: uploadMode === "archivo" ? uploadedFileName : undefined,
+      fileSize: uploadMode === "archivo" ? uploadedFileSize : undefined,
+      fileData: uploadMode === "archivo" ? fileDataBase64 : undefined,
     });
-    setTitle(""); setContent(""); setCategory("general"); setIsPinned(false); setExpiresAt(""); setFile(null);
+    setTitle(""); setContent(""); setCategory("general"); setIsPinned(false); setExpiresAt("");
+    setFileUrl(""); setFileDataBase64(null); setUploadedFileName(""); setUploadedFileSize(null);
+    setUploadMode("archivo");
     setErrors({});
     setOpen(false);
   };
@@ -433,10 +509,61 @@ function CreateCarteleraAnnouncementDialog({ onSubmit, isPending }: { onSubmit: 
             </div>
           </div>
           <div>
-            <Label>Adjuntar archivo (próximamente)</Label>
-            <Input type="file" disabled onChange={e => setFile(e.target.files?.[0] || null)} />
-            <span className="text-xs text-muted-foreground">Pronto podrás adjuntar imágenes o documentos.</span>
+            <Label>Modo de archivo</Label>
+            <Select value={uploadMode} onValueChange={setUploadMode}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="archivo">Subir archivo</SelectItem>
+                <SelectItem value="enlace">Usar enlace</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
+          {uploadMode === "enlace" ? (
+            <div>
+              <Label>URL del archivo</Label>
+              <Input value={fileUrl} onChange={(e) => setFileUrl(e.target.value)} placeholder="https://..." />
+            </div>
+          ) : (
+            <div>
+              <Label>Adjuntar archivo</Label>
+              <Input
+                type="file"
+                ref={fileInputRef}
+                onChange={async (e) => {
+                const f = e.target.files?.[0];
+                if (!f) return;
+                if (f.size > 20 * 1024 * 1024) {
+                  toast({ title: "Archivo muy grande", description: "Tamaño máximo 20MB", variant: "destructive" });
+                  return;
+                }
+                setUploadingFile(true);
+                try {
+                  const formData = new FormData();
+                  formData.append("file", f);
+                  const res = await fetch("/api/upload/library-file", { method: "POST", body: formData, credentials: "include" });
+                  if (!res.ok) throw new Error("Error al subir archivo");
+                  const data = await res.json();
+                  setFileDataBase64(data.fileData || null);
+                  setFileUrl(data.fileData ? "uploaded" : data.fileUrl);
+                  setUploadedFileName(f.name);
+                  setUploadedFileSize(f.size);
+                  toast({ title: "Archivo subido", description: f.name });
+                } catch (err: any) {
+                  toast({ title: "Error", description: err.message, variant: "destructive" });
+                } finally {
+                  setUploadingFile(false);
+                }
+              }}
+            />
+            {uploadingFile && <p className="text-xs text-muted-foreground">Cargando...</p>}
+          </div>
+          {fileUrl && (
+            <p className="text-sm mt-1">
+              <a href={fileUrl} target="_blank" rel="noopener noreferrer" className="underline">
+                {uploadedFileName || fileUrl}
+              </a>
+            </p>
+          )}
           <div className="flex items-center gap-2">
             <input type="checkbox" id="pin-ann" checked={isPinned} onChange={(e) => setIsPinned(e.target.checked)} className="rounded" />
             <Label htmlFor="pin-ann" className="text-sm cursor-pointer">Fijar anuncio (aparecerá primero)</Label>

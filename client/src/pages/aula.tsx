@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import {
   useCourse, useCourseMaterials, useCourseSessions, useMyEnrollments,
@@ -942,6 +942,12 @@ function MaterialCard({
   const [title, setTitle] = useState(material.title);
   const [description, setDescription] = useState(material.description || "");
   const [fileUrl, setFileUrl] = useState(material.fileUrl || "");
+  const [fileDataBase64, setFileDataBase64] = useState<string | null>(material.fileData || null);
+  const [uploadMode, setUploadMode] = useState<"enlace" | "archivo">("enlace");
+  const [uploadingFile, setUploadingFile] = useState(false);
+  const [uploadedFileName, setUploadedFileName] = useState(material.fileName || "");
+  const [uploadedFileSize, setUploadedFileSize] = useState<number | null>(material.fileSize || null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [materialType, setMaterialType] = useState(material.materialType);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const Icon = materialIcons[material.materialType] || FileText;
@@ -951,7 +957,10 @@ function MaterialCard({
       id: material.id, courseId,
       updates: {
         title, description: description || undefined,
-        fileUrl: fileUrl || undefined,
+        fileUrl: uploadMode === "enlace" ? fileUrl || undefined : fileUrl,
+        fileName: uploadMode === "archivo" ? uploadedFileName : undefined,
+        fileSize: uploadMode === "archivo" ? uploadedFileSize : undefined,
+        fileData: uploadMode === "archivo" ? fileDataBase64 : undefined,
         materialType,
       },
     });
@@ -1015,7 +1024,7 @@ function MaterialCard({
       <div className="flex items-center gap-1">
         {material.fileUrl && (
           <a href={material.fileUrl} target="_blank" rel="noopener noreferrer">
-            <Button size="sm" variant="outline"><ExternalLink className="w-4 h-4 mr-1" /> Abrir</Button>
+            <Button size="sm" variant="outline"><ExternalLink className="w-4 h-4 mr-1" /> {material.fileName || "Abrir"}</Button>
           </a>
         )}
         {canManage && (
@@ -1038,21 +1047,35 @@ function MaterialCard({
 
 // ========== CREATE MATERIAL DIALOG ==========
 function CreateMaterialDialog({ courseId, onSubmit, isPending }: { courseId: number; onSubmit: (data: any) => void; isPending: boolean }) {
+  const { toast } = useToast();
   const [open, setOpen] = useState(false);
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [fileUrl, setFileUrl] = useState("");
+  const [fileDataBase64, setFileDataBase64] = useState<string | null>(null);
+  const [uploadMode, setUploadMode] = useState<"enlace" | "archivo">("enlace");
+  const [uploadingFile, setUploadingFile] = useState(false);
+  const [uploadedFileName, setUploadedFileName] = useState("");
+  const [uploadedFileSize, setUploadedFileSize] = useState<number | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [materialType, setMaterialType] = useState("documento");
 
   const handleSubmit = () => {
     if (!title.trim()) return;
+    if (uploadMode === "enlace" && !fileUrl.trim()) return;
+    if (uploadMode === "archivo" && !fileDataBase64) return;
     onSubmit({
       courseId, title: title.trim(),
       description: description.trim() || undefined,
-      fileUrl: fileUrl.trim() || undefined,
+      fileUrl: uploadMode === "enlace" ? fileUrl.trim() : fileUrl,
+      fileName: uploadMode === "archivo" ? uploadedFileName : undefined,
+      fileSize: uploadMode === "archivo" ? uploadedFileSize : undefined,
+      fileData: uploadMode === "archivo" ? fileDataBase64 : undefined,
       materialType,
     });
-    setTitle(""); setDescription(""); setFileUrl(""); setMaterialType("documento");
+    setTitle(""); setDescription(""); setFileUrl(""); setFileDataBase64(null);
+    setUploadMode("enlace"); setUploadedFileName(""); setUploadedFileSize(null);
+    setMaterialType("documento");
     setOpen(false);
   };
 
@@ -1085,9 +1108,67 @@ function CreateMaterialDialog({ courseId, onSubmit, isPending }: { courseId: num
             </div>
           </div>
           <div>
-            <Label>URL del Recurso</Label>
-            <Input value={fileUrl} onChange={(e) => setFileUrl(e.target.value)} placeholder="https://drive.google.com/... o enlace directo" />
+            <Label>Modo de subida</Label>
+            <Select value={uploadMode} onValueChange={setUploadMode}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="enlace">Usar enlace</SelectItem>
+                <SelectItem value="archivo">Subir archivo</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
+          {uploadMode === "enlace" ? (
+            <div>
+              <Label>URL del Recurso</Label>
+              <Input value={fileUrl} onChange={(e) => setFileUrl(e.target.value)} placeholder="https://drive.google.com/... o enlace directo" />
+            </div>
+          ) : (
+            <div>
+              <Label>Archivo</Label>
+              <Input
+                type="file"
+                ref={fileInputRef}
+                onChange={async (e) => {
+                  const f = e.target.files?.[0];
+                  if (!f) return;
+                  if (f.size > 20 * 1024 * 1024) {
+                    toast({ title: "Archivo muy grande", description: "20MB max.", variant: "destructive" });
+                    return;
+                  }
+                  setUploadingFile(true);
+                  try {
+                    const formData = new FormData();
+                    formData.append("file", f);
+                    const res = await fetch("/api/upload/library-file", { method: "POST", body: formData, credentials: "include" });
+                    if (!res.ok) throw new Error("Error al subir archivo");
+                    const data = await res.json();
+                    setFileDataBase64(data.fileData || null);
+                    setFileUrl(data.fileData ? "uploaded" : data.fileUrl);
+                    setUploadedFileName(f.name);
+                    setUploadedFileSize(f.size);
+                    toast({ title: "Archivo subido", description: f.name });
+                  } catch (err: any) {
+                    toast({ title: "Error", description: err.message, variant: "destructive" });
+                  } finally {
+                    setUploadingFile(false);
+                  }
+                }}
+              />
+              {uploadingFile && <p className="text-xs text-muted-foreground">Cargando...</p>}
+              {fileUrl && (
+                <div className="flex items-center gap-2 text-sm mt-1">
+                  <a href={fileUrl} target="_blank" rel="noopener noreferrer" className="underline">
+                    {uploadedFileName || fileUrl}
+                  </a>
+                  <Button size="xs" variant="ghost" onClick={() => {
+                    setFileUrl(""); setFileDataBase64(null); setUploadedFileName(""); setUploadedFileSize(null);
+                  }} title="Eliminar adjunto">
+                    <X className="w-3 h-3" />
+                  </Button>
+                </div>
+              )}
+            </div>
+          )}
           <div>
             <Label>Descripcion</Label>
             <Textarea value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Descripcion breve del material..." rows={2} />
@@ -1116,12 +1197,23 @@ function AnnouncementCard({
   const [editing, setEditing] = useState(false);
   const [title, setTitle] = useState(announcement.title);
   const [content, setContent] = useState(announcement.content);
+  const [editFileUrl, setEditFileUrl] = useState(announcement.fileUrl || "");
+  const [editFileName, setEditFileName] = useState(announcement.fileName || "");
+  const [editFileSize, setEditFileSize] = useState<number | null>(announcement.fileSize || null);
+  const [editFileData, setEditFileData] = useState<string | null>(announcement.fileData || null);
+  const [editUploadingFile, setEditUploadingFile] = useState(false);
+  const editFileInputRef = useRef<HTMLInputElement>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
 
   const handleSave = () => {
     onUpdate({
       id: announcement.id, courseId,
-      updates: { title, content },
+      updates: { title, content,
+        fileUrl: editFileUrl || undefined,
+        fileName: editFileName || undefined,
+        fileSize: editFileSize || undefined,
+        fileData: editFileData || undefined,
+      },
     });
     setEditing(false);
   };
@@ -1148,6 +1240,46 @@ function AnnouncementCard({
           <Label className="text-xs">Contenido</Label>
           <Textarea value={content} onChange={(e) => setContent(e.target.value)} rows={4} />
         </div>
+        <div>
+          <Label className="text-xs">Adjuntar archivo</Label>
+          <Input
+            type="file"
+            ref={editFileInputRef}
+            onChange={async (e) => {
+              const f = e.target.files?.[0];
+              if (!f) return;
+              if (f.size > 20 * 1024 * 1024) {
+                toast({ title: "Archivo muy grande", description: "Tamaño máximo 20MB", variant: "destructive" });
+                return;
+              }
+              setEditUploadingFile(true);
+              try {
+                const formData = new FormData();
+                formData.append("file", f);
+                const res = await fetch("/api/upload/library-file", { method: "POST", body: formData, credentials: "include" });
+                if (!res.ok) throw new Error("Error al subir archivo");
+                const data = await res.json();
+                setEditFileData(data.fileData || null);
+                setEditFileUrl(data.fileData ? "uploaded" : data.fileUrl);
+                setEditFileName(f.name);
+                setEditFileSize(f.size);
+                toast({ title: "Archivo subido", description: f.name });
+              } catch (err: any) {
+                toast({ title: "Error", description: err.message, variant: "destructive" });
+              } finally {
+                setEditUploadingFile(false);
+              }
+            }}
+          />
+          {editUploadingFile && <p className="text-xs text-muted-foreground">Cargando...</p>}
+        </div>
+        {editFileUrl && (
+          <p className="text-sm mt-1">
+            <a href={editFileUrl} target="_blank" rel="noopener noreferrer" className="underline">
+              {editFileName || editFileUrl}
+            </a>
+          </p>
+        )}
         <div className="flex gap-2">
           <Button size="sm" onClick={handleSave}><Save className="w-4 h-4 mr-1" /> Guardar</Button>
           <Button size="sm" variant="outline" onClick={() => setEditing(false)}>Cancelar</Button>
@@ -1182,6 +1314,13 @@ function AnnouncementCard({
         )}
       </div>
       <p className="text-sm whitespace-pre-wrap mb-3">{announcement.content}</p>
+      {announcement.fileUrl && (
+        <p className="mt-2">
+          <a href={announcement.fileUrl} target="_blank" rel="noopener noreferrer" className="underline text-sm">
+            {announcement.fileName || announcement.fileUrl}
+          </a>
+        </p>
+      )}
       <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
         <span className="font-medium">{announcement.author.displayName || announcement.author.username}</span>
         <span>·</span>
@@ -1197,6 +1336,12 @@ function CreateAnnouncementDialog({ courseId, onSubmit, isPending }: { courseId:
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
   const [isPinned, setIsPinned] = useState(false);
+  const [fileUrl, setFileUrl] = useState("");
+  const [fileDataBase64, setFileDataBase64] = useState<string | null>(null);
+  const [uploadingFile, setUploadingFile] = useState(false);
+  const [uploadedFileName, setUploadedFileName] = useState("");
+  const [uploadedFileSize, setUploadedFileSize] = useState<number | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleSubmit = () => {
     if (!title.trim() || !content.trim()) return;
@@ -1204,8 +1349,13 @@ function CreateAnnouncementDialog({ courseId, onSubmit, isPending }: { courseId:
       courseId, title: title.trim(),
       content: content.trim(),
       isPinned,
+      fileUrl: fileUrl || undefined,
+      fileName: uploadedFileName || undefined,
+      fileSize: uploadedFileSize || undefined,
+      fileData: fileDataBase64 || undefined,
     });
     setTitle(""); setContent(""); setIsPinned(false);
+    setFileUrl(""); setFileDataBase64(null); setUploadedFileName(""); setUploadedFileSize(null);
     setOpen(false);
   };
 
@@ -1228,6 +1378,46 @@ function CreateAnnouncementDialog({ courseId, onSubmit, isPending }: { courseId:
             <Label>Contenido *</Label>
             <Textarea value={content} onChange={(e) => setContent(e.target.value)} placeholder="Escribe el contenido del anuncio..." rows={4} />
           </div>
+          <div>
+            <Label>Adjuntar archivo</Label>
+            <Input
+              type="file"
+              ref={fileInputRef}
+              onChange={async (e) => {
+                const f = e.target.files?.[0];
+                if (!f) return;
+                if (f.size > 20 * 1024 * 1024) {
+                  toast({ title: "Archivo muy grande", description: "Tamaño máximo 20MB", variant: "destructive" });
+                  return;
+                }
+                setUploadingFile(true);
+                try {
+                  const formData = new FormData();
+                  formData.append("file", f);
+                  const res = await fetch("/api/upload/library-file", { method: "POST", body: formData, credentials: "include" });
+                  if (!res.ok) throw new Error("Error al subir archivo");
+                  const data = await res.json();
+                  setFileDataBase64(data.fileData || null);
+                  setFileUrl(data.fileData ? "uploaded" : data.fileUrl);
+                  setUploadedFileName(f.name);
+                  setUploadedFileSize(f.size);
+                  toast({ title: "Archivo subido", description: f.name });
+                } catch (err: any) {
+                  toast({ title: "Error", description: err.message, variant: "destructive" });
+                } finally {
+                  setUploadingFile(false);
+                }
+              }}
+            />
+            {uploadingFile && <p className="text-xs text-muted-foreground">Cargando...</p>}
+          </div>
+          {fileUrl && (
+            <p className="text-sm mt-1">
+              <a href={fileUrl} target="_blank" rel="noopener noreferrer" className="underline">
+                {uploadedFileName || fileUrl}
+              </a>
+            </p>
+          )}
           <div className="flex items-center gap-3">
             <Switch checked={isPinned} onCheckedChange={setIsPinned} id="pin-switch" />
             <Label htmlFor="pin-switch" className="text-sm cursor-pointer">Fijar anuncio (aparece primero)</Label>

@@ -852,6 +852,10 @@ export class DatabaseStorage implements IStorage {
       title: data.title,
       content: data.content,
       isPinned: data.isPinned ?? false,
+      fileUrl: data.fileUrl || null,
+      fileName: data.fileName || null,
+      fileSize: data.fileSize || null,
+      fileData: data.fileData || null,
     }).returning();
     return created;
   }
@@ -865,6 +869,9 @@ export class DatabaseStorage implements IStorage {
         title: courseAnnouncements.title,
         content: courseAnnouncements.content,
         isPinned: courseAnnouncements.isPinned,
+        fileUrl: courseAnnouncements.fileUrl,
+        fileName: courseAnnouncements.fileName,
+        fileSize: courseAnnouncements.fileSize,
         createdAt: courseAnnouncements.createdAt,
         username: users.username,
         displayName: users.displayName,
@@ -881,6 +888,9 @@ export class DatabaseStorage implements IStorage {
       title: r.title,
       content: r.content,
       isPinned: r.isPinned,
+      fileUrl: r.fileUrl,
+      fileName: r.fileName,
+      fileSize: r.fileSize,
       createdAt: r.createdAt,
       author: { username: r.username, displayName: r.displayName },
     }));
@@ -2817,7 +2827,14 @@ export class DatabaseStorage implements IStorage {
 
   // ===== Cartelera Central =====
   async createCarteleraAnnouncement(authorId: number, data: InsertCarteleraAnnouncement): Promise<CarteleraAnnouncement> {
-    const [ann] = await db.insert(carteleraAnnouncements).values({ ...data, authorId }).returning();
+    const [ann] = await db.insert(carteleraAnnouncements).values({
+      ...data,
+      authorId,
+      fileUrl: data.fileUrl || null,
+      fileName: data.fileName || null,
+      fileSize: data.fileSize || null,
+      fileData: data.fileData || null,
+    }).returning();
     return ann;
   }
 
@@ -2831,6 +2848,9 @@ export class DatabaseStorage implements IStorage {
         category: carteleraAnnouncements.category,
         isPinned: carteleraAnnouncements.isPinned,
         expiresAt: carteleraAnnouncements.expiresAt,
+        fileUrl: carteleraAnnouncements.fileUrl,
+        fileName: carteleraAnnouncements.fileName,
+        fileSize: carteleraAnnouncements.fileSize,
         createdAt: carteleraAnnouncements.createdAt,
         authorUsername: users.username,
         authorDisplayName: users.displayName,
@@ -2841,7 +2861,9 @@ export class DatabaseStorage implements IStorage {
       .orderBy(desc(carteleraAnnouncements.isPinned), desc(carteleraAnnouncements.createdAt));
     return rows.map(r => ({
       id: r.id, authorId: r.authorId, title: r.title, content: r.content,
-      category: r.category, isPinned: r.isPinned, expiresAt: r.expiresAt, createdAt: r.createdAt,
+      category: r.category, isPinned: r.isPinned, expiresAt: r.expiresAt,
+      fileUrl: r.fileUrl, fileName: r.fileName, fileSize: r.fileSize,
+      createdAt: r.createdAt,
       author: { id: r.authorId, username: r.authorUsername, displayName: r.authorDisplayName, avatarUrl: r.authorAvatar },
     }));
   }
