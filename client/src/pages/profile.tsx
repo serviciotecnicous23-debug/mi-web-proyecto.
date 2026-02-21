@@ -1,7 +1,7 @@
 // @ts-nocheck
 import { useEffect, useRef, useState } from "react";
 import { useAuth } from "@/hooks/use-auth";
-import { useUpdateUser } from "@/hooks/use-users";
+import { useUpdateUser, useMyEnrollments } from "@/hooks/use-users";
 import { useLocation } from "wouter";
 import { Layout } from "@/components/layout";
 import { useForm } from "react-hook-form";
@@ -24,9 +24,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Save, Camera, Lock, UserPlus, UserMinus, Check, X, Search, Users } from "lucide-react";
+import { Loader2, Save, Camera, Lock, UserPlus, UserMinus, Check, X, Search, Users, GraduationCap, BookOpen, Award } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { SocialLinksDisplay, SocialLinksFormFields } from "@/components/SocialLinks";
+import { COURSE_CATEGORIES, ENROLLMENT_STATUSES } from "@shared/schema";
+import { Link } from "wouter";
 import { useQueryClient, useQuery, useMutation } from "@tanstack/react-query";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -34,7 +36,12 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 export default function Profile() {
   const { user, isLoading } = useAuth();
   const [, setLocation] = useLocation();
-  const defaultTab = new URLSearchParams(window.location.search).get("tab") === "amigos" ? "amigos" : "perfil";
+  const defaultTab = (() => {
+    const tab = new URLSearchParams(window.location.search).get("tab");
+    if (tab === "amigos") return "amigos";
+    if (tab === "capacitaciones") return "capacitaciones";
+    return "perfil";
+  })();
   const updateMutation = useUpdateUser();
   const formInitialized = useRef(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -47,6 +54,7 @@ export default function Profile() {
   const [searchQuery, setSearchQuery] = useState("");
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { data: myEnrollments } = useMyEnrollments();
 
   // complex Zod schema causes TypeScript recursion errors; use any for form type
   const form = useForm<any>({
@@ -256,6 +264,9 @@ export default function Profile() {
         <Tabs defaultValue={defaultTab} className="space-y-6">
           <TabsList>
             <TabsTrigger value="perfil">Perfil</TabsTrigger>
+            <TabsTrigger value="capacitaciones">
+              <GraduationCap className="w-4 h-4 mr-1" /> Capacitaciones
+            </TabsTrigger>
             <TabsTrigger value="amigos">
               Amigos {friendRequests.length > 0 && <Badge variant="destructive" className="ml-1 h-5 min-w-5 text-xs">{friendRequests.length}</Badge>}
             </TabsTrigger>
@@ -477,6 +488,93 @@ export default function Profile() {
                   </Form>
                 </CardContent>
               </Card>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="capacitaciones">
+            <div className="space-y-6">
+              {/* Completed Courses */}
+              {(() => {
+                const completed = myEnrollments?.filter((e: any) => e.status === "completado") || [];
+                const active = myEnrollments?.filter((e: any) => e.status === "aprobado") || [];
+                const pending = myEnrollments?.filter((e: any) => e.status === "solicitado") || [];
+                return (
+                  <>
+                    {completed.length > 0 && (
+                      <Card>
+                        <CardHeader>
+                          <CardTitle className="text-lg flex items-center gap-2"><Award className="w-5 h-5 text-yellow-500" /> Cursos Completados ({completed.length})</CardTitle>
+                          <CardDescription>Tu historial de capacitaciones finalizadas</CardDescription>
+                        </CardHeader>
+                        <CardContent className="space-y-3">
+                          {completed.map((e: any) => (
+                            <div key={e.id} className="flex flex-wrap items-center justify-between gap-3 p-3 rounded-lg bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-900">
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2">
+                                  <BookOpen className="w-4 h-4 text-green-600" />
+                                  <p className="font-semibold text-sm">{e.course?.title || e.courseName || 'Curso'}</p>
+                                  <Badge variant="secondary" className="text-xs">{COURSE_CATEGORIES[(e.course?.category || 'general') as keyof typeof COURSE_CATEGORIES]}</Badge>
+                                </div>
+                                {e.grade && <p className="text-xs mt-1">Calificacion: <span className="font-bold text-green-700">{e.grade}</span></p>}
+                                {e.observations && <p className="text-xs text-muted-foreground mt-1">{e.observations}</p>}
+                                {e.completedAt && <p className="text-xs text-muted-foreground mt-1">Completado: {new Date(e.completedAt).toLocaleDateString("es", { day: "numeric", month: "long", year: "numeric" })}</p>}
+                              </div>
+                              <Link href={`/aula/${e.courseId}`}><Button size="sm" variant="outline"><GraduationCap className="w-4 h-4 mr-1" /> Ver Aula</Button></Link>
+                            </div>
+                          ))}
+                        </CardContent>
+                      </Card>
+                    )}
+
+                    {active.length > 0 && (
+                      <Card>
+                        <CardHeader>
+                          <CardTitle className="text-lg flex items-center gap-2"><BookOpen className="w-5 h-5 text-primary" /> Cursos Activos ({active.length})</CardTitle>
+                        </CardHeader>
+                        <CardContent className="space-y-3">
+                          {active.map((e: any) => (
+                            <div key={e.id} className="flex flex-wrap items-center justify-between gap-3 p-3 rounded-lg bg-muted/50">
+                              <div className="flex-1 min-w-0">
+                                <p className="font-medium text-sm">{e.course?.title || e.courseName || 'Curso'}</p>
+                                <Badge variant="secondary" className="text-xs mt-1">{COURSE_CATEGORIES[(e.course?.category || 'general') as keyof typeof COURSE_CATEGORIES]}</Badge>
+                              </div>
+                              <Link href={`/aula/${e.courseId}`}><Button size="sm" variant="outline"><GraduationCap className="w-4 h-4 mr-1" /> Aula Virtual</Button></Link>
+                            </div>
+                          ))}
+                        </CardContent>
+                      </Card>
+                    )}
+
+                    {pending.length > 0 && (
+                      <Card>
+                        <CardHeader>
+                          <CardTitle className="text-lg">Solicitudes Pendientes ({pending.length})</CardTitle>
+                        </CardHeader>
+                        <CardContent className="space-y-3">
+                          {pending.map((e: any) => (
+                            <div key={e.id} className="flex flex-wrap items-center justify-between gap-3 p-3 rounded-lg bg-muted/50">
+                              <div className="flex-1 min-w-0">
+                                <p className="font-medium text-sm">{e.course?.title || e.courseName || 'Curso'}</p>
+                                <Badge variant="outline" className="text-xs mt-1">Pendiente de aprobacion</Badge>
+                              </div>
+                            </div>
+                          ))}
+                        </CardContent>
+                      </Card>
+                    )}
+
+                    {!myEnrollments?.length && (
+                      <Card>
+                        <CardContent className="py-12 text-center">
+                          <GraduationCap className="w-12 h-12 text-muted-foreground mx-auto mb-3" />
+                          <p className="text-muted-foreground">No estas inscrito en ningun curso.</p>
+                          <Link href="/capacitaciones"><Button variant="outline" className="mt-4">Ver Cursos Disponibles</Button></Link>
+                        </CardContent>
+                      </Card>
+                    )}
+                  </>
+                );
+              })()}
             </div>
           </TabsContent>
 

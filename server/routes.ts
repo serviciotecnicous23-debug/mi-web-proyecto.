@@ -1100,6 +1100,15 @@ ${urls}
     if (!(req.user as any).isActive) return res.sendStatus(403);
     try {
       const input = api.enrollments.create.input.parse(req.body);
+      // Check if enrollment is open
+      const course = await storage.getCourse(input.courseId);
+      if (!course) return res.status(404).json({ message: "Curso no encontrado" });
+      if (course.enrollmentStatus === "closed") {
+        return res.status(400).json({ message: "Las inscripciones para este curso estan cerradas" });
+      }
+      if (course.enrollmentStatus === "scheduled") {
+        return res.status(400).json({ message: "Las inscripciones para este curso aun no estan abiertas" });
+      }
       const existing = await storage.getEnrollmentByUserAndCourse((req.user as any).id, input.courseId);
       if (existing) {
         return res.status(400).json({ message: "Ya tienes una inscripcion en este curso" });

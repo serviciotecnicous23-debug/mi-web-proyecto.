@@ -192,6 +192,21 @@ export default function CursoDetalle({ params }: { params: { id: string } }) {
                       </div>
                     )}
                   </div>
+                ) : (course as any).enrollmentStatus === "closed" ? (
+                  <div className="text-center py-2">
+                    <Badge variant="destructive" className="mb-2">Inscripciones Cerradas</Badge>
+                    <p className="text-sm text-muted-foreground">Las inscripciones para este curso no estan disponibles en este momento.</p>
+                  </div>
+                ) : (course as any).enrollmentStatus === "scheduled" ? (
+                  <div className="text-center py-2">
+                    <Badge variant="outline" className="mb-2">Inscripciones Programadas</Badge>
+                    <p className="text-sm text-muted-foreground">Las inscripciones se abriran proximamente.</p>
+                    {(course as any).enrollmentOpenDate && (
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Apertura: {new Date((course as any).enrollmentOpenDate).toLocaleDateString("es", { day: "numeric", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit" })}
+                      </p>
+                    )}
+                  </div>
                 ) : user?.isActive ? (
                   <Button
                     className="w-full"

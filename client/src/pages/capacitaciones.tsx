@@ -680,6 +680,10 @@ function CursosTab({ user }: { user: any }) {
                       >
                         {ENROLLMENT_STATUSES[enrollmentStatus as keyof typeof ENROLLMENT_STATUSES] || enrollmentStatus}
                       </Badge>
+                    ) : (course as any).enrollmentStatus === "closed" ? (
+                      <Badge variant="destructive" className="text-xs">Inscripciones Cerradas</Badge>
+                    ) : (course as any).enrollmentStatus === "scheduled" ? (
+                      <Badge variant="outline" className="text-xs">Inscripciones Programadas</Badge>
                     ) : user?.isActive ? (
                       <Button size="sm" onClick={() => createEnrollment.mutate(course.id)} disabled={createEnrollment.isPending} data-testid={`button-enroll-${course.id}`}>
                         {createEnrollment.isPending ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : <GraduationCap className="w-4 h-4 mr-1" />}

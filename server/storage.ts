@@ -551,6 +551,9 @@ export class DatabaseStorage implements IStorage {
       maxStudents: course.maxStudents || null,
       teacherId: course.teacherId || null,
       createdBy: course.createdBy,
+      enrollmentStatus: (course as any).enrollmentStatus || "open",
+      enrollmentOpenDate: (course as any).enrollmentOpenDate ? new Date((course as any).enrollmentOpenDate) : null,
+      enrollmentCloseDate: (course as any).enrollmentCloseDate ? new Date((course as any).enrollmentCloseDate) : null,
     }).returning();
     return created;
   }
@@ -589,9 +592,16 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updateCourse(id: number, updates: UpdateCourse): Promise<Course | undefined> {
+    const updateData: any = { ...updates };
+    if (updates.enrollmentOpenDate !== undefined) {
+      updateData.enrollmentOpenDate = updates.enrollmentOpenDate ? new Date(updates.enrollmentOpenDate as string) : null;
+    }
+    if (updates.enrollmentCloseDate !== undefined) {
+      updateData.enrollmentCloseDate = updates.enrollmentCloseDate ? new Date(updates.enrollmentCloseDate as string) : null;
+    }
     const [updated] = await db
       .update(courses)
-      .set(updates)
+      .set(updateData)
       .where(eq(courses.id, id))
       .returning();
     return updated;
@@ -769,6 +779,9 @@ export class DatabaseStorage implements IStorage {
     const updateData: any = { ...updates };
     if (updates.status === "completado") {
       updateData.completedAt = new Date();
+    }
+    if (updates.status === "aprobado") {
+      updateData.completedAt = null;
     }
     const [updated] = await db
       .update(enrollments)
@@ -2053,6 +2066,33 @@ export class DatabaseStorage implements IStorage {
   // NOTE: city-builder logic was accidentally merged into this file
 
   // city-builder code removed
+}
+
+// Auto-check enrollment schedules and update status
+export async function checkEnrollmentSchedules() {
+  try {
+    const now = new Date();
+    // Open scheduled courses whose open date has passed
+    await db.update(courses)
+      .set({ enrollmentStatus: "open" })
+      .where(
+        and(
+          eq(courses.enrollmentStatus, "scheduled"),
+          sql`"enrollment_open_date" IS NOT NULL AND "enrollment_open_date" <= ${now}`
+        )
+      );
+    // Close courses whose close date has passed
+    await db.update(courses)
+      .set({ enrollmentStatus: "closed" })
+      .where(
+        and(
+          eq(courses.enrollmentStatus, "open"),
+          sql`"enrollment_close_date" IS NOT NULL AND "enrollment_close_date" <= ${now}`
+        )
+      );
+  } catch (err) {
+    console.error("Error checking enrollment schedules:", err);
+  }
 }
 
 // singleton instance for ease of use

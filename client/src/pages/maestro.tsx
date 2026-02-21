@@ -33,7 +33,7 @@ import {
   CheckCircle2, XCircle, Video, GraduationCap, Pencil, Clock,
   Bell, Megaphone, CalendarDays, MapPin,
 } from "lucide-react";
-import { MATERIAL_TYPES, ENROLLMENT_STATUSES, COURSE_CATEGORIES, DAYS_OF_WEEK, MEETING_PLATFORMS } from "@shared/schema";
+import { MATERIAL_TYPES, ENROLLMENT_STATUSES, ENROLLMENT_MODES, COURSE_CATEGORIES, DAYS_OF_WEEK, MEETING_PLATFORMS } from "@shared/schema";
 import type { Course, CourseMaterial, CourseSession, Enrollment, CourseAnnouncement, CourseScheduleEntry } from "@shared/schema";
 
 export default function MaestroPanel() {
@@ -381,6 +381,11 @@ function CourseManager({ courseId, onBack }: { courseId: number; onBack: () => v
                             <CheckCircle2 className="w-4 h-4" />
                           </Button>
                         )}
+                        {e.status === "completado" && (
+                          <Button size="sm" variant="outline" onClick={() => updateEnrollment.mutate({ id: e.id, courseId, updates: { status: "aprobado" } })} data-testid={`button-revert-${e.id}`} title="Revertir a Aprobado">
+                            <XCircle className="w-4 h-4 mr-1" /> Revertir
+                          </Button>
+                        )}
                       </div>
                     </div>
                   ))}
@@ -697,6 +702,13 @@ function CourseManager({ courseId, onBack }: { courseId: number; onBack: () => v
 function CourseConfig({ course, onUpdate }: { course: Course; onUpdate: (updates: any) => void }) {
   const [title, setTitle] = useState(course.title);
   const [description, setDescription] = useState(course.description);
+  const [enrollmentStatus, setEnrollmentStatus] = useState((course as any).enrollmentStatus || "open");
+  const [enrollmentOpenDate, setEnrollmentOpenDate] = useState(
+    (course as any).enrollmentOpenDate ? new Date((course as any).enrollmentOpenDate).toISOString().slice(0, 16) : ""
+  );
+  const [enrollmentCloseDate, setEnrollmentCloseDate] = useState(
+    (course as any).enrollmentCloseDate ? new Date((course as any).enrollmentCloseDate).toISOString().slice(0, 16) : ""
+  );
 
   return (
     <Card>
@@ -704,7 +716,25 @@ function CourseConfig({ course, onUpdate }: { course: Course; onUpdate: (updates
       <CardContent className="space-y-4">
         <div><Label>Titulo</Label><Input value={title} onChange={e => setTitle(e.target.value)} data-testid="input-course-title-config" /></div>
         <div><Label>Descripcion</Label><Textarea value={description} onChange={e => setDescription(e.target.value)} className="min-h-[100px]" data-testid="input-course-description-config" /></div>
-        <Button onClick={() => onUpdate({ title, description })} data-testid="button-save-course-config">
+        <div>
+          <Label>Estado de Inscripciones</Label>
+          <Select value={enrollmentStatus} onValueChange={setEnrollmentStatus}>
+            <SelectTrigger data-testid="select-enrollment-status"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              {Object.entries(ENROLLMENT_MODES).map(([k, v]) => <SelectItem key={k} value={k}>{v}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        </div>
+        {enrollmentStatus === "scheduled" && (
+          <div className="grid grid-cols-2 gap-3">
+            <div><Label>Fecha Apertura</Label><Input type="datetime-local" value={enrollmentOpenDate} onChange={e => setEnrollmentOpenDate(e.target.value)} /></div>
+            <div><Label>Fecha Cierre</Label><Input type="datetime-local" value={enrollmentCloseDate} onChange={e => setEnrollmentCloseDate(e.target.value)} /></div>
+          </div>
+        )}
+        {enrollmentStatus === "open" && (
+          <div><Label>Fecha de Cierre Automatico (opcional)</Label><Input type="datetime-local" value={enrollmentCloseDate} onChange={e => setEnrollmentCloseDate(e.target.value)} /></div>
+        )}
+        <Button onClick={() => onUpdate({ title, description, enrollmentStatus, enrollmentOpenDate: enrollmentOpenDate || null, enrollmentCloseDate: enrollmentCloseDate || null })} data-testid="button-save-course-config">
           <Save className="w-4 h-4 mr-1" /> Guardar Cambios
         </Button>
       </CardContent>

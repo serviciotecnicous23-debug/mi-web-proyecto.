@@ -99,6 +99,9 @@ export const courses = pgTable("courses", {
   maxStudents: integer("max_students"),
   teacherId: integer("teacher_id").references(() => users.id),
   createdBy: integer("created_by").references(() => users.id),
+  enrollmentStatus: text("enrollment_status").notNull().default("open"),
+  enrollmentOpenDate: timestamp("enrollment_open_date"),
+  enrollmentCloseDate: timestamp("enrollment_close_date"),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -224,6 +227,10 @@ export const insertCourseSchema = createInsertSchema(courses).pick({
   isActive: true,
   maxStudents: true,
   teacherId: true,
+  enrollmentStatus: true,
+}).extend({
+  enrollmentOpenDate: z.string().optional().nullable(),
+  enrollmentCloseDate: z.string().optional().nullable(),
 });
 
 export const updateCourseSchema = insertCourseSchema.partial();
@@ -614,6 +621,12 @@ export const ENROLLMENT_STATUSES = {
   aprobado: "Aprobado",
   rechazado: "Rechazado",
   completado: "Completado",
+} as const;
+
+export const ENROLLMENT_MODES = {
+  open: "Inscripciones Abiertas",
+  closed: "Inscripciones Cerradas",
+  scheduled: "Programadas",
 } as const;
 
 export const MATERIAL_TYPES = {

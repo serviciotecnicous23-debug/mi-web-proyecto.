@@ -99,6 +99,9 @@ CREATE TABLE IF NOT EXISTS "courses" (
   "max_students" integer,
   "teacher_id" integer REFERENCES "users"("id"),
   "created_by" integer REFERENCES "users"("id"),
+  "enrollment_status" text NOT NULL DEFAULT 'open',
+  "enrollment_open_date" timestamp,
+  "enrollment_close_date" timestamp,
   "created_at" timestamp DEFAULT now()
 );
 
@@ -506,6 +509,10 @@ const ADD_COLUMNS_SQL = [
   `ALTER TABLE "library_resources" ADD COLUMN IF NOT EXISTS "file_size" integer`,
   // course_schedule - missing column
   `ALTER TABLE "course_schedule" ADD COLUMN IF NOT EXISTS "specific_date" text`,
+  // courses - enrollment management columns
+  `ALTER TABLE "courses" ADD COLUMN IF NOT EXISTS "enrollment_status" text NOT NULL DEFAULT 'open'`,
+  `ALTER TABLE "courses" ADD COLUMN IF NOT EXISTS "enrollment_open_date" timestamp`,
+  `ALTER TABLE "courses" ADD COLUMN IF NOT EXISTS "enrollment_close_date" timestamp`,
   // course material attachments
   `ALTER TABLE "course_materials" ADD COLUMN IF NOT EXISTS "file_name" text`,
   `ALTER TABLE "course_materials" ADD COLUMN IF NOT EXISTS "file_size" integer`,

@@ -39,7 +39,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
-import { ROLES, COURSE_CATEGORIES, ENROLLMENT_STATUSES, TEACHER_REQUEST_STATUSES, MINISTRY_POSITIONS, MINISTRY_COUNTRIES } from "@shared/schema";
+import { ROLES, COURSE_CATEGORIES, ENROLLMENT_STATUSES, ENROLLMENT_MODES, TEACHER_REQUEST_STATUSES, MINISTRY_POSITIONS, MINISTRY_COUNTRIES } from "@shared/schema";
 import type { Event as EventType, SiteContent, Course } from "@shared/schema";
 import { SiWhatsapp } from "react-icons/si";
 import { ChevronDown, ChevronRight, Shield } from "lucide-react";
@@ -304,6 +304,11 @@ function AdminCourseEnrollments({ courseId, updateEnrollment }: { courseId: numb
                 <CheckCircle2 className="w-4 h-4" /> Completar
               </Button>
             )}
+            {e.status === "completado" && (
+              <Button size="sm" variant="ghost" onClick={() => updateEnrollment.mutate({ id: e.id, courseId, updates: { status: "aprobado" } })} data-testid={`button-admin-revert-enrollment-${e.id}`}>
+                <XCircle className="w-4 h-4 mr-1" /> Revertir
+              </Button>
+            )}
           </div>
         </div>
       ))}
@@ -362,6 +367,7 @@ export default function AdminDashboard() {
   const [editingCourse, setEditingCourse] = useState<Course | null>(null);
   const [courseForm, setCourseForm] = useState({
     title: "", description: "", category: "general", imageUrl: "", maxStudents: "", teacherId: "", isActive: true,
+    enrollmentStatus: "open", enrollmentOpenDate: "", enrollmentCloseDate: "",
   });
 
   useEffect(() => {
@@ -383,7 +389,7 @@ export default function AdminDashboard() {
   const pendingUsers = users?.filter((u: any) => !u.isActive) || [];
   const activeUsers = users?.filter((u: any) => u.isActive) || [];
   const unreadMessages = contactMessages?.filter((m: any) => !m.isRead) || [];
-  const obreros = users?.filter((u: any) => u.role === "obrero" && u.isActive) || [];
+  const obreros = users?.filter((u: any) => u.isActive) || [];
 
   const filteredUsers = users?.filter(
     (u: any) =>
@@ -446,7 +452,7 @@ export default function AdminDashboard() {
 
   function openNewCourseDialog() {
     setEditingCourse(null);
-    setCourseForm({ title: "", description: "", category: "general", imageUrl: "", maxStudents: "", teacherId: "", isActive: true });
+    setCourseForm({ title: "", description: "", category: "general", imageUrl: "", maxStudents: "", teacherId: "", isActive: true, enrollmentStatus: "open", enrollmentOpenDate: "", enrollmentCloseDate: "" });
     setCourseDialogOpen(true);
   }
 
@@ -460,6 +466,9 @@ export default function AdminDashboard() {
       maxStudents: course.maxStudents ? String(course.maxStudents) : "",
       teacherId: course.teacherId ? String(course.teacherId) : "",
       isActive: course.isActive,
+      enrollmentStatus: (course as any).enrollmentStatus || "open",
+      enrollmentOpenDate: (course as any).enrollmentOpenDate ? new Date((course as any).enrollmentOpenDate).toISOString().slice(0, 16) : "",
+      enrollmentCloseDate: (course as any).enrollmentCloseDate ? new Date((course as any).enrollmentCloseDate).toISOString().slice(0, 16) : "",
     });
     setCourseDialogOpen(true);
   }
@@ -473,6 +482,9 @@ export default function AdminDashboard() {
       maxStudents: courseForm.maxStudents ? parseInt(courseForm.maxStudents) : null,
       teacherId: courseForm.teacherId && courseForm.teacherId !== "none" ? parseInt(courseForm.teacherId) : null,
       isActive: courseForm.isActive,
+      enrollmentStatus: courseForm.enrollmentStatus,
+      enrollmentOpenDate: courseForm.enrollmentOpenDate || null,
+      enrollmentCloseDate: courseForm.enrollmentCloseDate || null,
     };
     if (editingCourse) {
       await updateCourse.mutateAsync({ id: editingCourse.id, updates: data });
@@ -1351,11 +1363,31 @@ export default function AdminDashboard() {
                 <SelectContent>
                   <SelectItem value="none">Sin asignar</SelectItem>
                   {obreros.map((u: any) => (
-                    <SelectItem key={u.id} value={String(u.id)}>{u.displayName || u.username}</SelectItem>
+                    <SelectItem key={u.id} value={String(u.id)}>{u.displayName || u.username} ({ROLES[u.role as keyof typeof ROLES]})</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
+            <div><Label>Inscripciones</Label>
+              <Select value={courseForm.enrollmentStatus} onValueChange={(v) => setCourseForm({ ...courseForm, enrollmentStatus: v })}>
+                <SelectTrigger data-testid="select-enrollment-status"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {Object.entries(ENROLLMENT_MODES).map(([k, v]) => <SelectItem key={k} value={k}>{v}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            {courseForm.enrollmentStatus === "scheduled" && (
+              <div className="grid grid-cols-2 gap-3">
+                <div><Label>Fecha Apertura</Label><Input type="datetime-local" value={courseForm.enrollmentOpenDate} onChange={(e) => setCourseForm({ ...courseForm, enrollmentOpenDate: e.target.value })} data-testid="input-enrollment-open" /></div>
+                <div><Label>Fecha Cierre</Label><Input type="datetime-local" value={courseForm.enrollmentCloseDate} onChange={(e) => setCourseForm({ ...courseForm, enrollmentCloseDate: e.target.value })} data-testid="input-enrollment-close" /></div>
+              </div>
+            )}
+            {courseForm.enrollmentStatus === "open" && (
+              <div>
+                <Label>Fecha de Cierre Automatico (opcional)</Label>
+                <Input type="datetime-local" value={courseForm.enrollmentCloseDate} onChange={(e) => setCourseForm({ ...courseForm, enrollmentCloseDate: e.target.value })} data-testid="input-enrollment-close-auto" />
+              </div>
+            )}
             <div className="grid grid-cols-2 gap-3">
               <div><Label>Max Estudiantes</Label><Input type="number" value={courseForm.maxStudents} onChange={(e) => setCourseForm({ ...courseForm, maxStudents: e.target.value })} placeholder="Ilimitado" data-testid="input-course-max-students" /></div>
               <div><Label>URL de Imagen</Label><Input value={courseForm.imageUrl} onChange={(e) => setCourseForm({ ...courseForm, imageUrl: e.target.value })} placeholder="https://..." data-testid="input-course-image" /></div>

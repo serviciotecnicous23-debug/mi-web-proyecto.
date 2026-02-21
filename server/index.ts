@@ -2,6 +2,7 @@ import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { serveStatic } from "./static";
 import { ensureDatabaseSchema } from "./ensure-schema";
+import { checkEnrollmentSchedules } from "./storage";
 import { createServer } from "http";
 import path from "path";
 import compression from "compression";
@@ -174,6 +175,10 @@ app.use((req, res, next) => {
     },
     () => {
       log(`serving on port ${port}`);
+
+      // Check enrollment schedules on startup and every 5 minutes
+      checkEnrollmentSchedules();
+      setInterval(checkEnrollmentSchedules, 5 * 60 * 1000);
     },
   );
 })();
