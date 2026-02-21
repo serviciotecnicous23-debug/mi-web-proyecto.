@@ -969,7 +969,11 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updateCarteleraAnnouncement(id: number, updates: UpdateCarteleraAnnouncement): Promise<CarteleraAnnouncement> {
-    const [updated] = await db.update(carteleraAnnouncements).set(updates).where(eq(carteleraAnnouncements.id, id)).returning();
+    const setData: any = { ...updates };
+    if (typeof setData.expiresAt === "string") {
+      setData.expiresAt = setData.expiresAt ? new Date(setData.expiresAt) : null;
+    }
+    const [updated] = await db.update(carteleraAnnouncements).set(setData).where(eq(carteleraAnnouncements.id, id)).returning();
     return updated;
   }
 

@@ -32,7 +32,7 @@ import {
   Loader2, Search, BookOpen, Users, Clock, GraduationCap,
   Megaphone, CalendarDays, LayoutDashboard, Plus, Pin, Trash2,
   Video, ArrowRight, Bell, Calendar, CheckCircle, AlertTriangle,
-  Pencil,
+  Pencil, X,
 } from "lucide-react";
 import { COURSE_CATEGORIES, ENROLLMENT_STATUSES, CARTELERA_CATEGORIES, DAYS_OF_WEEK, MEETING_PLATFORMS } from "@shared/schema";
 import type { Course } from "@shared/schema";

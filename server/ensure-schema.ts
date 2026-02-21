@@ -516,6 +516,8 @@ const ADD_COLUMNS_SQL = [
   `ALTER TABLE "cartelera_announcements" ADD COLUMN IF NOT EXISTS "file_name" text`,
   `ALTER TABLE "cartelera_announcements" ADD COLUMN IF NOT EXISTS "file_size" integer`,
   `ALTER TABLE "cartelera_announcements" ADD COLUMN IF NOT EXISTS "file_data" text`,
+  // Fix expires_at column type if it was created as text instead of timestamp
+  `DO $$ BEGIN IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='cartelera_announcements' AND column_name='expires_at' AND data_type='text') THEN ALTER TABLE "cartelera_announcements" ALTER COLUMN "expires_at" TYPE timestamp USING "expires_at"::timestamp; END IF; END $$`,
   // Team members - newer columns
   `ALTER TABLE "team_members" ADD COLUMN IF NOT EXISTS "verse" text`,
   `ALTER TABLE "team_members" ADD COLUMN IF NOT EXISTS "initials" text`,
