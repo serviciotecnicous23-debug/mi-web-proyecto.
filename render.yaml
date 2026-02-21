@@ -56,16 +56,16 @@ services:
       - key: RESEND_API_KEY
         sync: false
       - key: EMAIL_FROM
-        value: "Avivando el Fuego <noreply@avivandoelfuego.com>"
+        value: "Avivando el Fuego <noreply@ministerioavivandoelfuego.com>"
       - key: APP_URL
-        sync: false
+        value: "https://ministerioavivandoelfuego.com"
       # Web Push (VAPID)
       - key: VAPID_PUBLIC_KEY
         sync: false
       - key: VAPID_PRIVATE_KEY
         sync: false
       - key: VAPID_SUBJECT
-        value: "mailto:admin@avivandoelfuego.com"
+        value: "mailto:admin@ministerioavivandoelfuego.com"
     autoDeploy: true
     healthCheckPath: /api/hello
     # Starter plan benefits: always-on, no spin-down, shell access, metrics

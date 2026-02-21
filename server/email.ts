@@ -19,8 +19,8 @@ import { Resend } from "resend";
 // ─── Configuration ───────────────────────────────────────────────────────────
 
 const RESEND_API_KEY = process.env.RESEND_API_KEY || "";
-const EMAIL_FROM = process.env.EMAIL_FROM || "Avivando el Fuego <noreply@avivandoelfuego.org>";
-const APP_URL = process.env.APP_URL || (process.env.NODE_ENV === "production" ? "https://avivandoelfuego.org" : "http://localhost:5000");
+const EMAIL_FROM = process.env.EMAIL_FROM || "Avivando el Fuego <noreply@ministerioavivandoelfuego.com>";
+const APP_URL = process.env.APP_URL || (process.env.NODE_ENV === "production" ? "https://ministerioavivandoelfuego.com" : "http://localhost:5000");
 
 export const isEmailConfigured = !!RESEND_API_KEY;
 
