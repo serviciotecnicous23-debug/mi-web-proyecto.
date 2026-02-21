@@ -1341,7 +1341,7 @@ export default function AdminDashboard() {
 
       {/* Course Dialog */}
       <Dialog open={courseDialogOpen} onOpenChange={setCourseDialogOpen}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{editingCourse ? "Editar Curso" : "Nuevo Curso"}</DialogTitle>
             <DialogDescription>{editingCourse ? "Modifica los detalles del curso." : "Completa los datos para crear un nuevo curso de capacitacion."}</DialogDescription>
