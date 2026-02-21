@@ -25,7 +25,7 @@ if (process.env.NODE_ENV === "production") {
 
 // ========== COMPRESSION (gzip) ==========
 // Reduces response sizes by ~70%, much faster page loads
-app.use(compression());
+app.use(compression() as any);
 
 // ========== SECURITY HEADERS (helmet) ==========
 const videoFrameSources = [

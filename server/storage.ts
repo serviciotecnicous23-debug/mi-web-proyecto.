@@ -906,6 +906,189 @@ export class DatabaseStorage implements IStorage {
     await db.delete(courseAnnouncements).where(eq(courseAnnouncements.id, id));
   }
 
+  // Cartelera Central implementations
+  async createCarteleraAnnouncement(authorId: number, data: InsertCarteleraAnnouncement): Promise<CarteleraAnnouncement> {
+    const [created] = await db.insert(carteleraAnnouncements).values({
+      authorId,
+      title: data.title,
+      content: data.content,
+      category: data.category || "general",
+      isPinned: data.isPinned ?? false,
+      expiresAt: data.expiresAt ? new Date(data.expiresAt) : null,
+      fileUrl: data.fileUrl || null,
+      fileName: data.fileName || null,
+      fileSize: data.fileSize || null,
+      fileData: data.fileData || null,
+    }).returning();
+    return created;
+  }
+
+  async listCarteleraAnnouncements(): Promise<(CarteleraAnnouncement & { author: { id: number; username: string; displayName: string | null; avatarUrl: string | null } })[]> {
+    const rows = await db
+      .select({
+        id: carteleraAnnouncements.id,
+        authorId: carteleraAnnouncements.authorId,
+        title: carteleraAnnouncements.title,
+        content: carteleraAnnouncements.content,
+        category: carteleraAnnouncements.category,
+        isPinned: carteleraAnnouncements.isPinned,
+        expiresAt: carteleraAnnouncements.expiresAt,
+        fileUrl: carteleraAnnouncements.fileUrl,
+        fileName: carteleraAnnouncements.fileName,
+        fileSize: carteleraAnnouncements.fileSize,
+        fileData: carteleraAnnouncements.fileData,
+        createdAt: carteleraAnnouncements.createdAt,
+        username: users.username,
+        displayName: users.displayName,
+        avatarUrl: users.avatarUrl,
+      })
+      .from(carteleraAnnouncements)
+      .innerJoin(users, eq(carteleraAnnouncements.authorId, users.id))
+      .orderBy(desc(carteleraAnnouncements.isPinned), desc(carteleraAnnouncements.createdAt));
+
+    return rows.map((r) => ({
+      id: r.id,
+      authorId: r.authorId,
+      title: r.title,
+      content: r.content,
+      category: r.category,
+      isPinned: r.isPinned,
+      expiresAt: r.expiresAt,
+      fileUrl: r.fileUrl,
+      fileName: r.fileName,
+      fileSize: r.fileSize,
+      fileData: r.fileData,
+      createdAt: r.createdAt,
+      author: { id: r.authorId, username: r.username, displayName: r.displayName, avatarUrl: r.avatarUrl },
+    }));
+  }
+
+  async getCarteleraAnnouncement(id: number): Promise<CarteleraAnnouncement | undefined> {
+    const [ann] = await db.select().from(carteleraAnnouncements).where(eq(carteleraAnnouncements.id, id));
+    return ann;
+  }
+
+  async updateCarteleraAnnouncement(id: number, updates: UpdateCarteleraAnnouncement): Promise<CarteleraAnnouncement> {
+    const [updated] = await db.update(carteleraAnnouncements).set(updates).where(eq(carteleraAnnouncements.id, id)).returning();
+    return updated;
+  }
+
+  async deleteCarteleraAnnouncement(id: number): Promise<void> {
+    await db.delete(carteleraAnnouncements).where(eq(carteleraAnnouncements.id, id));
+  }
+
+  // Aggregation helpers used by Cartelera central
+  async listAllCourseAnnouncements(): Promise<any[]> {
+    const rows = await db
+      .select({
+        id: courseAnnouncements.id,
+        courseId: courseAnnouncements.courseId,
+        title: courseAnnouncements.title,
+        content: courseAnnouncements.content,
+        isPinned: courseAnnouncements.isPinned,
+        fileUrl: courseAnnouncements.fileUrl,
+        fileName: courseAnnouncements.fileName,
+        fileSize: courseAnnouncements.fileSize,
+        createdAt: courseAnnouncements.createdAt,
+        courseTitle: courses.title,
+        username: users.username,
+        displayName: users.displayName,
+        avatarUrl: users.avatarUrl,
+      })
+      .from(courseAnnouncements)
+      .innerJoin(courses, eq(courseAnnouncements.courseId, courses.id))
+      .innerJoin(users, eq(courseAnnouncements.authorId, users.id))
+      .orderBy(desc(courseAnnouncements.isPinned), desc(courseAnnouncements.createdAt));
+
+    return rows.map((r) => ({
+      id: r.id,
+      courseId: r.courseId,
+      title: r.title,
+      content: r.content,
+      isPinned: r.isPinned,
+      fileUrl: r.fileUrl,
+      fileName: r.fileName,
+      fileSize: r.fileSize,
+      createdAt: r.createdAt,
+      courseName: r.courseTitle,
+      author: { username: r.username, displayName: r.displayName, avatarUrl: r.avatarUrl },
+    }));
+  }
+
+  async listAllUpcomingSessions(): Promise<any[]> {
+    const rows = await db
+      .select({
+        id: courseSessions.id,
+        courseId: courseSessions.courseId,
+        title: courseSessions.title,
+        description: courseSessions.description,
+        startTime: courseSessions.startTime,
+        endTime: courseSessions.endTime,
+        status: courseSessions.status,
+        meetingUrl: courseSessions.meetingUrl,
+        meetingPlatform: courseSessions.meetingPlatform,
+        courseTitle: courses.title,
+      })
+      .from(courseSessions)
+      .innerJoin(courses, eq(courseSessions.courseId, courses.id))
+      .orderBy(desc(courseSessions.startTime));
+
+    return rows.map((r) => ({
+      id: r.id,
+      courseId: r.courseId,
+      title: r.title,
+      description: r.description,
+      startTime: r.startTime,
+      endTime: r.endTime,
+      status: r.status,
+      meetingUrl: r.meetingUrl,
+      meetingPlatform: r.meetingPlatform,
+      courseName: r.courseTitle,
+    }));
+  }
+
+  async listAllSchedules(): Promise<any[]> {
+    const rows = await db
+      .select({
+        id: courseSchedule.id,
+        courseId: courseSchedule.courseId,
+        dayOfWeek: courseSchedule.dayOfWeek,
+        startTime: courseSchedule.startTime,
+        endTime: courseSchedule.endTime,
+        specificDate: courseSchedule.specificDate,
+        meetingUrl: courseSchedule.meetingUrl,
+        meetingPlatform: courseSchedule.meetingPlatform,
+        description: courseSchedule.description,
+        courseTitle: courses.title,
+      })
+      .from(courseSchedule)
+      .innerJoin(courses, eq(courseSchedule.courseId, courses.id))
+      .orderBy(courseSchedule.dayOfWeek, courseSchedule.startTime);
+
+    return rows.map((r) => ({
+      id: r.id,
+      courseId: r.courseId,
+      dayOfWeek: r.dayOfWeek,
+      startTime: r.startTime,
+      endTime: r.endTime,
+      specificDate: r.specificDate,
+      meetingUrl: r.meetingUrl,
+      meetingPlatform: r.meetingPlatform,
+      description: r.description,
+      courseName: r.courseTitle,
+    }));
+  }
+
+  async getCarteleraStats(): Promise<{ totalCourses: number; totalStudents: number; totalSessions: number; activeCourses: number }> {
+    const [[{ totalCourses }], [{ totalStudents }], [{ totalSessions }], [{ activeCourses }]] = await Promise.all([
+      db.select({ totalCourses: sql<number>`count(*)::int` }).from(courses),
+      db.select({ totalStudents: sql<number>`count(*)::int` }).from(enrollments),
+      db.select({ totalSessions: sql<number>`count(*)::int` }).from(courseSessions),
+      db.select({ activeCourses: sql<number>`count(*)::int` }).from(courses).where(eq(courses.isActive, true)),
+    ]);
+    return { totalCourses, totalStudents, totalSessions, activeCourses };
+  }
+
   async createCourseScheduleEntry(data: InsertCourseSchedule): Promise<CourseScheduleEntry> {
     const [created] = await db.insert(courseSchedule).values({
       courseId: data.courseId,

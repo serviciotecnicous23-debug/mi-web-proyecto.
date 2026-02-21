@@ -16,7 +16,7 @@ async function initializeAdmin() {
 
   try {
     // Verificar si el admin ya existe
-    const existing = await memoryStorage.getUserByEmail(adminEmail);
+    const existing = await memoryStorage.findUserByEmail(adminEmail);
     if (existing) {
       console.log("✓ Usuario administrador ya existe");
       return;
