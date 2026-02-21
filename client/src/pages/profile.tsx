@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { useEffect, useRef, useState } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { useUpdateUser, useMyEnrollments } from "@/hooks/use-users";
@@ -186,7 +185,7 @@ export default function Profile() {
     );
   }
 
-  function onSubmit(data: z.infer<typeof updateUserSchema>) {
+  function onSubmit(data: any) {
     if (user) {
       updateMutation.mutate({ id: user.id, updates: data });
     }

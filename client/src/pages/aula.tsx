@@ -1,5 +1,3 @@
-// @ts-nocheck
-// @ts-nocheck
 import { useState, useRef } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
@@ -1349,7 +1347,7 @@ function AnnouncementCard({
       <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
         <span className="font-medium">{announcement.author.displayName || announcement.author.username}</span>
         <span>·</span>
-        <span>{new Date(announcement.createdAt!).toLocaleDateString("es", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })}</span>
+        <span>{announcement.createdAt ? new Date(announcement.createdAt).toLocaleDateString("es", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }) : ""}</span>
       </div>
     </div>
   );

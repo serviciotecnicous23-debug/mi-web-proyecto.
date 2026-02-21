@@ -487,6 +487,26 @@ CREATE TABLE IF NOT EXISTS "user_sessions" (
   CONSTRAINT "user_sessions_pkey" PRIMARY KEY ("sid")
 );
 CREATE INDEX IF NOT EXISTS "IDX_user_sessions_expire" ON "user_sessions" ("expire");
+
+-- Password reset tokens
+CREATE TABLE IF NOT EXISTS "password_reset_tokens" (
+  "id" serial PRIMARY KEY,
+  "user_id" integer NOT NULL REFERENCES "users"("id"),
+  "token" text NOT NULL UNIQUE,
+  "expires_at" timestamp NOT NULL,
+  "used_at" timestamp,
+  "created_at" timestamp DEFAULT now()
+);
+
+-- Push notification subscriptions
+CREATE TABLE IF NOT EXISTS "push_subscriptions" (
+  "id" serial PRIMARY KEY,
+  "user_id" integer NOT NULL REFERENCES "users"("id"),
+  "endpoint" text NOT NULL,
+  "p256dh" text NOT NULL,
+  "auth" text NOT NULL,
+  "created_at" timestamp DEFAULT now()
+);
 `;
 
 // ALTER TABLE statements to add columns that might be missing from older schemas
@@ -553,6 +573,10 @@ const ADD_COLUMNS_SQL = [
   `ALTER TABLE "ministry_churches" ADD COLUMN IF NOT EXISTS "tiktok" text`,
   `ALTER TABLE "ministry_churches" ADD COLUMN IF NOT EXISTS "twitter" text`,
   `ALTER TABLE "ministry_churches" ADD COLUMN IF NOT EXISTS "website" text`,
+  // Users - email verification columns
+  `ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "email_verified" boolean NOT NULL DEFAULT false`,
+  `ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "email_verify_token" text`,
+  `ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "email_verify_expires" timestamp`,
 ];
 
 export async function ensureDatabaseSchema(): Promise<void> {

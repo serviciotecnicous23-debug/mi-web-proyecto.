@@ -27,6 +27,45 @@ services:
         value: "10000"
       - key: NODE_VERSION
         value: "20.11.0"
+      # S3/R2 file storage (set in Render dashboard)
+      - key: S3_ENDPOINT
+        sync: false
+      - key: S3_ACCESS_KEY_ID
+        sync: false
+      - key: S3_SECRET_ACCESS_KEY
+        sync: false
+      - key: S3_BUCKET
+        sync: false
+      - key: S3_PUBLIC_URL
+        sync: false
+      # Backup configuration
+      - key: BACKUP_ENABLED
+        value: "true"
+      - key: BACKUP_CRON
+        value: "0 3 * * *"
+      - key: BACKUP_RETENTION_DAYS
+        value: "7"
+      - key: BACKUP_S3_BUCKET
+        sync: false
+      # Sentry error monitoring
+      - key: SENTRY_DSN
+        sync: false
+      - key: VITE_SENTRY_DSN
+        sync: false
+      # Email service (Resend)
+      - key: RESEND_API_KEY
+        sync: false
+      - key: EMAIL_FROM
+        value: "Avivando el Fuego <noreply@avivandoelfuego.com>"
+      - key: APP_URL
+        sync: false
+      # Web Push (VAPID)
+      - key: VAPID_PUBLIC_KEY
+        sync: false
+      - key: VAPID_PRIVATE_KEY
+        sync: false
+      - key: VAPID_SUBJECT
+        value: "mailto:admin@avivandoelfuego.com"
     autoDeploy: true
     healthCheckPath: /api/hello
     # Starter plan benefits: always-on, no spin-down, shell access, metrics

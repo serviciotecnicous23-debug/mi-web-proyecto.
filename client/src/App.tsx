@@ -4,6 +4,7 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Component, type ErrorInfo, type ReactNode } from "react";
+import * as Sentry from "@sentry/react";
 import NotFound from "@/pages/not-found";
 import Home from "@/pages/home";
 import Historia from "@/pages/historia";
@@ -25,6 +26,9 @@ import OracionPage from "@/pages/oracion";
 import RegionesPage from "@/pages/regiones";
 import IglesiasPage from "@/pages/iglesias";
 import MensajesPage from "@/pages/mensajes";
+import ForgotPasswordPage from "@/pages/forgot-password";
+import ResetPasswordPage from "@/pages/reset-password";
+import VerifyEmailPage from "@/pages/verify-email";
 
 function Router() {
   return (
@@ -40,6 +44,9 @@ function Router() {
       <Route path="/contacto" component={Contacto} />
       <Route path="/login" component={LoginPage} />
       <Route path="/registro" component={RegisterPage} />
+      <Route path="/forgot-password" component={ForgotPasswordPage} />
+      <Route path="/reset-password" component={ResetPasswordPage} />
+      <Route path="/verificar-email" component={VerifyEmailPage} />
       <Route path="/perfil" component={Profile} />
       <Route path="/admin" component={AdminDashboard} />
       <Route path="/comunidad" component={Comunidad} />
@@ -70,6 +77,8 @@ class ErrorBoundary extends Component<
 
   componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     console.error("Error en la aplicacion:", error, errorInfo);
+    // Report to Sentry
+    Sentry.captureException(error, { extra: { componentStack: errorInfo.componentStack } });
   }
 
   render() {

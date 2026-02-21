@@ -11,6 +11,9 @@ export const users = pgTable("users", {
   bio: text("bio"),
   avatarUrl: text("avatar_url"),
   isActive: boolean("is_active").notNull().default(false),
+  emailVerified: boolean("email_verified").notNull().default(false),
+  emailVerifyToken: text("email_verify_token"),
+  emailVerifyExpires: timestamp("email_verify_expires"),
   cargo: text("cargo"),
   country: text("country"),
   phone: text("phone"),
@@ -152,6 +155,9 @@ export const insertUserSchema = createInsertSchema(users).pick({
   bio: true,
   avatarUrl: true,
   isActive: true,
+  emailVerified: true,
+  emailVerifyToken: true,
+  emailVerifyExpires: true,
   country: true,
   phone: true,
   email: true,
@@ -381,12 +387,20 @@ export const insertCourseAnnouncementSchema = z.object({
   title: z.string().min(1),
   content: z.string().min(1),
   isPinned: z.boolean().optional(),
+  fileUrl: z.string().optional().nullable(),
+  fileName: z.string().optional().nullable(),
+  fileSize: z.number().optional().nullable(),
+  fileData: z.string().optional().nullable(),
 });
 
 export const updateCourseAnnouncementSchema = z.object({
   title: z.string().min(1).optional(),
   content: z.string().min(1).optional(),
   isPinned: z.boolean().optional(),
+  fileUrl: z.string().optional().nullable(),
+  fileName: z.string().optional().nullable(),
+  fileSize: z.number().optional().nullable(),
+  fileData: z.string().optional().nullable(),
 });
 
 export const insertCourseScheduleSchema = z.object({
@@ -1056,3 +1070,29 @@ export const FRIENDSHIP_STATUSES = {
 } as const;
 
 export type Friendship = typeof friendships.$inferSelect;
+
+// ========== PASSWORD RESET TOKENS ==========
+
+export const passwordResetTokens = pgTable("password_reset_tokens", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull().references(() => users.id),
+  token: text("token").notNull().unique(),
+  expiresAt: timestamp("expires_at").notNull(),
+  usedAt: timestamp("used_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export type PasswordResetToken = typeof passwordResetTokens.$inferSelect;
+
+// ========== PUSH SUBSCRIPTIONS ==========
+
+export const pushSubscriptions = pgTable("push_subscriptions", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull().references(() => users.id),
+  endpoint: text("endpoint").notNull(),
+  p256dh: text("p256dh").notNull(),
+  auth: text("auth").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export type PushSubscription = typeof pushSubscriptions.$inferSelect;

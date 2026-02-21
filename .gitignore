@@ -3,3 +3,4 @@ dist/
 .env
 *.log
 s123*
+backups/

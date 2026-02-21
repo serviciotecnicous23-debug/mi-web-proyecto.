@@ -100,4 +100,19 @@ export const memoryStorage = {
   findUserByEmail: async (email: string): Promise<StoredUser | null> => {
     return users.find(u => u.email === email) || null;
   },
+
+  // --- Stub methods for email verification / password reset / push ---
+  // These are no-ops in memory mode; features require PostgreSQL.
+  getUserByEmail: async (email: string): Promise<StoredUser | null> => {
+    return users.find(u => u.email?.toLowerCase() === email.toLowerCase()) || null;
+  },
+  getUserByVerifyToken: async (_token: string): Promise<StoredUser | null> => null,
+  createPasswordResetToken: async (_data: { userId: number; token: string; expiresAt: Date }) => ({ id: 0, userId: 0, token: "", expiresAt: new Date(), usedAt: null, createdAt: new Date() }),
+  getPasswordResetToken: async (_token: string) => null,
+  markPasswordResetTokenUsed: async (_id: number) => {},
+  createPushSubscription: async (_data: { userId: number; endpoint: string; p256dh: string; auth: string }) => ({ id: 0, userId: 0, endpoint: "", p256dh: "", auth: "", createdAt: new Date() }),
+  deletePushSubscription: async (_endpoint: string) => {},
+  getPushSubscriptionsByUser: async (_userId: number) => [] as any[],
+  getAllPushSubscriptions: async () => [] as any[],
+  deletePushSubscriptionsByIds: async (_ids: number[]) => {},
 };

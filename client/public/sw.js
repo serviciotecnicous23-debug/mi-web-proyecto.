@@ -57,3 +57,51 @@ self.addEventListener("fetch", (event) => {
     })
   );
 });
+
+// ========== PUSH NOTIFICATIONS ==========
+self.addEventListener("push", (event) => {
+  if (!event.data) return;
+
+  try {
+    const data = event.data.json();
+    const options = {
+      body: data.body || "",
+      icon: data.icon || "/icons/icon-192x192.png",
+      badge: data.badge || "/icons/icon-72x72.png",
+      tag: data.tag || "default",
+      data: { url: data.url || "/" },
+      vibrate: [200, 100, 200],
+      actions: [
+        { action: "open", title: "Abrir" },
+        { action: "close", title: "Cerrar" },
+      ],
+    };
+
+    event.waitUntil(
+      self.registration.showNotification(data.title || "Avivando el Fuego", options)
+    );
+  } catch (err) {
+    console.error("Push event error:", err);
+  }
+});
+
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+
+  if (event.action === "close") return;
+
+  const url = event.notification.data?.url || "/";
+  event.waitUntil(
+    self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((clients) => {
+      // Focus existing window if available
+      for (const client of clients) {
+        if (client.url.includes(self.location.origin) && "focus" in client) {
+          client.navigate(url);
+          return client.focus();
+        }
+      }
+      // Open new window
+      return self.clients.openWindow(url);
+    })
+  );
+});

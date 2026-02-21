@@ -1,9 +1,7 @@
-// @ts-nocheck
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "@shared/routes";
 import { type InsertUser } from "@shared/schema";
 import { useToast } from "@/hooks/use-toast";
-import { z } from "zod";
 
 export function useAuth() {
   const queryClient = useQueryClient();
@@ -21,7 +19,7 @@ export function useAuth() {
   });
 
   const loginMutation = useMutation({
-    mutationFn: async (credentials: z.infer<typeof api.auth.login.input>) => {
+    mutationFn: async (credentials: { username: string; password: string }) => {
       const res = await fetch(api.auth.login.path, {
         method: "POST",
         headers: { "Content-Type": "application/json" },

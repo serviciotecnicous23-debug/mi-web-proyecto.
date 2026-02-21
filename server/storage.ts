@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { db } from "./db";
 import {
   users, messages, memberPosts, events, siteContent,
@@ -45,6 +44,8 @@ import {
   postComments, type PostComment, type InsertPostComment,
   directMessages, type DirectMessage, type InsertDirectMessage,
   carteleraAnnouncements, type CarteleraAnnouncement, type InsertCarteleraAnnouncement, type UpdateCarteleraAnnouncement,
+  passwordResetTokens, type PasswordResetToken,
+  pushSubscriptions,
 } from "@shared/schema";
 import { eq, desc, asc, and, ilike, or, sql, inArray, ne, lt } from "drizzle-orm";
 
@@ -261,6 +262,45 @@ export interface IStorage {
   listAllUpcomingSessions(): Promise<any[]>;
   listAllSchedules(): Promise<any[]>;
   getCarteleraStats(): Promise<{ totalCourses: number; totalStudents: number; totalSessions: number; activeCourses: number }>;
+
+  // Enrollment counts
+  getEnrollmentCounts(): Promise<Record<number, { total: number; approved: number; pending: number }>>;
+
+  // Game (legacy stubs)
+  getOrCreateGameProfile(userId: number): Promise<any>;
+  updateGameProfile(userId: number, updates: any): Promise<any>;
+  getRandomQuestion(difficulty: string, excludeIds?: number[]): Promise<any>;
+  submitGameAnswer(userId: number, questionId: number, selectedAnswer: string): Promise<any>;
+  getLeaderboard(limit?: number): Promise<any[]>;
+  getGameMissions(userId: number): Promise<any[]>;
+  progressMission(userId: number, actionType: string): Promise<void>;
+  claimMissionReward(userId: number, missionId: number): Promise<any>;
+  refillEnergy(userId: number): Promise<any>;
+
+  // Story (legacy stubs)
+  getStoryChapters(): Promise<any[]>;
+  getStoryChapter(id: number): Promise<any>;
+  getStoryActivities(chapterId: number): Promise<any[]>;
+  getStoryActivity(id: number): Promise<any>;
+  getUserStoryProgress(userId: number): Promise<any[]>;
+  getChapterProgress(userId: number, chapterId: number): Promise<any[]>;
+  saveStoryActivityProgress(userId: number, chapterId: number, activityId: number, userAnswer: string | null, isCorrect: boolean | null): Promise<any>;
+
+  // Password reset
+  createPasswordResetToken(userId: number, token: string, expiresAt: Date): Promise<void>;
+  getPasswordResetToken(token: string): Promise<{ userId: number; expiresAt: Date; usedAt: Date | null } | undefined>;
+  markPasswordResetTokenUsed(token: string): Promise<void>;
+
+  // Email verification
+  getUserByEmail(email: string): Promise<User | undefined>;
+  getUserByVerifyToken(token: string): Promise<User | undefined>;
+
+  // Push subscriptions
+  createPushSubscription(userId: number, endpoint: string, p256dh: string, auth: string): Promise<void>;
+  deletePushSubscription(endpoint: string): Promise<void>;
+  getPushSubscriptionsByUser(userId: number): Promise<Array<{ id: number; endpoint: string; p256dh: string; auth: string }>>;
+  getAllPushSubscriptions(): Promise<Array<{ id: number; userId: number; endpoint: string; p256dh: string; auth: string }>>;
+  deletePushSubscriptionsByIds(ids: number[]): Promise<void>;
 }
 export class DatabaseStorage implements IStorage {
   async getUser(id: number): Promise<User | undefined> {
@@ -551,9 +591,9 @@ export class DatabaseStorage implements IStorage {
       maxStudents: course.maxStudents || null,
       teacherId: course.teacherId || null,
       createdBy: course.createdBy,
-      enrollmentStatus: (course as any).enrollmentStatus || "open",
-      enrollmentOpenDate: (course as any).enrollmentOpenDate ? new Date((course as any).enrollmentOpenDate) : null,
-      enrollmentCloseDate: (course as any).enrollmentCloseDate ? new Date((course as any).enrollmentCloseDate) : null,
+      enrollmentStatus: course.enrollmentStatus || "open",
+      enrollmentOpenDate: course.enrollmentOpenDate ? new Date(course.enrollmentOpenDate) : null,
+      enrollmentCloseDate: course.enrollmentCloseDate ? new Date(course.enrollmentCloseDate) : null,
     }).returning();
     return created;
   }
@@ -712,6 +752,9 @@ export class DatabaseStorage implements IStorage {
         courseTeacherId: courses.teacherId,
         courseCreatedBy: courses.createdBy,
         courseCreatedAt: courses.createdAt,
+        enrollmentStatus: courses.enrollmentStatus,
+        enrollmentOpenDate: courses.enrollmentOpenDate,
+        enrollmentCloseDate: courses.enrollmentCloseDate,
       })
       .from(enrollments)
       .innerJoin(courses, eq(enrollments.courseId, courses.id))
@@ -738,6 +781,9 @@ export class DatabaseStorage implements IStorage {
         teacherId: r.courseTeacherId,
         createdBy: r.courseCreatedBy,
         createdAt: r.courseCreatedAt,
+        enrollmentStatus: r.enrollmentStatus,
+        enrollmentOpenDate: r.enrollmentOpenDate,
+        enrollmentCloseDate: r.enrollmentCloseDate,
       },
     }));
   }
@@ -886,6 +932,7 @@ export class DatabaseStorage implements IStorage {
         fileUrl: courseAnnouncements.fileUrl,
         fileName: courseAnnouncements.fileName,
         fileSize: courseAnnouncements.fileSize,
+        fileData: courseAnnouncements.fileData,
         createdAt: courseAnnouncements.createdAt,
         username: users.username,
         displayName: users.displayName,
@@ -905,6 +952,7 @@ export class DatabaseStorage implements IStorage {
       fileUrl: r.fileUrl,
       fileName: r.fileName,
       fileSize: r.fileSize,
+      fileData: r.fileData,
       createdAt: r.createdAt,
       author: { username: r.username, displayName: r.displayName },
     }));
@@ -1039,25 +1087,25 @@ export class DatabaseStorage implements IStorage {
         courseId: courseSessions.courseId,
         title: courseSessions.title,
         description: courseSessions.description,
-        startTime: courseSessions.startTime,
-        endTime: courseSessions.endTime,
-        status: courseSessions.status,
+        sessionDate: courseSessions.sessionDate,
+        duration: courseSessions.duration,
+        isCompleted: courseSessions.isCompleted,
         meetingUrl: courseSessions.meetingUrl,
         meetingPlatform: courseSessions.meetingPlatform,
         courseTitle: courses.title,
       })
       .from(courseSessions)
       .innerJoin(courses, eq(courseSessions.courseId, courses.id))
-      .orderBy(desc(courseSessions.startTime));
+      .orderBy(desc(courseSessions.sessionDate));
 
     return rows.map((r) => ({
       id: r.id,
       courseId: r.courseId,
       title: r.title,
       description: r.description,
-      startTime: r.startTime,
-      endTime: r.endTime,
-      status: r.status,
+      startTime: r.sessionDate,
+      endTime: null,
+      status: r.isCompleted ? "completada" : "pendiente",
       meetingUrl: r.meetingUrl,
       meetingPlatform: r.meetingPlatform,
       courseName: r.courseTitle,
@@ -1813,183 +1861,25 @@ export class DatabaseStorage implements IStorage {
     return vote ? vote.optionId : null;
   }
 
-  async getOrCreateGameProfile(userId: number): Promise<GameProfile> {
-    const [existing] = await db.select().from(gameProfiles).where(eq(gameProfiles.userId, userId));
-    if (existing) {
-      if (existing.maxEnergy < 15) {
-        const [updated] = await db.update(gameProfiles).set({ maxEnergy: 15, energy: Math.min(existing.energy + (15 - existing.maxEnergy), 15) }).where(eq(gameProfiles.userId, userId)).returning();
-        return updated;
-      }
-      return existing;
-    }
-    const [created] = await db.insert(gameProfiles).values({ userId }).returning();
-    return created;
-  }
+  // ========== GAME STUBS (tables not yet created) ==========
+  async getOrCreateGameProfile(_userId: number): Promise<any> { return null; }
+  async updateGameProfile(_userId: number, _updates: any): Promise<any> { return null; }
+  async getRandomQuestion(_difficulty: string, _excludeIds?: number[]): Promise<any> { return null; }
+  async submitGameAnswer(_userId: number, _questionId: number, _selectedAnswer: string): Promise<any> { return { correct: false, pointsEarned: 0, explanation: null }; }
+  async getLeaderboard(_limit: number = 20): Promise<any[]> { return []; }
+  async getGameMissions(_userId: number): Promise<any[]> { return []; }
+  async progressMission(_userId: number, _actionType: string): Promise<void> {}
+  async claimMissionReward(_userId: number, _missionId: number): Promise<any> { return { energy: 0, points: 0 }; }
+  async refillEnergy(_userId: number): Promise<any> { return null; }
 
-  async updateGameProfile(userId: number, updates: Partial<GameProfile>): Promise<GameProfile> {
-    const [updated] = await db.update(gameProfiles).set(updates).where(eq(gameProfiles.userId, userId)).returning();
-    return updated;
-  }
-
-  async getRandomQuestion(difficulty: string, excludeIds?: number[]): Promise<GameQuestion | null> {
-    const conditions: any[] = [eq(gameQuestions.difficulty, difficulty)];
-    if (excludeIds && excludeIds.length > 0) {
-      conditions.push(sql`${gameQuestions.id} NOT IN (${sql.join(excludeIds.map(id => sql`${id}`), sql`, `)})`);
-    }
-    const rows = await db.select().from(gameQuestions).where(and(...conditions)).orderBy(sql`RANDOM()`).limit(1);
-    return rows[0] || null;
-  }
-
-  async submitGameAnswer(userId: number, questionId: number, selectedAnswer: string): Promise<{ correct: boolean; pointsEarned: number; explanation: string | null }> {
-    const [question] = await db.select().from(gameQuestions).where(eq(gameQuestions.id, questionId));
-    if (!question) throw new Error("Question not found");
-
-    const correct = selectedAnswer === question.correctAnswer;
-    const difficultyPoints: Record<string, number> = { facil: 10, medio: 20, dificil: 35, experto: 50 };
-    const pointsEarned = correct ? (difficultyPoints[question.difficulty] || 10) : 0;
-
-    const profile = await this.getOrCreateGameProfile(userId);
-
-    const newStreak = correct ? profile.streak + 1 : 0;
-    const newBestStreak = Math.max(profile.bestStreak, newStreak);
-
-    await db.update(gameProfiles).set({
-      totalPoints: profile.totalPoints + pointsEarned,
-      questionsAnswered: profile.questionsAnswered + 1,
-      correctAnswers: correct ? profile.correctAnswers + 1 : profile.correctAnswers,
-      streak: newStreak,
-      bestStreak: newBestStreak,
-      lastPlayedAt: new Date(),
-    }).where(eq(gameProfiles.userId, userId));
-
-    await db.insert(gameAnswers).values({
-      userId,
-      questionId,
-      selectedAnswer,
-      isCorrect: correct,
-      pointsEarned,
-      difficulty: question.difficulty,
-    });
-
-    return { correct, pointsEarned, explanation: question.explanation };
-  }
-
-  async getLeaderboard(limit: number = 20): Promise<{ userId: number; username: string; displayName: string | null; avatarUrl: string | null; totalPoints: number; level: number; correctAnswers: number }[]> {
-    const rows = await db.select({
-      userId: gameProfiles.userId,
-      username: users.username,
-      displayName: users.displayName,
-      avatarUrl: users.avatarUrl,
-      totalPoints: gameProfiles.totalPoints,
-      level: gameProfiles.level,
-      correctAnswers: gameProfiles.correctAnswers,
-    }).from(gameProfiles)
-      .innerJoin(users, eq(gameProfiles.userId, users.id))
-      .orderBy(desc(gameProfiles.totalPoints))
-      .limit(limit);
-    return rows;
-  }
-
-  async getGameMissions(userId: number): Promise<(GameMission & { progress: number; isCompleted: boolean })[]> {
-    const rows = await db.select({
-      id: gameMissions.id,
-      title: gameMissions.title,
-      description: gameMissions.description,
-      missionType: gameMissions.missionType,
-      targetAction: gameMissions.targetAction,
-      targetCount: gameMissions.targetCount,
-      rewardEnergy: gameMissions.rewardEnergy,
-      rewardPoints: gameMissions.rewardPoints,
-      isActive: gameMissions.isActive,
-      createdAt: gameMissions.createdAt,
-      progress: sql<number>`COALESCE(${userMissions.progress}, 0)`,
-      userIsCompleted: sql<boolean>`COALESCE(${userMissions.isCompleted}, false)`,
-    }).from(gameMissions)
-      .leftJoin(userMissions, and(eq(userMissions.missionId, gameMissions.id), eq(userMissions.userId, userId)))
-      .where(eq(gameMissions.isActive, true));
-
-    return rows.map(r => ({
-      id: r.id,
-      title: r.title,
-      description: r.description,
-      missionType: r.missionType,
-      targetAction: r.targetAction,
-      targetCount: r.targetCount,
-      rewardEnergy: r.rewardEnergy,
-      rewardPoints: r.rewardPoints,
-      isActive: r.isActive,
-      createdAt: r.createdAt,
-      progress: r.progress,
-      isCompleted: r.userIsCompleted,
-    }));
-  }
-
-  async progressMission(userId: number, actionType: string): Promise<void> {
-    const missions = await db.select().from(gameMissions)
-      .where(and(eq(gameMissions.isActive, true), eq(gameMissions.targetAction, actionType)));
-
-    for (const mission of missions) {
-      const [existing] = await db.select().from(userMissions)
-        .where(and(eq(userMissions.userId, userId), eq(userMissions.missionId, mission.id)));
-
-      if (existing) {
-        if (existing.isCompleted) continue;
-        const newProgress = existing.progress + 1;
-        const completed = newProgress >= mission.targetCount;
-        await db.update(userMissions).set({
-          progress: newProgress,
-          isCompleted: completed,
-          completedAt: completed ? new Date() : null,
-        }).where(eq(userMissions.id, existing.id));
-      } else {
-        const completed = 1 >= mission.targetCount;
-        await db.insert(userMissions).values({
-          userId,
-          missionId: mission.id,
-          progress: 1,
-          isCompleted: completed,
-          completedAt: completed ? new Date() : null,
-        });
-      }
-    }
-  }
-
-  async claimMissionReward(userId: number, missionId: number): Promise<{ energy: number; points: number }> {
-    const [um] = await db.select().from(userMissions)
-      .where(and(eq(userMissions.userId, userId), eq(userMissions.missionId, missionId), eq(userMissions.isCompleted, true)));
-    if (!um) throw new Error("Mission not completed or not found");
-
-    const [mission] = await db.select().from(gameMissions).where(eq(gameMissions.id, missionId));
-    if (!mission) throw new Error("Mission not found");
-
-    const profile = await this.getOrCreateGameProfile(userId);
-    const newEnergy = Math.min(profile.energy + mission.rewardEnergy, profile.maxEnergy);
-    await db.update(gameProfiles).set({
-      energy: newEnergy,
-      totalPoints: profile.totalPoints + mission.rewardPoints,
-    }).where(eq(gameProfiles.userId, userId));
-
-    await db.delete(userMissions).where(eq(userMissions.id, um.id));
-
-    return { energy: mission.rewardEnergy, points: mission.rewardPoints };
-  }
-
-  async refillEnergy(userId: number): Promise<GameProfile> {
-    const profile = await this.getOrCreateGameProfile(userId);
-    const now = new Date();
-    const lastRefill = profile.lastEnergyRefill || profile.createdAt || now;
-    const minutesElapsed = Math.floor((now.getTime() - new Date(lastRefill).getTime()) / (1000 * 60));
-    const energyToAdd = Math.floor(minutesElapsed / 10);
-
-    if (energyToAdd <= 0) return profile;
-
-    const newEnergy = Math.min(profile.energy + energyToAdd, profile.maxEnergy);
-    const [updated] = await db.update(gameProfiles).set({
-      energy: newEnergy,
-      lastEnergyRefill: now,
-    }).where(eq(gameProfiles.userId, userId)).returning();
-    return updated;
-  }
+  // ========== STORY STUBS (tables not yet created) ==========
+  async getStoryChapters(): Promise<any[]> { return []; }
+  async getStoryChapter(_id: number): Promise<any> { return null; }
+  async getStoryActivities(_chapterId: number): Promise<any[]> { return []; }
+  async getStoryActivity(_id: number): Promise<any> { return null; }
+  async getUserStoryProgress(_userId: number): Promise<any[]> { return []; }
+  async getChapterProgress(_userId: number, _chapterId: number): Promise<any[]> { return []; }
+  async saveStoryActivityProgress(_userId: number, _chapterId: number, _activityId: number, _userAnswer: string | null, _isCorrect: boolean | null): Promise<any> { return null; }
 
   async getEnrollmentCounts(): Promise<Record<number, { total: number; approved: number; pending: number }>> {
     const rows = await db
@@ -2011,61 +1901,77 @@ export class DatabaseStorage implements IStorage {
     return counts;
   }
 
-  async getStoryChapters(): Promise<StoryChapter[]> {
-    return db.select().from(storyChapters)
-      .where(eq(storyChapters.isActive, true))
-      .orderBy(asc(storyChapters.chapterNumber));
-  }
-
-  async getStoryChapter(id: number): Promise<StoryChapter | null> {
-    const [chapter] = await db.select().from(storyChapters).where(eq(storyChapters.id, id));
-    return chapter || null;
-  }
-
-  async getStoryActivities(chapterId: number): Promise<StoryActivity[]> {
-    return db.select().from(storyActivities)
-      .where(eq(storyActivities.chapterId, chapterId))
-      .orderBy(asc(storyActivities.activityOrder));
-  }
-
-  async getStoryActivity(id: number): Promise<StoryActivity | null> {
-    const [activity] = await db.select().from(storyActivities).where(eq(storyActivities.id, id));
-    return activity || null;
-  }
-
-  async getUserStoryProgress(userId: number): Promise<StoryProgressRecord[]> {
-    return db.select().from(storyProgress)
-      .where(eq(storyProgress.userId, userId));
-  }
-
-  async getChapterProgress(userId: number, chapterId: number): Promise<StoryProgressRecord[]> {
-    return db.select().from(storyProgress)
-      .where(and(eq(storyProgress.userId, userId), eq(storyProgress.chapterId, chapterId)));
-  }
-
-  async saveStoryActivityProgress(userId: number, chapterId: number, activityId: number, userAnswer: string | null, isCorrect: boolean | null): Promise<StoryProgressRecord> {
-    const existing = await db.select().from(storyProgress)
-      .where(and(
-        eq(storyProgress.userId, userId),
-        eq(storyProgress.activityId, activityId)
-      ));
-    if (existing.length > 0) {
-      const [updated] = await db.update(storyProgress)
-        .set({ userAnswer, isCorrect, completed: true, completedAt: new Date() })
-        .where(eq(storyProgress.id, existing[0].id))
-        .returning();
-      return updated;
-    }
-    const [created] = await db.insert(storyProgress)
-      .values({ userId, chapterId, activityId, userAnswer, isCorrect, completed: true, completedAt: new Date() })
-      .returning();
-    return created;
-  }
-
   // ======================
-  // NOTE: city-builder logic was accidentally merged into this file
+  // NOTE: city-builder and story logic removed (tables not yet created)
 
-  // city-builder code removed
+  // ========== PASSWORD RESET TOKENS ==========
+
+  async createPasswordResetToken(userId: number, token: string, expiresAt: Date): Promise<void> {
+    await db.insert(passwordResetTokens).values({ userId, token, expiresAt });
+  }
+
+  async getPasswordResetToken(token: string): Promise<{ userId: number; expiresAt: Date; usedAt: Date | null } | undefined> {
+    const [row] = await db.select({
+      userId: passwordResetTokens.userId,
+      expiresAt: passwordResetTokens.expiresAt,
+      usedAt: passwordResetTokens.usedAt,
+    }).from(passwordResetTokens).where(eq(passwordResetTokens.token, token));
+    return row;
+  }
+
+  async markPasswordResetTokenUsed(token: string): Promise<void> {
+    await db.update(passwordResetTokens)
+      .set({ usedAt: new Date() })
+      .where(eq(passwordResetTokens.token, token));
+  }
+
+  // ========== EMAIL VERIFICATION ==========
+
+  async getUserByEmail(email: string): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(ilike(users.email, email));
+    return user;
+  }
+
+  async getUserByVerifyToken(token: string): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.emailVerifyToken, token));
+    return user;
+  }
+
+  // ========== PUSH SUBSCRIPTIONS ==========
+
+  async createPushSubscription(userId: number, endpoint: string, p256dh: string, auth: string): Promise<void> {
+    // Upsert: replace if same endpoint exists
+    await db.delete(pushSubscriptions).where(eq(pushSubscriptions.endpoint, endpoint));
+    await db.insert(pushSubscriptions).values({ userId, endpoint, p256dh, auth });
+  }
+
+  async deletePushSubscription(endpoint: string): Promise<void> {
+    await db.delete(pushSubscriptions).where(eq(pushSubscriptions.endpoint, endpoint));
+  }
+
+  async getPushSubscriptionsByUser(userId: number): Promise<Array<{ id: number; endpoint: string; p256dh: string; auth: string }>> {
+    return db.select({
+      id: pushSubscriptions.id,
+      endpoint: pushSubscriptions.endpoint,
+      p256dh: pushSubscriptions.p256dh,
+      auth: pushSubscriptions.auth,
+    }).from(pushSubscriptions).where(eq(pushSubscriptions.userId, userId));
+  }
+
+  async getAllPushSubscriptions(): Promise<Array<{ id: number; userId: number; endpoint: string; p256dh: string; auth: string }>> {
+    return db.select({
+      id: pushSubscriptions.id,
+      userId: pushSubscriptions.userId,
+      endpoint: pushSubscriptions.endpoint,
+      p256dh: pushSubscriptions.p256dh,
+      auth: pushSubscriptions.auth,
+    }).from(pushSubscriptions);
+  }
+
+  async deletePushSubscriptionsByIds(ids: number[]): Promise<void> {
+    if (ids.length === 0) return;
+    await db.delete(pushSubscriptions).where(inArray(pushSubscriptions.id, ids));
+  }
 }
 
 // Auto-check enrollment schedules and update status

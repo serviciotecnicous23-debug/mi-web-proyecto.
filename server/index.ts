@@ -1,3 +1,4 @@
+import * as Sentry from "@sentry/node";
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { serveStatic } from "./static";
@@ -5,8 +6,25 @@ import { ensureDatabaseSchema } from "./ensure-schema";
 import { checkEnrollmentSchedules } from "./storage";
 import { createServer } from "http";
 import path from "path";
+import { startBackupScheduler } from "./backup";
 import compression from "compression";
 import helmet from "helmet";
+
+// ========== SENTRY ERROR MONITORING ==========
+if (process.env.SENTRY_DSN) {
+  Sentry.init({
+    dsn: process.env.SENTRY_DSN,
+    environment: process.env.NODE_ENV || "development",
+    tracesSampleRate: process.env.NODE_ENV === "production" ? 0.2 : 1.0,
+    integrations: [
+      Sentry.httpIntegration(),
+      Sentry.expressIntegration(),
+    ],
+    // Don't send PII by default
+    sendDefaultPii: false,
+  });
+  console.log("[sentry] Server monitoring initialized");
+}
 
 const app = express();
 const httpServer = createServer(app);
@@ -26,7 +44,7 @@ if (process.env.NODE_ENV === "production") {
 
 // ========== COMPRESSION (gzip) ==========
 // Reduces response sizes by ~70%, much faster page loads
-app.use(compression() as any);
+app.use(compression() as unknown as express.RequestHandler);
 
 // ========== SECURITY HEADERS (helmet) ==========
 const videoFrameSources = [
@@ -139,6 +157,11 @@ app.use((req, res, next) => {
 
   await registerRoutes(httpServer, app);
 
+  // Sentry error handler must be registered after all routes but before custom error handler
+  if (process.env.SENTRY_DSN) {
+    Sentry.setupExpressErrorHandler(app);
+  }
+
   app.use((err: any, _req: Request, res: Response, next: NextFunction) => {
     const status = err.status || err.statusCode || 500;
     const message = err.message || "Internal Server Error";
@@ -179,6 +202,9 @@ app.use((req, res, next) => {
       // Check enrollment schedules on startup and every 5 minutes
       checkEnrollmentSchedules();
       setInterval(checkEnrollmentSchedules, 5 * 60 * 1000);
+
+      // Start automated backup scheduler
+      startBackupScheduler();
     },
   );
 })();

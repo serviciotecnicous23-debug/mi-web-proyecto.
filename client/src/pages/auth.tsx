@@ -93,6 +93,9 @@ export function LoginPage() {
           </Form>
         </CardContent>
         <CardFooter className="flex flex-col gap-2 text-center text-sm text-muted-foreground">
+          <Link href="/forgot-password" className="text-xs text-primary hover:underline">
+            Olvidaste tu contrasena?
+          </Link>
           <div>
             No tienes cuenta?{" "}
             <Link href="/registro" className="text-primary hover:underline font-medium" data-testid="link-to-register">

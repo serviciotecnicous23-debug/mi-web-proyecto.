@@ -1,5 +1,4 @@
-// @ts-nocheck
-import type { Express } from "express";
+import type { Express, Request, Response, NextFunction, RequestHandler } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { memoryStorage } from "./memory-storage";
@@ -18,6 +17,11 @@ import multer from "multer";
 import sharp from "sharp";
 import path from "path";
 import fs from "fs";
+import type { AuthenticatedRequest } from "./types";
+import "./types"; // side-effect: augment Express.User
+import { uploadFile } from "./file-storage";
+import { sendPasswordResetEmail, sendVerificationEmail, sendWelcomeEmail, isEmailConfigured } from "./email";
+import { sendPushToMany, getVapidPublicKey, isPushConfigured, type PushPayload } from "./push";
 
 const scryptAsync = promisify(scrypt);
 
@@ -63,7 +67,7 @@ const avatarStorage = multer.diskStorage({
   destination: (_req, _file, cb) => cb(null, avatarDir),
   filename: (req, _file, cb) => {
     const ext = path.extname(_file.originalname).toLowerCase() || ".jpg";
-    cb(null, `avatar-${(req.user as any)?.id || "unknown"}-${Date.now()}${ext}`);
+    cb(null, `avatar-${req.user?.id ?? "unknown"}-${Date.now()}${ext}`);
   },
 });
 const avatarUpload = multer({
@@ -84,7 +88,7 @@ const regionStorage = multer.diskStorage({
   destination: (_req, _file, cb) => cb(null, regionImgDir),
   filename: (req, _file, cb) => {
     const ext = path.extname(_file.originalname).toLowerCase() || ".jpg";
-    cb(null, `region-${(req.user as any)?.id || "unknown"}-${Date.now()}${ext}`);
+    cb(null, `region-${req.user?.id ?? "unknown"}-${Date.now()}${ext}`);
   },
 });
 const regionUpload = multer({
@@ -105,7 +109,7 @@ const libraryStorage = multer.diskStorage({
   destination: (_req, _file, cb) => cb(null, libraryDir),
   filename: (req, _file, cb) => {
     const ext = path.extname(_file.originalname).toLowerCase();
-    cb(null, `doc-${(req.user as any)?.id || "unknown"}-${Date.now()}${ext}`);
+    cb(null, `doc-${req.user?.id ?? "unknown"}-${Date.now()}${ext}`);
   },
 });
 const ALLOWED_LIBRARY_TYPES = [
@@ -144,11 +148,11 @@ async function comparePasswords(supplied: string, stored: string) {
   return timingSafeEqual(hashedBuf, suppliedBuf);
 }
 
-function isAdmin(req: any): boolean {
+function isAdmin(req: Request): boolean {
   return req.isAuthenticated() && req.user?.role === "admin";
 }
 
-function isTeacherOrAdmin(req: any): boolean {
+function isTeacherOrAdmin(req: Request): boolean {
   return req.isAuthenticated() && (req.user?.role === "admin" || req.user?.role === "obrero");
 }
 
@@ -255,7 +259,7 @@ ${urls}
   });
 
   // Apply general rate limiter to all API routes
-  app.use("/api/", apiLimiter as any);
+  app.use("/api/", apiLimiter as RequestHandler);
 
   // Trust proxy (needed for Codespaces, Render, and reverse proxy environments)
   // Set here as well as index.ts to cover all environments
@@ -266,7 +270,7 @@ ${urls}
   const isProduction = process.env.NODE_ENV === "production";
   const hasDatabase = !!process.env.DATABASE_URL;
 
-  let sessionStore: any;
+  let sessionStore: session.Store | session.MemoryStore;
   if (hasDatabase) {
     // Create session table manually (connect-pg-simple's createTableIfMissing
     // tries to read a .sql file that doesn't exist in the esbuild bundle)
@@ -286,7 +290,7 @@ ${urls}
 
     const PgSessionStore = pgSession(session);
     sessionStore = new PgSessionStore({
-      pool: pool as any,
+      pool: pool,
       tableName: "user_sessions",
       createTableIfMissing: false,
       pruneSessionInterval: 60 * 15, // Cleanup expired sessions every 15 min
@@ -310,11 +314,11 @@ ${urls}
         maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
         sameSite: "lax",
       },
-    }) as any,
+    }) as session.SessionOptions,
   );
 
-  app.use(passport.initialize() as any);
-  app.use(passport.session() as any);
+  app.use(passport.initialize() as RequestHandler);
+  app.use(passport.session() as RequestHandler);
 
   // Debug endpoint to check authentication status (must be AFTER session/passport middleware)
   app.get("/api/auth-status", (req, res) => {
@@ -322,8 +326,8 @@ ${urls}
       authenticated: req.isAuthenticated?.() || false,
       hasSession: !!req.session,
       sessionID: req.sessionID?.slice(0, 8) + "...",
-      userId: (req.user as any)?.id || null,
-      username: (req.user as any)?.username || null,
+      userId: req.user?.id ?? null,
+      username: req.user?.username ?? null,
     });
   });
 
@@ -352,10 +356,10 @@ ${urls}
     }),
   );
 
-  passport.serializeUser((user: any, done) => done(null, user.id));
+  passport.serializeUser((user: Express.User, done) => done(null, user.id));
   passport.deserializeUser(async (id: number, done) => {
     try {
-      let user = null;
+      let user: Express.User | null | undefined = null;
       try {
         user = await storage.getUser(id);
       } catch (dbErr) {
@@ -364,7 +368,7 @@ ${urls}
       // Fallback a almacenamiento en memoria
       if (!user) {
         try {
-          user = await memoryStorage.getUser(id) as any;
+          user = await memoryStorage.getUser(id) as Express.User | undefined;
         } catch (memErr) {
           console.log("Memory storage also failed during deserialization");
         }
@@ -397,7 +401,7 @@ ${urls}
           role: "admin",
           displayName: "Servicio Técnico",
           isActive: true,
-        } as any);
+        });
         console.log("✓ Admin inicializado en memoria");
       }
 
@@ -430,8 +434,8 @@ ${urls}
   })();
 
   // ========== AUTH ===========
-  app.post(api.auth.login.path, authLimiter, (req, res, next) => {
-    passport.authenticate("local", (err: any, user: any, info: any) => {
+  app.post(api.auth.login.path, authLimiter as RequestHandler, (req: Request, res: Response, next: NextFunction) => {
+    passport.authenticate("local", (err: Error | null, user: Express.User | false, info: { message?: string }) => {
       if (err) return next(err);
       if (!user) return res.status(401).json({ message: info?.message || "Error al iniciar sesion" });
       req.logIn(user, (err) => {
@@ -442,7 +446,7 @@ ${urls}
     })(req, res, next);
   });
 
-  app.post(api.auth.register.path, authLimiter as any, async (req, res) => {
+  app.post(api.auth.register.path, authLimiter as RequestHandler, async (req, res) => {
     try {
       const input = api.auth.register.input.parse(req.body);
       let existing = null;
@@ -459,12 +463,12 @@ ${urls}
 
       const hashedPassword = await hashPassword(input.password);
 
-      let allUsers: any[] = [];
+      let allUsers: Array<{ id: number }> = [];
       try {
         allUsers = await storage.listUsers();
       } catch (dbErr) {
         console.log('storage.listUsers failed, using memoryStorage fallback');
-        allUsers = await memoryStorage.listUsers() as any[];
+        allUsers = await memoryStorage.listUsers();
       }
 
       const isFirstUser = allUsers.length === 0;
@@ -472,13 +476,20 @@ ${urls}
       const role = isFirstUser ? "admin" : (validRoles.includes(input.role || "") ? input.role! : "miembro");
       
       // Guardar en PostgreSQL (persistente)
-      let user: any;
+      let user: Express.User;
+      // Generate email verification token
+      const verifyToken = randomBytes(32).toString("hex");
+      const verifyExpires = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24h
+
       try {
         user = await storage.createUser({
           ...input,
           password: hashedPassword,
           role,
           isActive: isFirstUser,
+          emailVerified: isFirstUser, // First user (admin) auto-verified
+          emailVerifyToken: isFirstUser ? null : verifyToken,
+          emailVerifyExpires: isFirstUser ? null : verifyExpires,
         });
       } catch (dbErr) {
         console.log('storage.createUser failed, using memoryStorage fallback');
@@ -487,12 +498,17 @@ ${urls}
           password: hashedPassword,
           role,
           isActive: isFirstUser,
-        } as any);
+        });
       }
 
-      req.logIn(user as any, (err) => {
+      // Send verification email (non-blocking, won't crash server)
+      if (!isFirstUser && input.email && isEmailConfigured) {
+        sendVerificationEmail(input.email, verifyToken, input.displayName);
+      }
+
+      req.logIn(user, (err) => {
         if (err) throw err;
-        const { password: _, ...safeUser } = user as any;
+        const { password: _, ...safeUser } = user;
         res.status(201).json({ ...safeUser, pending: !isFirstUser });
       });
     } catch (err) {
@@ -510,24 +526,240 @@ ${urls}
 
   app.get(api.auth.me.path, (req, res) => {
     if (!req.isAuthenticated()) return res.status(401).json({ message: "No autenticado" });
-    const { password, ...safeUser } = req.user as any;
+    const { password, ...safeUser } = req.user!;
     res.json(safeUser);
   });
 
+  // ========== FORGOT PASSWORD ==========
+  app.post("/api/forgot-password", authLimiter as RequestHandler, async (req, res) => {
+    try {
+      const { email } = req.body;
+      if (!email || typeof email !== "string") {
+        return res.status(400).json({ message: "Email requerido" });
+      }
+
+      // Always return success (don't reveal if email exists)
+      const successMsg = { message: "Si el correo existe, recibiras instrucciones para restablecer tu contraseña" };
+
+      let user = null;
+      try {
+        user = await storage.getUserByEmail(email.trim());
+      } catch {
+        // DB not available — silently fail
+        return res.json(successMsg);
+      }
+
+      if (!user || !user.email) return res.json(successMsg);
+
+      // Generate secure token
+      const token = randomBytes(32).toString("hex");
+      const expiresAt = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
+
+      try {
+        await storage.createPasswordResetToken(user.id, token, expiresAt);
+      } catch {
+        return res.json(successMsg);
+      }
+
+      // Send email (non-blocking, won't crash server)
+      sendPasswordResetEmail(user.email, token, user.displayName);
+
+      res.json(successMsg);
+    } catch (err) {
+      console.error("Forgot password error:", err);
+      res.status(500).json({ message: "Error interno del servidor" });
+    }
+  });
+
+  app.post("/api/reset-password", authLimiter as RequestHandler, async (req, res) => {
+    try {
+      const { token, newPassword } = req.body;
+      if (!token || !newPassword || typeof newPassword !== "string") {
+        return res.status(400).json({ message: "Token y nueva contraseña requeridos" });
+      }
+      if (newPassword.length < 6) {
+        return res.status(400).json({ message: "La contraseña debe tener al menos 6 caracteres" });
+      }
+
+      const resetToken = await storage.getPasswordResetToken(token);
+      if (!resetToken) {
+        return res.status(400).json({ message: "Enlace invalido o expirado" });
+      }
+      if (resetToken.usedAt) {
+        return res.status(400).json({ message: "Este enlace ya fue utilizado" });
+      }
+      if (resetToken.expiresAt < new Date()) {
+        return res.status(400).json({ message: "El enlace ha expirado. Solicita uno nuevo." });
+      }
+
+      const hashedPassword = await hashPassword(newPassword);
+      await storage.updateUser(resetToken.userId, { password: hashedPassword });
+      await storage.markPasswordResetTokenUsed(token);
+
+      res.json({ message: "Contraseña restablecida exitosamente" });
+    } catch (err) {
+      console.error("Reset password error:", err);
+      res.status(500).json({ message: "Error interno del servidor" });
+    }
+  });
+
+  // ========== EMAIL VERIFICATION ==========
+  app.post("/api/verify-email", async (req, res) => {
+    try {
+      const { token } = req.body;
+      if (!token || typeof token !== "string") {
+        return res.status(400).json({ message: "Token requerido" });
+      }
+
+      const user = await storage.getUserByVerifyToken(token);
+      if (!user) {
+        return res.status(400).json({ message: "Enlace de verificacion invalido" });
+      }
+      if (user.emailVerified) {
+        return res.json({ message: "El correo ya fue verificado", alreadyVerified: true });
+      }
+      if (user.emailVerifyExpires && user.emailVerifyExpires < new Date()) {
+        return res.status(400).json({ message: "El enlace ha expirado. Solicita uno nuevo." });
+      }
+
+      await storage.updateUser(user.id, {
+        emailVerified: true,
+        emailVerifyToken: null,
+        emailVerifyExpires: null,
+      });
+
+      // Send welcome email (non-blocking)
+      if (user.email) {
+        sendWelcomeEmail(user.email, user.displayName);
+      }
+
+      res.json({ message: "Correo verificado exitosamente!" });
+    } catch (err) {
+      console.error("Verify email error:", err);
+      res.status(500).json({ message: "Error interno del servidor" });
+    }
+  });
+
+  app.post("/api/resend-verification", authLimiter as RequestHandler, async (req, res) => {
+    try {
+      const { email } = req.body;
+      if (!email) return res.status(400).json({ message: "Email requerido" });
+
+      const user = await storage.getUserByEmail(email.trim());
+      if (!user || user.emailVerified) {
+        // Don't reveal user existence
+        return res.json({ message: "Si el correo existe y no esta verificado, recibiras un nuevo enlace" });
+      }
+
+      const token = randomBytes(32).toString("hex");
+      const expires = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24h
+      await storage.updateUser(user.id, {
+        emailVerifyToken: token,
+        emailVerifyExpires: expires,
+      });
+
+      if (user.email) {
+        sendVerificationEmail(user.email, token, user.displayName);
+      }
+
+      res.json({ message: "Si el correo existe y no esta verificado, recibiras un nuevo enlace" });
+    } catch (err) {
+      console.error("Resend verification error:", err);
+      res.status(500).json({ message: "Error interno del servidor" });
+    }
+  });
+
+  // ========== PUSH NOTIFICATIONS ==========
+  app.get("/api/push/vapid-key", (_req, res) => {
+    res.json({ key: getVapidPublicKey(), configured: isPushConfigured });
+  });
+
+  app.post("/api/push/subscribe", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    try {
+      const { endpoint, keys } = req.body;
+      if (!endpoint || !keys?.p256dh || !keys?.auth) {
+        return res.status(400).json({ message: "Subscription data invalida" });
+      }
+      await storage.createPushSubscription(req.user!.id, endpoint, keys.p256dh, keys.auth);
+      res.json({ message: "Subscripcion guardada" });
+    } catch (err) {
+      console.error("Push subscribe error:", err);
+      res.status(500).json({ message: "Error al guardar subscripcion" });
+    }
+  });
+
+  app.post("/api/push/unsubscribe", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    try {
+      const { endpoint } = req.body;
+      if (!endpoint) return res.status(400).json({ message: "Endpoint requerido" });
+      await storage.deletePushSubscription(endpoint);
+      res.json({ message: "Subscripcion eliminada" });
+    } catch (err) {
+      console.error("Push unsubscribe error:", err);
+      res.status(500).json({ message: "Error al eliminar subscripcion" });
+    }
+  });
+
+  // Admin: send test push notification
+  app.post("/api/admin/push/send", async (req, res) => {
+    if (!isAdmin(req)) return res.sendStatus(403);
+    try {
+      const { title, body, url } = req.body;
+      if (!title || !body) return res.status(400).json({ message: "Titulo y mensaje requeridos" });
+
+      const allSubs = await storage.getAllPushSubscriptions();
+      const payload: PushPayload = {
+        title,
+        body,
+        url: url || "/",
+        icon: "/icons/icon-192x192.png",
+      };
+
+      const subs = allSubs.map(s => ({
+        id: s.id,
+        subscription: { endpoint: s.endpoint, keys: { p256dh: s.p256dh, auth: s.auth } },
+      }));
+
+      // Non-blocking: send in background, clean up expired
+      (async () => {
+        try {
+          const expiredIds = await sendPushToMany(subs, payload);
+          if (expiredIds.length > 0) {
+            await storage.deletePushSubscriptionsByIds(expiredIds);
+            console.log(`[push] Cleaned ${expiredIds.length} expired subscriptions`);
+          }
+        } catch (e) {
+          console.error("[push] Background send error:", e);
+        }
+      })();
+
+      res.json({ message: `Enviando a ${allSubs.length} dispositivos`, count: allSubs.length });
+    } catch (err) {
+      console.error("Push send error:", err);
+      res.status(500).json({ message: "Error al enviar notificacion" });
+    }
+  });
+
   // ========== AVATAR UPLOAD ==========
-  app.post("/api/upload/avatar", uploadLimiter as any, avatarUpload.single("avatar"), async (req, res) => {
+  app.post("/api/upload/avatar", uploadLimiter as RequestHandler, avatarUpload.single("avatar") as RequestHandler, async (req: Request, res: Response) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
     if (!req.file) return res.status(400).json({ message: "No se envio ninguna imagen" });
     try {
-      const userId = (req.user as any).id;
-      // Optimize image (resize + compress to WebP) then store as base64
+      const userId = req.user!.id;
+      // Optimize image (resize + compress to WebP) then upload
       const optimized = await optimizeAvatar(req.file.path);
-      const base64 = optimized.toString("base64");
-      const avatarUrl = `data:image/webp;base64,${base64}`;
-      await storage.updateUser(userId, { avatarUrl } as any);
+      const result = await uploadFile({
+        folder: "avatars",
+        filename: `avatar-${userId}.webp`,
+        buffer: optimized,
+        contentType: "image/webp",
+      });
+      await storage.updateUser(userId, { avatarUrl: result.url });
       // Delete temp file
       try { fs.unlinkSync(req.file.path); } catch (_) {}
-      res.json({ avatarUrl });
+      res.json({ avatarUrl: result.url });
     } catch (err) {
       console.error("Avatar upload error:", err);
       res.status(500).json({ message: "Error al subir imagen" });
@@ -535,16 +767,20 @@ ${urls}
   });
 
   // ========== REGION IMAGE UPLOAD ==========
-  app.post("/api/upload/region-image", uploadLimiter as any, regionUpload.single("image"), async (req, res) => {
+  app.post("/api/upload/region-image", uploadLimiter as RequestHandler, regionUpload.single("image") as RequestHandler, async (req: Request, res: Response) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
     if (!req.file) return res.status(400).json({ message: "No se envio ninguna imagen" });
     try {
-      // Optimize image then store as base64 data URL
+      // Optimize image then upload to storage
       const optimized = await optimizePostImage(req.file.path);
-      const base64 = optimized.toString("base64");
-      const imageUrl = `data:image/webp;base64,${base64}`;
+      const result = await uploadFile({
+        folder: "regions",
+        filename: `region-${Date.now()}.webp`,
+        buffer: optimized,
+        contentType: "image/webp",
+      });
       try { fs.unlinkSync(req.file.path); } catch (_) {}
-      res.json({ imageUrl });
+      res.json({ imageUrl: result.url });
     } catch (err) {
       console.error("Region image upload error:", err);
       res.status(500).json({ message: "Error al subir imagen" });
@@ -552,21 +788,25 @@ ${urls}
   });
 
   // ========== LIBRARY FILE UPLOAD ==========
-  app.post("/api/upload/library-file", uploadLimiter as any, libraryUpload.single("file"), async (req, res) => {
+  app.post("/api/upload/library-file", uploadLimiter as RequestHandler, libraryUpload.single("file") as RequestHandler, async (req: Request, res: Response) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
-    if (!(req.user as any).isActive) return res.sendStatus(403);
+    if (!req.user!.isActive) return res.sendStatus(403);
     if (!req.file) return res.status(400).json({ message: "No se envio ningun archivo" });
     try {
-      // Convert to base64 for persistent storage in DB
       const fileBuffer = fs.readFileSync(req.file.path);
-      const base64 = fileBuffer.toString("base64");
       const mimeType = req.file.mimetype || "application/octet-stream";
-      const fileData = `data:${mimeType};base64,${base64}`;
+      const result = await uploadFile({
+        folder: "library",
+        filename: req.file.originalname,
+        buffer: fileBuffer,
+        contentType: mimeType,
+        cacheControl: "public, max-age=86400", // 1 day for documents
+      });
       // Delete physical file
       try { fs.unlinkSync(req.file.path); } catch (_) {}
       res.json({
-        fileUrl: "",
-        fileData,
+        fileUrl: result.url,
+        fileData: result.url, // backward compat: clients may read fileData
         fileName: req.file.originalname,
         fileSize: req.file.size,
       });
@@ -587,7 +827,7 @@ ${urls}
       if (newPassword.length < 6) {
         return res.status(400).json({ message: "La nueva contraseña debe tener al menos 6 caracteres" });
       }
-      const userId = (req.user as any).id;
+      const userId = req.user!.id;
       const user = await storage.getUser(userId);
       if (!user) return res.sendStatus(404);
       const isValid = await comparePasswords(currentPassword, user.password);
@@ -595,7 +835,7 @@ ${urls}
         return res.status(400).json({ message: "La contraseña actual es incorrecta" });
       }
       const hashedNew = await hashPassword(newPassword);
-      await storage.updateUser(userId, { password: hashedNew } as any);
+      await storage.updateUser(userId, { password: hashedNew });
       res.json({ message: "Contraseña actualizada exitosamente" });
     } catch (err) {
       console.error("Change password error:", err);
@@ -606,21 +846,21 @@ ${urls}
   // ========== FRIENDS SYSTEM ==========
   app.get("/api/friends", async (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
-    const userId = (req.user as any).id;
+    const userId = req.user!.id;
     const friends = await storage.listFriends(userId);
     res.json(friends);
   });
 
   app.get("/api/friends/requests", async (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
-    const userId = (req.user as any).id;
+    const userId = req.user!.id;
     const requests = await storage.listFriendRequests(userId);
     res.json(requests);
   });
 
   app.get("/api/friends/search", async (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
-    const userId = (req.user as any).id;
+    const userId = req.user!.id;
     const q = (req.query.q as string) || "";
     const users = await storage.searchUsersForFriends(userId, q);
     res.json(users);
@@ -628,7 +868,7 @@ ${urls}
 
   app.post("/api/friends/request", async (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
-    const userId = (req.user as any).id;
+    const userId = req.user!.id;
     const { addresseeId } = req.body;
     if (!addresseeId || addresseeId === userId) {
       return res.status(400).json({ message: "ID de usuario invalido" });
@@ -643,7 +883,7 @@ ${urls}
 
   app.patch("/api/friends/:id/accept", async (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
-    const userId = (req.user as any).id;
+    const userId = req.user!.id;
     const friendshipId = parseInt(req.params.id);
     try {
       const result = await storage.acceptFriendRequest(friendshipId, userId);
@@ -655,7 +895,7 @@ ${urls}
 
   app.patch("/api/friends/:id/reject", async (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
-    const userId = (req.user as any).id;
+    const userId = req.user!.id;
     const friendshipId = parseInt(req.params.id);
     try {
       const result = await storage.rejectFriendRequest(friendshipId, userId);
@@ -667,7 +907,7 @@ ${urls}
 
   app.delete("/api/friends/:id", async (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
-    const userId = (req.user as any).id;
+    const userId = req.user!.id;
     const friendshipId = parseInt(req.params.id);
     try {
       await storage.removeFriend(friendshipId, userId);
@@ -689,7 +929,7 @@ ${urls}
   app.patch(api.users.update.path, async (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
     const id = parseInt(req.params.id);
-    if (id !== (req.user as any).id && !isAdmin(req)) {
+    if (id !== req.user!.id && !isAdmin(req)) {
       return res.sendStatus(403);
     }
     try {
@@ -717,17 +957,17 @@ ${urls}
   // ========== MEMBER POSTS ==========
   app.get(api.posts.list.path, async (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
-    if (!(req.user as any).isActive) return res.sendStatus(403);
+    if (!req.user!.isActive) return res.sendStatus(403);
     const posts = await storage.listMemberPosts();
     res.json(posts);
   });
 
   app.post(api.posts.create.path, async (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
-    if (!(req.user as any).isActive) return res.sendStatus(403);
+    if (!req.user!.isActive) return res.sendStatus(403);
     try {
       const input = api.posts.create.input.parse(req.body);
-      const post = await storage.createMemberPost((req.user as any).id, input.content, input.imageUrl);
+      const post = await storage.createMemberPost(req.user!.id, input.content, input.imageUrl);
       res.status(201).json(post);
     } catch (err) {
       if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });
@@ -741,7 +981,7 @@ ${urls}
     const post = await storage.getMemberPost(postId);
     if (!post) return res.sendStatus(404);
     // Allow owner or admin to delete
-    if (post.userId !== (req.user as any).id && !isAdmin(req)) {
+    if (post.userId !== req.user!.id && !isAdmin(req)) {
       return res.sendStatus(403);
     }
     await storage.deleteMemberPost(postId);
@@ -776,7 +1016,7 @@ ${urls}
       if (isNaN(eventDateParsed.getTime())) {
         return res.status(400).json({ message: "La fecha del evento no es valida" });
       }
-      const event = await storage.createEvent({ ...input, createdBy: (req.user as any).id });
+      const event = await storage.createEvent({ ...input, createdBy: req.user!.id });
       res.status(201).json(event);
     } catch (err: any) {
       console.error("Error creating event:", err);
@@ -791,7 +1031,7 @@ ${urls}
     if (isNaN(eventId)) return res.status(400).json({ message: "ID de evento invalido" });
     const event = await storage.getEvent(eventId);
     if (!event) return res.status(404).json({ message: "Evento no encontrado" });
-    if (!isAdmin(req) && event.createdBy !== (req.user as any).id) return res.status(403).json({ message: "No tienes permiso para editar este evento" });
+    if (!isAdmin(req) && event.createdBy !== req.user!.id) return res.status(403).json({ message: "No tienes permiso para editar este evento" });
     try {
       const input = api.events.update.input.parse(req.body);
       const updated = await storage.updateEvent(eventId, input);
@@ -810,7 +1050,7 @@ ${urls}
     if (isNaN(eventId)) return res.status(400).json({ message: "ID invalido" });
     const event = await storage.getEvent(eventId);
     if (!event) return res.status(404).json({ message: "Evento no encontrado" });
-    if (!isAdmin(req) && event.createdBy !== (req.user as any).id) return res.status(403).json({ message: "No tienes permiso" });
+    if (!isAdmin(req) && event.createdBy !== req.user!.id) return res.status(403).json({ message: "No tienes permiso" });
     try {
       await storage.deleteEvent(eventId);
       res.json({ success: true });
@@ -831,7 +1071,7 @@ ${urls}
   app.get(api.eventRsvps.myRsvp.path, async (req, res) => {
     if (!req.isAuthenticated()) return res.json(null);
     const eventId = parseInt(req.params.eventId);
-    const rsvp = await storage.getEventRsvp(eventId, (req.user as any).id);
+    const rsvp = await storage.getEventRsvp(eventId, req.user!.id);
     res.json(rsvp || null);
   });
 
@@ -847,16 +1087,16 @@ ${urls}
       if (!event) return res.status(404).json({ message: "Evento no encontrado" });
       // Use the URL eventId, override the body eventId to ensure consistency
       const input = api.eventRsvps.upsert.input.parse({ ...req.body, eventId });
-      const rsvp = await storage.upsertEventRsvp(eventId, (req.user as any).id, input);
+      const rsvp = await storage.upsertEventRsvp(eventId, req.user!.id, input);
       
       // Create reminder notification for the user (non-blocking)
       if (input.status !== "no_asistire") {
         try {
-          const eventDate = new Date(event.eventDate as any);
+          const eventDate = new Date(event.eventDate as string | Date);
           const formattedDate = eventDate.toLocaleDateString("es-ES", { weekday: "long", day: "numeric", month: "long" });
           const formattedTime = eventDate.toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" });
           await storage.createNotification({
-            userId: (req.user as any).id,
+            userId: req.user!.id,
             type: "evento_recordatorio",
             title: `Recordatorio: ${event.title}`,
             content: `Te has confirmado para "${event.title}" el ${formattedDate} a las ${formattedTime}. Ubicacion: ${event.location}${event.meetingUrl ? '. Enlace: ' + event.meetingUrl : ''}`,
@@ -880,7 +1120,7 @@ ${urls}
     const eventId = parseInt(req.params.eventId);
     if (isNaN(eventId)) return res.status(400).json({ message: "ID invalido" });
     try {
-      await storage.cancelEventRsvp(eventId, (req.user as any).id);
+      await storage.cancelEventRsvp(eventId, req.user!.id);
       res.json({ success: true });
     } catch (err: any) {
       console.error("Error canceling RSVP:", err);
@@ -902,7 +1142,7 @@ ${urls}
     if (!isAdmin(req)) return res.sendStatus(403);
     try {
       const input = api.siteContent.update.input.parse(req.body);
-      const content = await storage.upsertSiteContent(req.params.key, input, (req.user as any).id);
+      const content = await storage.upsertSiteContent(req.params.key, input, req.user!.id);
       res.json(content);
     } catch (err) {
       if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });
@@ -934,7 +1174,7 @@ ${urls}
   app.get(api.courses.get.path, async (req, res) => {
     const course = await storage.getCourse(parseInt(req.params.id));
     if (!course) return res.sendStatus(404);
-    if (!course.isActive && !isAdmin(req) && !(isTeacherOrAdmin(req) && course.teacherId === (req.user as any)?.id)) {
+    if (!course.isActive && !isAdmin(req) && !(isTeacherOrAdmin(req) && course.teacherId === req.user?.id)) {
       return res.sendStatus(404);
     }
     const counts = await storage.getEnrollmentCounts();
@@ -949,7 +1189,7 @@ ${urls}
     if (!isTeacherOrAdmin(req)) return res.sendStatus(403);
     try {
       const input = api.courses.create.input.parse(req.body);
-      const course = await storage.createCourse({ ...input, createdBy: (req.user as any).id });
+      const course = await storage.createCourse({ ...input, createdBy: req.user!.id });
       await storage.createNotificationForAll({
         type: "curso",
         title: "Nuevo Curso Disponible",
@@ -967,7 +1207,7 @@ ${urls}
     const id = parseInt(req.params.id);
     const course = await storage.getCourse(id);
     if (!course) return res.sendStatus(404);
-    if (!isAdmin(req) && !(isTeacherOrAdmin(req) && course.teacherId === (req.user as any)?.id)) {
+    if (!isAdmin(req) && !(isTeacherOrAdmin(req) && course.teacherId === req.user?.id)) {
       return res.sendStatus(403);
     }
     try {
@@ -999,7 +1239,7 @@ ${urls}
     const courseId = parseInt(req.params.courseId);
     const course = await storage.getCourse(courseId);
     if (!course) return res.sendStatus(404);
-    if (!isAdmin(req) && !(isTeacherOrAdmin(req) && course.teacherId === (req.user as any)?.id)) {
+    if (!isAdmin(req) && !(isTeacherOrAdmin(req) && course.teacherId === req.user?.id)) {
       return res.sendStatus(403);
     }
     try {
@@ -1044,7 +1284,7 @@ ${urls}
     const courseId = parseInt(req.params.courseId);
     const course = await storage.getCourse(courseId);
     if (!course) return res.sendStatus(404);
-    if (!isAdmin(req) && !(isTeacherOrAdmin(req) && course.teacherId === (req.user as any)?.id)) {
+    if (!isAdmin(req) && !(isTeacherOrAdmin(req) && course.teacherId === req.user?.id)) {
       return res.sendStatus(403);
     }
     try {
@@ -1079,7 +1319,7 @@ ${urls}
   // ========== ENROLLMENTS ==========
   app.get(api.enrollments.list.path, async (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
-    const myEnrollments = await storage.listEnrollmentsByUser((req.user as any).id);
+    const myEnrollments = await storage.listEnrollmentsByUser(req.user!.id);
     res.json(myEnrollments);
   });
 
@@ -1088,7 +1328,7 @@ ${urls}
     const courseId = parseInt(req.params.courseId);
     const course = await storage.getCourse(courseId);
     if (!course) return res.sendStatus(404);
-    if (!isAdmin(req) && !(isTeacherOrAdmin(req) && course.teacherId === (req.user as any)?.id)) {
+    if (!isAdmin(req) && !(isTeacherOrAdmin(req) && course.teacherId === req.user?.id)) {
       return res.sendStatus(403);
     }
     const enrollmentsList = await storage.listEnrollmentsByCourse(courseId);
@@ -1097,7 +1337,7 @@ ${urls}
 
   app.post(api.enrollments.create.path, async (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
-    if (!(req.user as any).isActive) return res.sendStatus(403);
+    if (!req.user!.isActive) return res.sendStatus(403);
     try {
       const input = api.enrollments.create.input.parse(req.body);
       // Check if enrollment is open
@@ -1109,11 +1349,11 @@ ${urls}
       if (course.enrollmentStatus === "scheduled") {
         return res.status(400).json({ message: "Las inscripciones para este curso aun no estan abiertas" });
       }
-      const existing = await storage.getEnrollmentByUserAndCourse((req.user as any).id, input.courseId);
+      const existing = await storage.getEnrollmentByUserAndCourse(req.user!.id, input.courseId);
       if (existing) {
         return res.status(400).json({ message: "Ya tienes una inscripcion en este curso" });
       }
-      const enrollment = await storage.createEnrollment((req.user as any).id, input.courseId);
+      const enrollment = await storage.createEnrollment(req.user!.id, input.courseId);
       res.status(201).json(enrollment);
     } catch (err) {
       if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });
@@ -1139,7 +1379,7 @@ ${urls}
     const id = parseInt(req.params.id);
     const enrollment = await storage.getEnrollment(id);
     if (!enrollment) return res.sendStatus(404);
-    if (enrollment.userId !== (req.user as any).id && !isAdmin(req)) {
+    if (enrollment.userId !== req.user!.id && !isAdmin(req)) {
       return res.sendStatus(403);
     }
     await storage.deleteEnrollment(id);
@@ -1155,29 +1395,29 @@ ${urls}
 
   app.get(api.teacherRequests.myRequests.path, async (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
-    const requests = await storage.listTeacherRequestsByUser((req.user as any).id);
+    const requests = await storage.listTeacherRequestsByUser(req.user!.id);
     res.json(requests);
   });
 
   app.post(api.teacherRequests.create.path, async (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
-    if (!(req.user as any).isActive) return res.sendStatus(403);
-    const userRole = (req.user as any).role;
+    if (!req.user!.isActive) return res.sendStatus(403);
+    const userRole = req.user!.role;
     if (userRole !== "obrero" && userRole !== "admin") {
       return res.status(403).json({ message: "Solo obreros pueden solicitar ensenar un curso" });
     }
     try {
       const input = api.teacherRequests.create.input.parse(req.body);
-      const existing = await storage.getTeacherRequestByUserAndCourse((req.user as any).id, input.courseId);
+      const existing = await storage.getTeacherRequestByUserAndCourse(req.user!.id, input.courseId);
       if (existing) {
         return res.status(400).json({ message: "Ya tienes una solicitud para este curso" });
       }
       const course = await storage.getCourse(input.courseId);
       if (!course) return res.sendStatus(404);
-      if (course.teacherId === (req.user as any).id) {
+      if (course.teacherId === req.user!.id) {
         return res.status(400).json({ message: "Ya eres el maestro de este curso" });
       }
-      const request = await storage.createTeacherRequest((req.user as any).id, input.courseId, input.message);
+      const request = await storage.createTeacherRequest(req.user!.id, input.courseId, input.message);
       res.status(201).json(request);
     } catch (err) {
       if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });
@@ -1221,12 +1461,12 @@ ${urls}
     const courseId = parseInt(req.params.courseId);
     const course = await storage.getCourse(courseId);
     if (!course) return res.sendStatus(404);
-    if (!isAdmin(req) && !(isTeacherOrAdmin(req) && course.teacherId === (req.user as any)?.id)) {
+    if (!isAdmin(req) && !(isTeacherOrAdmin(req) && course.teacherId === req.user?.id)) {
       return res.sendStatus(403);
     }
     try {
       const input = api.courseAnnouncements.create.input.parse({ ...req.body, courseId });
-      const announcement = await storage.createCourseAnnouncement({ ...input, authorId: (req.user as any).id });
+      const announcement = await storage.createCourseAnnouncement({ ...input, authorId: req.user!.id });
       res.status(201).json(announcement);
     } catch (err) {
       if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });
@@ -1265,7 +1505,7 @@ ${urls}
     const courseId = parseInt(req.params.courseId);
     const course = await storage.getCourse(courseId);
     if (!course) return res.sendStatus(404);
-    if (!isAdmin(req) && !(isTeacherOrAdmin(req) && course.teacherId === (req.user as any)?.id)) {
+    if (!isAdmin(req) && !(isTeacherOrAdmin(req) && course.teacherId === req.user?.id)) {
       return res.sendStatus(403);
     }
     try {
@@ -1372,7 +1612,7 @@ ${urls}
   app.delete(api.admin.deleteUser.path, async (req, res) => {
     if (!isAdmin(req)) return res.sendStatus(403);
     const id = parseInt(req.params.id);
-    if (id === (req.user as any).id) {
+    if (id === req.user!.id) {
       return res.status(400).json({ message: "No puedes eliminarte a ti mismo" });
     }
     await storage.deleteUser(id);
@@ -1387,7 +1627,7 @@ ${urls}
   app.patch(api.admin.updateWhatsappLink.path, async (req, res) => {
     if (!isAdmin(req)) return res.sendStatus(403);
     const { link } = req.body;
-    await storage.upsertSiteContent("whatsapp_group_link", { content: link || "" }, (req.user as any).id);
+    await storage.upsertSiteContent("whatsapp_group_link", { content: link || "" }, req.user!.id);
     res.json({ link: link || "" });
   });
 
@@ -1414,7 +1654,7 @@ ${urls}
       try { const u = new URL(cleaned); return ["http:", "https:"].includes(u.protocol) ? cleaned : ""; } catch { return ""; }
     };
     const config = JSON.stringify({ sourceType: type, sourceUrl: cleanUrl(sourceUrl || ""), radioUrl: cleanUrl(radioUrl || ""), title: (title || "").slice(0, 200), isLive: !!isLive });
-    await storage.upsertSiteContent("live_stream_config", { content: config }, (req.user as any).id);
+    await storage.upsertSiteContent("live_stream_config", { content: config }, req.user!.id);
     if (!!isLive && type !== "radio") {
       await storage.createNotificationForAll({
         type: "transmision",
@@ -1444,12 +1684,34 @@ ${urls}
     res.sendStatus(200);
   });
 
+  // ========== ADMIN: DATABASE BACKUPS ==========
+  app.post("/api/admin/backups", async (req, res) => {
+    if (!isAdmin(req)) return res.sendStatus(403);
+    try {
+      const { runBackup } = await import("./backup");
+      const result = await runBackup();
+      res.json(result);
+    } catch (error) {
+      res.status(500).json({ success: false, error: String(error) });
+    }
+  });
+
+  app.get("/api/admin/backups", async (req, res) => {
+    if (!isAdmin(req)) return res.sendStatus(403);
+    try {
+      const { listBackups } = await import("./backup");
+      res.json(listBackups());
+    } catch (error) {
+      res.status(500).json({ error: String(error) });
+    }
+  });
+
   // ========== BIBLIOTECA: BIBLE HIGHLIGHTS ==========
   app.get(api.bibleHighlights.list.path, async (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
     const { book, chapter } = req.query;
     const highlights = await storage.listBibleHighlights(
-      (req.user as any).id,
+      req.user!.id,
       book as string | undefined,
       chapter ? parseInt(chapter as string) : undefined
     );
@@ -1458,10 +1720,10 @@ ${urls}
 
   app.post(api.bibleHighlights.create.path, async (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
-    if (!(req.user as any).isActive) return res.sendStatus(403);
+    if (!req.user!.isActive) return res.sendStatus(403);
     try {
       const input = api.bibleHighlights.create.input.parse(req.body);
-      const highlight = await storage.createBibleHighlight((req.user as any).id, input);
+      const highlight = await storage.createBibleHighlight(req.user!.id, input);
       res.status(201).json(highlight);
     } catch (err) {
       if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });
@@ -1480,7 +1742,7 @@ ${urls}
     if (!req.isAuthenticated()) return res.sendStatus(401);
     const { book, chapter } = req.query;
     const notes = await storage.listBibleNotes(
-      (req.user as any).id,
+      req.user!.id,
       book as string | undefined,
       chapter ? parseInt(chapter as string) : undefined
     );
@@ -1489,10 +1751,10 @@ ${urls}
 
   app.post(api.bibleNotes.create.path, async (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
-    if (!(req.user as any).isActive) return res.sendStatus(403);
+    if (!req.user!.isActive) return res.sendStatus(403);
     try {
       const input = api.bibleNotes.create.input.parse(req.body);
-      const note = await storage.createBibleNote((req.user as any).id, input);
+      const note = await storage.createBibleNote(req.user!.id, input);
       res.status(201).json(note);
     } catch (err) {
       if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });
@@ -1526,7 +1788,7 @@ ${urls}
     if (isPublic === "true") {
       res.json(await storage.listPublicReadingPlans());
     } else {
-      res.json(await storage.listReadingPlans((req.user as any).id));
+      res.json(await storage.listReadingPlans(req.user!.id));
     }
   });
 
@@ -1540,10 +1802,10 @@ ${urls}
 
   app.post(api.readingPlans.create.path, async (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
-    if (!(req.user as any).isActive) return res.sendStatus(403);
+    if (!req.user!.isActive) return res.sendStatus(403);
     try {
       const input = api.readingPlans.create.input.parse(req.body);
-      const plan = await storage.createReadingPlan((req.user as any).id, input);
+      const plan = await storage.createReadingPlan(req.user!.id, input);
       res.status(201).json(plan);
     } catch (err) {
       if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });
@@ -1555,7 +1817,7 @@ ${urls}
     if (!req.isAuthenticated()) return res.sendStatus(401);
     const plan = await storage.getReadingPlan(parseInt(req.params.id));
     if (!plan) return res.sendStatus(404);
-    if (plan.userId !== (req.user as any).id && !isAdmin(req)) return res.sendStatus(403);
+    if (plan.userId !== req.user!.id && !isAdmin(req)) return res.sendStatus(403);
     await storage.deleteReadingPlan(plan.id);
     res.sendStatus(200);
   });
@@ -1576,12 +1838,12 @@ ${urls}
   // Bulk add items to a reading plan
   app.post(api.readingPlans.bulkAddItems.path, async (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
-    if (!(req.user as any).isActive) return res.sendStatus(403);
+    if (!req.user!.isActive) return res.sendStatus(403);
     try {
       const planId = parseInt(req.params.id);
       const plan = await storage.getReadingPlan(planId);
       if (!plan) return res.sendStatus(404);
-      if (plan.userId !== (req.user as any).id) return res.sendStatus(403);
+      if (plan.userId !== req.user!.id) return res.sendStatus(403);
       const { items } = req.body;
       if (!Array.isArray(items) || items.length === 0) return res.status(400).json({ message: "Se requiere un arreglo de items" });
       const validItems = items.map((item: any, idx: number) => ({
@@ -1614,16 +1876,16 @@ ${urls}
   // ========== BIBLIOTECA: READING CLUB ==========
   app.get(api.readingClub.list.path, async (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
-    if (!(req.user as any).isActive) return res.sendStatus(403);
+    if (!req.user!.isActive) return res.sendStatus(403);
     res.json(await storage.listReadingClubPosts());
   });
 
   app.post(api.readingClub.create.path, async (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
-    if (!(req.user as any).isActive) return res.sendStatus(403);
+    if (!req.user!.isActive) return res.sendStatus(403);
     try {
       const input = api.readingClub.create.input.parse(req.body);
-      const post = await storage.createReadingClubPost((req.user as any).id, input);
+      const post = await storage.createReadingClubPost(req.user!.id, input);
       res.status(201).json(post);
     } catch (err) {
       if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });
@@ -1641,15 +1903,15 @@ ${urls}
 
   app.post(api.readingClubLikes.toggle.path, async (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
-    if (!(req.user as any).isActive) return res.sendStatus(403);
+    if (!req.user!.isActive) return res.sendStatus(403);
     const postId = parseInt(req.params.id);
-    const result = await storage.toggleReadingClubPostLike(postId, (req.user as any).id);
+    const result = await storage.toggleReadingClubPostLike(postId, req.user!.id);
     res.json(result);
   });
 
   app.get("/api/reading-club/my-likes", async (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
-    res.json(await storage.getUserLikedPosts((req.user as any).id));
+    res.json(await storage.getUserLikedPosts(req.user!.id));
   });
 
   app.get(api.readingClub.listComments.path, async (req, res) => {
@@ -1659,11 +1921,11 @@ ${urls}
 
   app.post(api.readingClub.createComment.path, async (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
-    if (!(req.user as any).isActive) return res.sendStatus(403);
+    if (!req.user!.isActive) return res.sendStatus(403);
     try {
       const postId = parseInt(req.params.id);
       const input = api.readingClub.createComment.input.parse({ ...req.body, postId });
-      const comment = await storage.createReadingClubComment((req.user as any).id, input);
+      const comment = await storage.createReadingClubComment(req.user!.id, input);
       res.status(201).json(comment);
     } catch (err) {
       if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });
@@ -1681,19 +1943,19 @@ ${urls}
   // ========== BIBLIOTECA: LIBRARY RESOURCES ==========
   app.get(api.libraryResources.list.path, async (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
-    if (!(req.user as any).isActive) return res.sendStatus(403);
+    if (!req.user!.isActive) return res.sendStatus(403);
     const { category, search } = req.query;
     const resources = await storage.listLibraryResources(category as string, search as string);
-    const likedIds = await storage.getUserLikedResources((req.user as any).id);
+    const likedIds = await storage.getUserLikedResources(req.user!.id);
     res.json(resources.map(r => ({ ...r, isLiked: likedIds.includes(r.id) })));
   });
 
   app.post(api.libraryResources.create.path, async (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
-    if (!(req.user as any).isActive) return res.sendStatus(403);
+    if (!req.user!.isActive) return res.sendStatus(403);
     try {
       const input = api.libraryResources.create.input.parse(req.body);
-      const resource = await storage.createLibraryResource((req.user as any).id, input);
+      const resource = await storage.createLibraryResource(req.user!.id, input);
       res.status(201).json(resource);
     } catch (err) {
       if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });
@@ -1710,20 +1972,20 @@ ${urls}
 
   app.post(api.libraryResources.toggleLike.path, async (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
-    const result = await storage.toggleLibraryResourceLike(parseInt(req.params.id), (req.user as any).id);
+    const result = await storage.toggleLibraryResourceLike(parseInt(req.params.id), req.user!.id);
     res.json(result);
   });
 
   // ========== NOTIFICACIONES ==========
   app.get(api.notifications.list.path, async (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
-    const notifs = await storage.listNotifications((req.user as any).id);
+    const notifs = await storage.listNotifications(req.user!.id);
     res.json(notifs);
   });
 
   app.get(api.notifications.unreadCount.path, async (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
-    const count = await storage.getUnreadNotificationCount((req.user as any).id);
+    const count = await storage.getUnreadNotificationCount(req.user!.id);
     res.json({ count });
   });
 
@@ -1735,7 +1997,7 @@ ${urls}
 
   app.patch(api.notifications.markAllRead.path, async (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
-    await storage.markAllNotificationsRead((req.user as any).id);
+    await storage.markAllNotificationsRead(req.user!.id);
     res.json({ success: true });
   });
 
@@ -1752,7 +2014,7 @@ ${urls}
     }
     try {
       const input = api.prayerActivities.create.input.parse(req.body);
-      const activity = await storage.createPrayerActivity((req.user as any).id, input);
+      const activity = await storage.createPrayerActivity(req.user!.id, input);
       // Send notification to all users (non-blocking)
       try {
         await storage.createNotificationForAll({
@@ -1781,7 +2043,7 @@ ${urls}
       if (isNaN(id)) return res.status(400).json({ message: "ID de actividad invalido" });
       const activity = await storage.getPrayerActivity(id);
       if (!activity) return res.status(404).json({ message: "Actividad no encontrada" });
-      if (activity.userId !== (req.user as any).id && !isAdmin(req)) {
+      if (activity.userId !== req.user!.id && !isAdmin(req)) {
         return res.status(403).json({ message: "No tienes permiso para editar esta actividad" });
       }
       const input = api.prayerActivities.update.input.parse(req.body);
@@ -1804,7 +2066,7 @@ ${urls}
       if (isNaN(id)) return res.status(400).json({ message: "ID de actividad invalido" });
       const activity = await storage.getPrayerActivity(id);
       if (!activity) return res.status(404).json({ message: "Actividad no encontrada" });
-      if (activity.userId !== (req.user as any).id && !isAdmin(req)) {
+      if (activity.userId !== req.user!.id && !isAdmin(req)) {
         return res.status(403).json({ message: "No tienes permiso para eliminar esta actividad" });
       }
       await storage.deletePrayerActivity(id);
@@ -1829,7 +2091,7 @@ ${urls}
   app.get(api.prayerAttendees.myAttendance.path, async (req, res) => {
     if (!req.isAuthenticated()) return res.json(null);
     const activityId = parseInt(req.params.activityId);
-    const attendance = await storage.getPrayerAttendee(activityId, (req.user as any).id);
+    const attendance = await storage.getPrayerAttendee(activityId, req.user!.id);
     res.json(attendance || null);
   });
 
@@ -1841,20 +2103,20 @@ ${urls}
       const activity = activities.find(a => a.id === activityId);
       if (!activity) return res.sendStatus(404);
       const input = api.prayerAttendees.upsert.input.parse({ ...req.body, activityId });
-      const attendance = await storage.upsertPrayerAttendee(activityId, (req.user as any).id, input);
+      const attendance = await storage.upsertPrayerAttendee(activityId, req.user!.id, input);
 
       if (input.status !== "no_asistire") {
         try {
           let dateInfo = "";
           if (activity.scheduledDate) {
-            const actDate = new Date(activity.scheduledDate as any);
+            const actDate = new Date(activity.scheduledDate as string | Date);
             const formattedDate = actDate.toLocaleDateString("es-ES", { weekday: "long", day: "numeric", month: "long" });
             const formattedTime = actDate.toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" });
             dateInfo = ` el ${formattedDate} a las ${formattedTime}`;
           }
           const statusLabel = input.status === "tal_vez" ? "indicado que tal vez asistiras" : "confirmado tu asistencia";
           await storage.createNotification({
-            userId: (req.user as any).id,
+            userId: req.user!.id,
             type: "oracion",
             title: `Recordatorio: ${activity.title}`,
             content: `Has ${statusLabel} para "${activity.title}"${dateInfo}.${activity.meetingUrl ? ' Enlace: ' + activity.meetingUrl : ''}`,
@@ -1875,7 +2137,7 @@ ${urls}
   app.delete(api.prayerAttendees.cancel.path, async (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
     const activityId = parseInt(req.params.activityId);
-    await storage.cancelPrayerAttendance(activityId, (req.user as any).id);
+    await storage.cancelPrayerAttendance(activityId, req.user!.id);
     res.sendStatus(200);
   });
 
@@ -1992,7 +2254,7 @@ ${urls}
     if (!isTeacherOrAdmin(req)) return res.sendStatus(403);
     const parsed = api.cartelera.create.input.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ message: parsed.error.message });
-    const ann = await storage.createCarteleraAnnouncement((req.user as any).id, parsed.data);
+    const ann = await storage.createCarteleraAnnouncement(req.user!.id, parsed.data);
     res.json(ann);
   });
 
@@ -2002,7 +2264,7 @@ ${urls}
     const id = parseInt(req.params.id);
     const existing = await storage.getCarteleraAnnouncement(id);
     if (!existing) return res.status(404).json({ message: "Anuncio no encontrado" });
-    if (!isAdmin(req) && existing.authorId !== (req.user as any).id) return res.sendStatus(403);
+    if (!isAdmin(req) && existing.authorId !== req.user!.id) return res.sendStatus(403);
     const parsed = api.cartelera.update.input.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ message: parsed.error.message });
     const updated = await storage.updateCarteleraAnnouncement(id, parsed.data);
@@ -2015,7 +2277,7 @@ ${urls}
     const id = parseInt(req.params.id);
     const existing = await storage.getCarteleraAnnouncement(id);
     if (!existing) return res.status(404).json({ message: "Anuncio no encontrado" });
-    if (!isAdmin(req) && existing.authorId !== (req.user as any).id) return res.sendStatus(403);
+    if (!isAdmin(req) && existing.authorId !== req.user!.id) return res.sendStatus(403);
     await storage.deleteCarteleraAnnouncement(id);
     res.json({ success: true });
   });
@@ -2029,7 +2291,7 @@ ${urls}
     destination: (_req, _file, cb) => cb(null, postImgDir),
     filename: (req, _file, cb) => {
       const ext = path.extname(_file.originalname).toLowerCase() || ".jpg";
-      cb(null, `post-${(req.user as any)?.id || "unknown"}-${Date.now()}${ext}`);
+      cb(null, `post-${req.user?.id || "unknown"}-${Date.now()}${ext}`);
     },
   });
   const postImageUpload = multer({
@@ -2041,16 +2303,20 @@ ${urls}
     },
   });
 
-  app.post("/api/upload/post-image", uploadLimiter, postImageUpload.single("image"), async (req, res) => {
+  app.post("/api/upload/post-image", uploadLimiter as RequestHandler, postImageUpload.single("image") as RequestHandler, async (req: Request, res: Response) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
     if (!req.file) return res.status(400).json({ message: "No se envio ninguna imagen" });
     try {
-      // Optimize image then store as base64 data URL
+      // Optimize image then upload to storage
       const optimized = await optimizePostImage(req.file.path);
-      const base64 = optimized.toString("base64");
-      const imageUrl = `data:image/webp;base64,${base64}`;
+      const result = await uploadFile({
+        folder: "posts",
+        filename: `post-${Date.now()}.webp`,
+        buffer: optimized,
+        contentType: "image/webp",
+      });
       try { fs.unlinkSync(req.file.path); } catch (_) {}
-      res.json({ imageUrl });
+      res.json({ imageUrl: result.url });
     } catch (err) {
       console.error("Post image upload error:", err);
       res.status(500).json({ message: "Error al subir imagen" });
@@ -2067,11 +2333,11 @@ ${urls}
 
   app.post(api.postComments.create.path, async (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
-    if (!(req.user as any).isActive) return res.sendStatus(403);
+    if (!req.user!.isActive) return res.sendStatus(403);
     try {
       const postId = parseInt(req.params.postId);
       const input = api.postComments.create.input.parse({ ...req.body, postId });
-      const comment = await storage.createPostComment((req.user as any).id, input);
+      const comment = await storage.createPostComment(req.user!.id, input);
       res.status(201).json(comment);
     } catch (err) {
       if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });
@@ -2085,7 +2351,7 @@ ${urls}
     const comment = await storage.getPostComment(commentId);
     if (!comment) return res.sendStatus(404);
     // Allow owner or admin to delete
-    if (comment.userId !== (req.user as any).id && !isAdmin(req)) {
+    if (comment.userId !== req.user!.id && !isAdmin(req)) {
       return res.sendStatus(403);
     }
     await storage.deletePostComment(commentId);
@@ -2095,34 +2361,34 @@ ${urls}
   // ========== DIRECT MESSAGES ==========
   app.get(api.directMessages.conversations.path, async (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
-    const conversations = await storage.listConversations((req.user as any).id);
+    const conversations = await storage.listConversations(req.user!.id);
     res.json(conversations);
   });
 
   app.get(api.directMessages.unreadCount.path, async (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
-    const count = await storage.getUnreadDirectMessageCount((req.user as any).id);
+    const count = await storage.getUnreadDirectMessageCount(req.user!.id);
     res.json({ count });
   });
 
   app.get(api.directMessages.list.path, async (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
     const otherUserId = parseInt(req.params.userId);
-    const messages = await storage.listDirectMessages((req.user as any).id, otherUserId);
+    const messages = await storage.listDirectMessages(req.user!.id, otherUserId);
     // Mark messages as read
-    await storage.markDirectMessagesRead((req.user as any).id, otherUserId);
+    await storage.markDirectMessagesRead(req.user!.id, otherUserId);
     res.json(messages);
   });
 
   app.post(api.directMessages.send.path, async (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
-    if (!(req.user as any).isActive) return res.sendStatus(403);
+    if (!req.user!.isActive) return res.sendStatus(403);
     try {
       const input = api.directMessages.send.input.parse(req.body);
-      if (input.receiverId === (req.user as any).id) {
+      if (input.receiverId === req.user!.id) {
         return res.status(400).json({ message: "No puedes enviarte mensajes a ti mismo" });
       }
-      const msg = await storage.sendDirectMessage((req.user as any).id, input);
+      const msg = await storage.sendDirectMessage(req.user!.id, input);
       res.status(201).json(msg);
     } catch (err) {
       if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });
@@ -2133,7 +2399,7 @@ ${urls}
   app.patch(api.directMessages.markRead.path, async (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
     const otherUserId = parseInt(req.params.userId);
-    await storage.markDirectMessagesRead((req.user as any).id, otherUserId);
+    await storage.markDirectMessagesRead(req.user!.id, otherUserId);
     res.json({ success: true });
   });
 
@@ -2197,7 +2463,7 @@ ${urls}
       const input = api.churchPosts.create.input.parse(req.body);
       const church = await storage.getMinistryChurch(input.churchId);
       if (!church || !church.isActive) return res.status(400).json({ message: "Iglesia no valida o inactiva" });
-      const post = await storage.createChurchPost((req.user as any).id, input);
+      const post = await storage.createChurchPost(req.user!.id, input);
       res.status(201).json(post);
     } catch (err) {
       if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });
@@ -2225,7 +2491,7 @@ ${urls}
     const allRegions = await storage.listMinistryRegions();
     const validRegionNames = allRegions.filter(r => r.isActive).map(r => r.name);
     if (!validRegionNames.includes(input.region)) return res.status(400).json({ message: "Region no valida" });
-    const post = await storage.createRegionPost((req.user as any).id, input);
+    const post = await storage.createRegionPost(req.user!.id, input);
     res.status(201).json(post);
   });
 
@@ -2242,7 +2508,7 @@ ${urls}
     const postId = parseInt(req.params.id);
     const { reactionType } = req.body;
     if (!reactionType) return res.status(400).json({ message: "Tipo de reaccion requerido" });
-    const result = await storage.toggleRegionPostReaction(postId, (req.user as any).id, reactionType);
+    const result = await storage.toggleRegionPostReaction(postId, req.user!.id, reactionType);
     res.json(result);
   });
 
@@ -2271,14 +2537,14 @@ ${urls}
   app.post("/api/region-polls/:optionId/vote", async (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
     const optionId = parseInt(req.params.optionId);
-    const result = await storage.voteRegionPostPoll(optionId, (req.user as any).id);
+    const result = await storage.voteRegionPostPoll(optionId, req.user!.id);
     res.json(result);
   });
 
   app.get("/api/region-posts/:id/my-vote", async (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
     const postId = parseInt(req.params.id);
-    const optionId = await storage.getUserPollVote(postId, (req.user as any).id);
+    const optionId = await storage.getUserPollVote(postId, req.user!.id);
     res.json({ optionId });
   });
 
