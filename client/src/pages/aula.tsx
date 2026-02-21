@@ -1025,10 +1025,21 @@ function MaterialCard({
         </div>
       </div>
       <div className="flex items-center gap-1">
-        {material.fileUrl && (
-          <a href={material.fileUrl} target="_blank" rel="noopener noreferrer">
-            <Button size="sm" variant="outline"><ExternalLink className="w-4 h-4 mr-1" /> {material.fileName || "Abrir"}</Button>
-          </a>
+        {(material.fileData || material.fileUrl) && (
+          material.fileData ? (
+            <Button size="sm" variant="outline" onClick={() => {
+              const link = document.createElement('a');
+              link.href = material.fileData!;
+              link.download = material.fileName || 'archivo';
+              document.body.appendChild(link);
+              link.click();
+              document.body.removeChild(link);
+            }}><ExternalLink className="w-4 h-4 mr-1" /> {material.fileName || "Descargar"}</Button>
+          ) : (
+            <a href={material.fileUrl!} target="_blank" rel="noopener noreferrer">
+              <Button size="sm" variant="outline"><ExternalLink className="w-4 h-4 mr-1" /> {material.fileName || "Abrir"}</Button>
+            </a>
+          )
         )}
         {canManage && (
           <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -1315,11 +1326,24 @@ function AnnouncementCard({
         )}
       </div>
       <p className="text-sm whitespace-pre-wrap mb-3">{announcement.content}</p>
-      {announcement.fileUrl && (
+      {(announcement.fileData || announcement.fileUrl) && (
         <p className="mt-2">
-          <a href={announcement.fileUrl} target="_blank" rel="noopener noreferrer" className="underline text-sm">
-            {announcement.fileName || announcement.fileUrl}
-          </a>
+          {announcement.fileData ? (
+            <button className="underline text-sm text-primary" onClick={() => {
+              const link = document.createElement('a');
+              link.href = announcement.fileData!;
+              link.download = announcement.fileName || 'archivo';
+              document.body.appendChild(link);
+              link.click();
+              document.body.removeChild(link);
+            }}>
+              {announcement.fileName || "Descargar adjunto"}
+            </button>
+          ) : (
+            <a href={announcement.fileUrl} target="_blank" rel="noopener noreferrer" className="underline text-sm">
+              {announcement.fileName || announcement.fileUrl}
+            </a>
+          )}
         </p>
       )}
       <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">

@@ -194,6 +194,7 @@ CREATE TABLE IF NOT EXISTS "course_schedule" (
   "day_of_week" integer NOT NULL,
   "start_time" text NOT NULL,
   "end_time" text NOT NULL,
+  "specific_date" text,
   "meeting_url" text,
   "meeting_platform" text DEFAULT 'zoom',
   "description" text,
@@ -503,6 +504,8 @@ const ADD_COLUMNS_SQL = [
   `ALTER TABLE "library_resources" ADD COLUMN IF NOT EXISTS "file_url" text`,
   `ALTER TABLE "library_resources" ADD COLUMN IF NOT EXISTS "file_name" text`,
   `ALTER TABLE "library_resources" ADD COLUMN IF NOT EXISTS "file_size" integer`,
+  // course_schedule - missing column
+  `ALTER TABLE "course_schedule" ADD COLUMN IF NOT EXISTS "specific_date" text`,
   // course material attachments
   `ALTER TABLE "course_materials" ADD COLUMN IF NOT EXISTS "file_name" text`,
   `ALTER TABLE "course_materials" ADD COLUMN IF NOT EXISTS "file_size" integer`,

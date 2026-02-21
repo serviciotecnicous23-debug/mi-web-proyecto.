@@ -339,11 +339,24 @@ function CarteleraAnnouncementCard({ announcement, canManage, currentUserId, onU
               <>
                 <h3 className="font-semibold text-base break-words">{announcement.title}</h3>
                 <p className="text-sm text-muted-foreground mt-1 whitespace-pre-wrap break-words">{announcement.content}</p>
-                {announcement.fileUrl && (
+                {(announcement.fileData || announcement.fileUrl) && (
                   <p className="mt-2">
-                    <a href={announcement.fileUrl} target="_blank" rel="noopener noreferrer" className="text-sm underline">
-                      {announcement.fileName || announcement.fileUrl}
-                    </a>
+                    {announcement.fileData ? (
+                      <button className="text-sm underline text-primary" onClick={() => {
+                        const link = document.createElement('a');
+                        link.href = announcement.fileData!;
+                        link.download = announcement.fileName || 'archivo';
+                        document.body.appendChild(link);
+                        link.click();
+                        document.body.removeChild(link);
+                      }}>
+                        {announcement.fileName || "Descargar adjunto"}
+                      </button>
+                    ) : (
+                      <a href={announcement.fileUrl} target="_blank" rel="noopener noreferrer" className="text-sm underline">
+                        {announcement.fileName || announcement.fileUrl}
+                      </a>
+                    )}
                   </p>
                 )}
               </>
