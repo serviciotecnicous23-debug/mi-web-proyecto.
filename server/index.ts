@@ -83,16 +83,17 @@ app.use("/uploads", express.static(path.join(process.cwd(), "uploads"), {
 
 app.use(
   express.json({
-    limit: "10mb",
-    verify: (req, _res, buf) => {
-      req.rawBody = buf;
-    },
-  }),
+      // increase limit so that base64-encoded file uploads (used by materials, cartelera, etc.)
+      // do not trigger a 413 payload-too-large error. 20MB files expand to ~27MB in JSON.
+      limit: "30mb",
+      verify: (req, _res, buf) => {
+        req.rawBody = buf;
+      },
+    }),
 );
 
-app.use(express.urlencoded({ extended: false, limit: "10mb" }));
-
-export function log(message: string, source = "express") {
+// also bump urlencoded since we occasionally send larger form bodies
+app.use(express.urlencoded({ extended: false, limit: "30mb" }));
   const formattedTime = new Date().toLocaleTimeString("en-US", {
     hour: "numeric",
     minute: "2-digit",

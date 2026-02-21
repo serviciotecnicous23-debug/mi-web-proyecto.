@@ -1095,6 +1095,7 @@ export class DatabaseStorage implements IStorage {
       dayOfWeek: data.dayOfWeek,
       startTime: data.startTime,
       endTime: data.endTime,
+      specificDate: data.specificDate || null,
       meetingUrl: data.meetingUrl || null,
       meetingPlatform: data.meetingPlatform || "zoom",
       description: data.description || null,
