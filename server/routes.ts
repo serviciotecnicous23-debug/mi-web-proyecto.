@@ -1295,12 +1295,12 @@ ${urls}
           const recipients = allUsers.filter(u => 
             u.email && u.isActive && u.emailNotifyNewCourse !== false && u.id !== req.user!.id
           );
-          // Limit to first 30 to avoid overwhelming the queue
-          for (const recipient of recipients.slice(0, 30)) {
+          // Queue all — rate-limited queue (1/sec) prevents API saturation
+          for (const recipient of recipients) {
             sendNewCourseEmail(recipient.email!, course.title, course.id, recipient.displayName);
           }
           if (recipients.length > 0) {
-            console.log(`[email] Queued new course notification for ${Math.min(recipients.length, 30)} users`);
+            console.log(`[email] Queued new course notification for ${recipients.length} users (rate-limited 1/sec)`);
           }
         } catch (emailErr) {
           console.error("[email] New course notification error (non-blocking):", emailErr);

@@ -33,7 +33,7 @@ if (isEmailConfigured) {
 
 // ─── Rate-limited queue ──────────────────────────────────────────────────────
 
-const MAX_QUEUE_SIZE = 50; // Drop emails if queue backs up (prevents OOM)
+const MAX_QUEUE_SIZE = 500; // Enough headroom for bulk course notifications
 const SEND_INTERVAL_MS = 500; // Max 2 emails/second
 const emailQueue: Array<{ to: string; subject: string; html: string }> = [];
 let queueProcessing = false;
