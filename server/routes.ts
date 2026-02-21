@@ -20,7 +20,7 @@ import fs from "fs";
 import type { AuthenticatedRequest } from "./types";
 import "./types"; // side-effect: augment Express.User
 import { uploadFile } from "./file-storage";
-import { sendPasswordResetEmail, sendVerificationEmail, sendWelcomeEmail, isEmailConfigured } from "./email";
+import { sendPasswordResetEmail, sendVerificationEmail, sendWelcomeEmail, sendAccountApprovedEmail, sendDirectMessageEmail, sendNewCourseEmail, sendEventReminderEmail, isEmailConfigured } from "./email";
 import { sendPushToMany, getVapidPublicKey, isPushConfigured, type PushPayload } from "./push";
 
 const scryptAsync = promisify(scrypt);
@@ -713,6 +713,43 @@ ${urls}
     }
   });
 
+  // ========== EMAIL NOTIFICATION PREFERENCES ==========
+  app.get("/api/email-preferences", (req, res) => {
+    if (!req.isAuthenticated()) return res.status(401).json({ message: "No autenticado" });
+    const user = req.user!;
+    res.json({
+      emailNotifyAccountApproved: user.emailNotifyAccountApproved ?? true,
+      emailNotifyDirectMessage: user.emailNotifyDirectMessage ?? true,
+      emailNotifyNewCourse: user.emailNotifyNewCourse ?? true,
+      emailNotifyEventReminder: user.emailNotifyEventReminder ?? true,
+    });
+  });
+
+  app.patch("/api/email-preferences", async (req, res) => {
+    if (!req.isAuthenticated()) return res.status(401).json({ message: "No autenticado" });
+    const { emailNotifyAccountApproved, emailNotifyDirectMessage, emailNotifyNewCourse, emailNotifyEventReminder } = req.body;
+    try {
+      const updates: Record<string, boolean> = {};
+      if (typeof emailNotifyAccountApproved === "boolean") updates.emailNotifyAccountApproved = emailNotifyAccountApproved;
+      if (typeof emailNotifyDirectMessage === "boolean") updates.emailNotifyDirectMessage = emailNotifyDirectMessage;
+      if (typeof emailNotifyNewCourse === "boolean") updates.emailNotifyNewCourse = emailNotifyNewCourse;
+      if (typeof emailNotifyEventReminder === "boolean") updates.emailNotifyEventReminder = emailNotifyEventReminder;
+      
+      const updatedUser = await storage.updateUser(req.user!.id, updates as any);
+      // Update session user
+      Object.assign(req.user!, updates);
+      res.json({
+        emailNotifyAccountApproved: updatedUser.emailNotifyAccountApproved,
+        emailNotifyDirectMessage: updatedUser.emailNotifyDirectMessage,
+        emailNotifyNewCourse: updatedUser.emailNotifyNewCourse,
+        emailNotifyEventReminder: updatedUser.emailNotifyEventReminder,
+      });
+    } catch (err) {
+      console.error("Update email preferences error:", err);
+      res.status(500).json({ message: "Error al actualizar preferencias" });
+    }
+  });
+
   // ========== PUSH NOTIFICATIONS ==========
   app.get("/api/push/vapid-key", (_req, res) => {
     res.json({ key: getVapidPublicKey(), configured: isPushConfigured });
@@ -1146,6 +1183,16 @@ ${urls}
             content: `Te has confirmado para "${event.title}" el ${formattedDate} a las ${formattedTime}. Ubicacion: ${event.location}${event.meetingUrl ? '. Enlace: ' + event.meetingUrl : ''}`,
             link: "/eventos",
           });
+          
+          // Email reminder for event RSVP (non-blocking)
+          if (isEmailConfigured && req.user!.email && req.user!.emailNotifyEventReminder !== false) {
+            sendEventReminderEmail(
+              req.user!.email,
+              event.title,
+              `${formattedDate} a las ${formattedTime}`,
+              req.user!.displayName
+            );
+          }
         } catch (notifErr) {
           console.error("Error creating RSVP notification (non-blocking):", notifErr);
         }
@@ -1240,6 +1287,26 @@ ${urls}
         content: `Se abrio el curso: ${course.title}`,
         link: `/capacitaciones/${course.id}`,
       });
+      
+      // Email notification for new course (non-blocking, batched)
+      if (isEmailConfigured) {
+        try {
+          const allUsers = await storage.listUsers();
+          const recipients = allUsers.filter(u => 
+            u.email && u.isActive && u.emailNotifyNewCourse !== false && u.id !== req.user!.id
+          );
+          // Limit to first 30 to avoid overwhelming the queue
+          for (const recipient of recipients.slice(0, 30)) {
+            sendNewCourseEmail(recipient.email!, course.title, course.id, recipient.displayName);
+          }
+          if (recipients.length > 0) {
+            console.log(`[email] Queued new course notification for ${Math.min(recipients.length, 30)} users`);
+          }
+        } catch (emailErr) {
+          console.error("[email] New course notification error (non-blocking):", emailErr);
+        }
+      }
+      
       res.status(201).json(course);
     } catch (err) {
       if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });
@@ -1611,6 +1678,12 @@ ${urls}
     if (!isAdmin(req)) return res.sendStatus(403);
     const user = await storage.toggleUserActive(parseInt(req.params.id));
     if (!user) return res.sendStatus(404);
+    
+    // Send email when account is ACTIVATED (not deactivated)
+    if (user.isActive && user.email && isEmailConfigured && user.emailNotifyAccountApproved !== false) {
+      sendAccountApprovedEmail(user.email, user.displayName);
+    }
+    
     res.json(user);
   });
 
@@ -2433,6 +2506,20 @@ ${urls}
         return res.status(400).json({ message: "No puedes enviarte mensajes a ti mismo" });
       }
       const msg = await storage.sendDirectMessage(req.user!.id, input);
+      
+      // Email notification for direct message (non-blocking)
+      if (isEmailConfigured) {
+        try {
+          const receiver = await storage.getUser(input.receiverId);
+          if (receiver?.email && receiver.emailNotifyDirectMessage !== false) {
+            const senderName = req.user!.displayName || req.user!.username;
+            sendDirectMessageEmail(receiver.email, senderName, input.content, receiver.displayName);
+          }
+        } catch (emailErr) {
+          console.error("[email] DM notification error (non-blocking):", emailErr);
+        }
+      }
+      
       res.status(201).json(msg);
     } catch (err) {
       if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });

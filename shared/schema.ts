@@ -187,6 +187,10 @@ export const updateUserSchema = createInsertSchema(users).pick({
   emailVerifyToken: true,
   emailVerifyExpires: true,
   password: true,
+  emailNotifyAccountApproved: true,
+  emailNotifyDirectMessage: true,
+  emailNotifyNewCourse: true,
+  emailNotifyEventReminder: true,
 }).partial();
 
 export const changePasswordSchema = z.object({

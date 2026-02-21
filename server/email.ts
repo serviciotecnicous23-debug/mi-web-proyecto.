@@ -241,3 +241,124 @@ export function getEmailStatus(): { configured: boolean; queueLength: number; fr
     from: EMAIL_FROM,
   };
 }
+
+// ─── Notification Emails (optional, respect user preferences) ────────────────
+
+const EMAIL_FOOTER = `
+  <hr style="border: none; border-top: 1px solid #eee; margin: 30px 0;" />
+  <p style="color: #aaa; font-size: 11px; text-align: center;">
+    Avivando el Fuego — Ministerio Internacional<br/>
+    <a href="${APP_URL}/perfil?tab=notificaciones" style="color: #aaa;">Cambiar preferencias de correo</a>
+  </p>
+`;
+
+const EMAIL_HEADER = `
+  <div style="text-align: center; margin-bottom: 30px;">
+    <h1 style="color: #e67e22; margin: 0;">🔥 Avivando el Fuego</h1>
+    <p style="color: #666; margin-top: 5px;">Ministerio Internacional</p>
+  </div>
+`;
+
+/**
+ * Notify user their account was approved by admin. Non-blocking.
+ */
+export function sendAccountApprovedEmail(to: string, displayName?: string | null): void {
+  const name = displayName || "Hermano/a";
+  enqueueEmail(to, "Tu cuenta fue aprobada! 🎉 — Avivando el Fuego", `
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+      ${EMAIL_HEADER}
+      <h2 style="color: #333;">Hola ${name},</h2>
+      <p style="color: #555; line-height: 1.6;">
+        Buenas noticias! Un administrador ha <strong>aprobado tu cuenta</strong>. 
+        Ahora tienes acceso completo a todos los recursos del ministerio.
+      </p>
+      <div style="text-align: center; margin: 30px 0;">
+        <a href="${APP_URL}" 
+           style="background: #e67e22; color: white; padding: 14px 32px; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 16px; display: inline-block;">
+          Ir a la Plataforma
+        </a>
+      </div>
+      ${EMAIL_FOOTER}
+    </div>
+  `);
+}
+
+/**
+ * Notify user they received a direct message. Non-blocking.
+ */
+export function sendDirectMessageEmail(to: string, senderName: string, messagePreview: string, receiverName?: string | null): void {
+  const name = receiverName || "Hermano/a";
+  const preview = messagePreview.length > 100 ? messagePreview.substring(0, 100) + "..." : messagePreview;
+  enqueueEmail(to, `Nuevo mensaje de ${senderName} — Avivando el Fuego`, `
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+      ${EMAIL_HEADER}
+      <h2 style="color: #333;">Hola ${name},</h2>
+      <p style="color: #555; line-height: 1.6;">
+        <strong>${senderName}</strong> te envio un mensaje:
+      </p>
+      <div style="background: #f5f5f5; border-left: 4px solid #e67e22; padding: 15px; margin: 20px 0; border-radius: 4px;">
+        <p style="color: #555; margin: 0; font-style: italic;">"${preview}"</p>
+      </div>
+      <div style="text-align: center; margin: 30px 0;">
+        <a href="${APP_URL}/mensajes" 
+           style="background: #e67e22; color: white; padding: 14px 32px; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 16px; display: inline-block;">
+          Ver Mensaje
+        </a>
+      </div>
+      ${EMAIL_FOOTER}
+    </div>
+  `);
+}
+
+/**
+ * Notify users about a new course. Non-blocking.
+ */
+export function sendNewCourseEmail(to: string, courseName: string, courseId: number, receiverName?: string | null): void {
+  const name = receiverName || "Hermano/a";
+  enqueueEmail(to, `Nuevo Curso: ${courseName} — Avivando el Fuego`, `
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+      ${EMAIL_HEADER}
+      <h2 style="color: #333;">Hola ${name},</h2>
+      <p style="color: #555; line-height: 1.6;">
+        Se ha publicado un nuevo curso en la plataforma:
+      </p>
+      <div style="background: #fff8f0; border: 1px solid #f0d0a0; padding: 20px; margin: 20px 0; border-radius: 8px; text-align: center;">
+        <h3 style="color: #e67e22; margin: 0 0 10px 0;">📚 ${courseName}</h3>
+      </div>
+      <div style="text-align: center; margin: 30px 0;">
+        <a href="${APP_URL}/capacitaciones/${courseId}" 
+           style="background: #e67e22; color: white; padding: 14px 32px; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 16px; display: inline-block;">
+          Ver Curso
+        </a>
+      </div>
+      ${EMAIL_FOOTER}
+    </div>
+  `);
+}
+
+/**
+ * Notify user about an upcoming event. Non-blocking.
+ */
+export function sendEventReminderEmail(to: string, eventTitle: string, eventDate: string, receiverName?: string | null): void {
+  const name = receiverName || "Hermano/a";
+  enqueueEmail(to, `Recordatorio: ${eventTitle} — Avivando el Fuego`, `
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+      ${EMAIL_HEADER}
+      <h2 style="color: #333;">Hola ${name},</h2>
+      <p style="color: #555; line-height: 1.6;">
+        Te recordamos que tienes un evento proximo:
+      </p>
+      <div style="background: #fff8f0; border: 1px solid #f0d0a0; padding: 20px; margin: 20px 0; border-radius: 8px; text-align: center;">
+        <h3 style="color: #e67e22; margin: 0 0 10px 0;">📅 ${eventTitle}</h3>
+        <p style="color: #666; margin: 0;">Fecha: <strong>${eventDate}</strong></p>
+      </div>
+      <div style="text-align: center; margin: 30px 0;">
+        <a href="${APP_URL}/eventos" 
+           style="background: #e67e22; color: white; padding: 14px 32px; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 16px; display: inline-block;">
+          Ver Eventos
+        </a>
+      </div>
+      ${EMAIL_FOOTER}
+    </div>
+  `);
+}

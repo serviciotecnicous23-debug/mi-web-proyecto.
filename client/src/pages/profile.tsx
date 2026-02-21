@@ -23,7 +23,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Save, Camera, Lock, UserPlus, UserMinus, Check, X, Search, Users, GraduationCap, BookOpen, Award } from "lucide-react";
+import { Loader2, Save, Camera, Lock, UserPlus, UserMinus, Check, X, Search, Users, GraduationCap, BookOpen, Award, Bell } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import { SocialLinksDisplay, SocialLinksFormFields } from "@/components/SocialLinks";
 import { COURSE_CATEGORIES, ENROLLMENT_STATUSES } from "@shared/schema";
@@ -39,6 +40,7 @@ export default function Profile() {
     const tab = new URLSearchParams(window.location.search).get("tab");
     if (tab === "amigos") return "amigos";
     if (tab === "capacitaciones") return "capacitaciones";
+    if (tab === "notificaciones") return "notificaciones";
     return "perfil";
   })();
   const updateMutation = useUpdateUser();
@@ -268,6 +270,9 @@ export default function Profile() {
             </TabsTrigger>
             <TabsTrigger value="amigos">
               Amigos {friendRequests.length > 0 && <Badge variant="destructive" className="ml-1 h-5 min-w-5 text-xs">{friendRequests.length}</Badge>}
+            </TabsTrigger>
+            <TabsTrigger value="notificaciones">
+              <Bell className="w-4 h-4 mr-1" /> Notificaciones
             </TabsTrigger>
           </TabsList>
 
@@ -695,6 +700,10 @@ export default function Profile() {
               </Card>
             </div>
           </TabsContent>
+
+          <TabsContent value="notificaciones">
+            <NotificacionesTab />
+          </TabsContent>
         </Tabs>
       </div>
 
@@ -743,5 +752,81 @@ export default function Profile() {
         </DialogContent>
       </Dialog>
     </Layout>
+  );
+}
+
+/* ─── Notifications Preferences Tab ─── */
+
+const NOTIFICATION_PREFS = [
+  { key: "emailNotifyAccountApproved", label: "Cuenta aprobada", description: "Recibir email cuando tu cuenta sea activada por un administrador." },
+  { key: "emailNotifyDirectMessage", label: "Mensajes directos", description: "Recibir email cuando alguien te envíe un mensaje directo." },
+  { key: "emailNotifyNewCourse", label: "Nuevos cursos", description: "Recibir email cuando se publique un nuevo curso o capacitación." },
+  { key: "emailNotifyEventReminder", label: "Recordatorios de eventos", description: "Recibir email de confirmación cuando te registres a un evento." },
+] as const;
+
+function NotificacionesTab() {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+
+  const { data: prefs, isLoading } = useQuery<Record<string, boolean>>({
+    queryKey: ["/api/email-preferences"],
+    queryFn: async () => {
+      const res = await fetch("/api/email-preferences", { credentials: "include" });
+      if (!res.ok) throw new Error("Error al cargar preferencias");
+      return res.json();
+    },
+  });
+
+  const mutation = useMutation({
+    mutationFn: async (patch: Record<string, boolean>) => {
+      const res = await fetch("/api/email-preferences", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify(patch),
+      });
+      if (!res.ok) throw new Error("Error al guardar");
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/email-preferences"] });
+    },
+    onError: () => {
+      toast({ title: "Error", description: "No se pudo guardar la preferencia.", variant: "destructive" });
+    },
+  });
+
+  if (isLoading) {
+    return (
+      <Card>
+        <CardContent className="flex justify-center py-12">
+          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2"><Bell className="h-5 w-5" /> Notificaciones por Email</CardTitle>
+        <CardDescription>Elige qué notificaciones deseas recibir. Puedes cambiarlas en cualquier momento.</CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-6">
+        {NOTIFICATION_PREFS.map(({ key, label, description }) => (
+          <div key={key} className="flex items-center justify-between gap-4">
+            <div className="space-y-0.5">
+              <p className="text-sm font-medium">{label}</p>
+              <p className="text-xs text-muted-foreground">{description}</p>
+            </div>
+            <Switch
+              checked={prefs?.[key] !== false}
+              onCheckedChange={(checked: boolean) => mutation.mutate({ [key]: checked })}
+              disabled={mutation.isPending}
+            />
+          </div>
+        ))}
+      </CardContent>
+    </Card>
   );
 }
