@@ -94,6 +94,8 @@ app.use(
 
 // also bump urlencoded since we occasionally send larger form bodies
 app.use(express.urlencoded({ extended: false, limit: "30mb" }));
+
+export function log(message: string, source = "express") {
   const formattedTime = new Date().toLocaleTimeString("en-US", {
     hour: "numeric",
     minute: "2-digit",
