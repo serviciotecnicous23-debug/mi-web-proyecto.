@@ -24,6 +24,13 @@ const APP_URL = process.env.APP_URL || (process.env.NODE_ENV === "production" ? 
 
 export const isEmailConfigured = !!RESEND_API_KEY;
 
+// Log email configuration status on startup
+if (isEmailConfigured) {
+  console.log(`[email] Service ACTIVE — sending from: ${EMAIL_FROM}, app URL: ${APP_URL}`);
+} else {
+  console.warn("[email] Service DISABLED — RESEND_API_KEY not set. Emails will NOT be sent.");
+}
+
 // ─── Rate-limited queue ──────────────────────────────────────────────────────
 
 const MAX_QUEUE_SIZE = 50; // Drop emails if queue backs up (prevents OOM)
@@ -81,13 +88,20 @@ async function sendEmailDirect(to: string, subject: string, html: string): Promi
 
   try {
     const resend = getResend();
-    await resend.emails.send({
+    const result = await resend.emails.send({
       from: EMAIL_FROM,
       to,
       subject,
       html,
     });
-    console.log(`[email] Sent: "${subject}" → ${to}`);
+    if (result.error) {
+      console.error(`[email] Resend API error for ${to}:`, result.error);
+      throw new Error(`Resend API: ${result.error.message || JSON.stringify(result.error)}`);
+    }
+    console.log(`[email] Sent: "${subject}" → ${to} (id: ${result.data?.id || "unknown"})`);
+  } catch (err) {
+    console.error(`[email] Failed to send "${subject}" → ${to}:`, err instanceof Error ? err.message : err);
+    throw err;
   } finally {
     clearTimeout(timeout);
   }

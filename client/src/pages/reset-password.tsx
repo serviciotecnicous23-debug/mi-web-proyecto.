@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Link, useSearch } from "wouter";
+import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -22,8 +22,7 @@ const resetSchema = z.object({
 
 export default function ResetPasswordPage() {
   const { toast } = useToast();
-  const searchString = useSearch();
-  const params = new URLSearchParams(searchString);
+  const params = new URLSearchParams(window.location.search);
   const token = params.get("token");
   const [success, setSuccess] = useState(false);
   const [loading, setLoading] = useState(false);

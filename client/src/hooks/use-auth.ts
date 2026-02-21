@@ -60,7 +60,10 @@ export function useAuth() {
       if (data.pending) {
         toast({
           title: "Registro exitoso",
-          description: "Tu cuenta esta activa. Un administrador aprobara tu cuenta para acceso completo.",
+          description: data.email
+            ? "Te enviamos un correo de verificacion. Revisa tu bandeja de entrada y spam."
+            : "Tu cuenta fue creada. Un administrador la activara para acceso completo.",
+          duration: 8000,
         });
       } else {
         toast({ title: "Bienvenido!", description: "Cuenta creada exitosamente" });

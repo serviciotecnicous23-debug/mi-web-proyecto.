@@ -1,5 +1,6 @@
 import { Link, useLocation } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
+import { useToast } from "@/hooks/use-toast";
 import {
   LogOut,
   User,
@@ -8,6 +9,8 @@ import {
   Flame,
   Menu,
   X,
+  MailWarning,
+  Loader2,
   MessageSquare,
   GraduationCap,
   BookOpen,
@@ -413,10 +416,74 @@ export function Footer() {
   );
 }
 
+function EmailVerifyBanner() {
+  const { user } = useAuth();
+  const { toast } = useToast();
+  const [sending, setSending] = useState(false);
+  const [dismissed, setDismissed] = useState(false);
+
+  // Don't show if: not logged in, already verified, no email, or dismissed
+  if (!user || user.emailVerified || !user.email || dismissed) return null;
+
+  async function handleResend() {
+    setSending(true);
+    try {
+      const res = await fetch("/api/resend-my-verification", {
+        method: "POST",
+        credentials: "include",
+      });
+      const data = await res.json();
+      if (res.ok) {
+        toast({ title: "Correo enviado", description: data.message });
+      } else {
+        toast({ title: "Error", description: data.message, variant: "destructive" });
+      }
+    } catch {
+      toast({ title: "Error", description: "No se pudo enviar el correo", variant: "destructive" });
+    } finally {
+      setSending(false);
+    }
+  }
+
+  return (
+    <div className="bg-amber-50 dark:bg-amber-950/30 border-b border-amber-200 dark:border-amber-800 px-4 py-2">
+      <div className="max-w-7xl mx-auto flex items-center justify-between gap-3 flex-wrap">
+        <div className="flex items-center gap-2 text-sm text-amber-800 dark:text-amber-200">
+          <MailWarning className="w-4 h-4 shrink-0" />
+          <span>
+            Tu correo <strong>{user.email}</strong> no esta verificado.
+          </span>
+        </div>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-7 text-xs border-amber-300 hover:bg-amber-100 dark:border-amber-700 dark:hover:bg-amber-900"
+            onClick={handleResend}
+            disabled={sending}
+          >
+            {sending ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : null}
+            Enviar verificacion
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-7 text-xs text-amber-600 hover:text-amber-800"
+            onClick={() => setDismissed(true)}
+          >
+            <X className="w-3 h-3" />
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function Layout({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-screen flex flex-col bg-background font-sans">
       <Navbar />
+      <EmailVerifyBanner />
       <main className="flex-1">{children}</main>
       <Footer />
     </div>

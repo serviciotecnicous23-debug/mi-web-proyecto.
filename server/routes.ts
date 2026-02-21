@@ -502,8 +502,15 @@ ${urls}
       }
 
       // Send verification email (non-blocking, won't crash server)
-      if (!isFirstUser && input.email && isEmailConfigured) {
-        sendVerificationEmail(input.email, verifyToken, input.displayName);
+      if (!isFirstUser && input.email) {
+        if (isEmailConfigured) {
+          console.log(`[register] Sending verification email to ${input.email}`);
+          sendVerificationEmail(input.email, verifyToken, input.displayName);
+        } else {
+          console.warn(`[register] RESEND_API_KEY not configured — skipping verification email for ${input.email}`);
+        }
+      } else if (!isFirstUser && !input.email) {
+        console.warn(`[register] User ${input.username} registered without email — cannot send verification`);
       }
 
       req.logIn(user, (err) => {
@@ -666,6 +673,43 @@ ${urls}
     } catch (err) {
       console.error("Resend verification error:", err);
       res.status(500).json({ message: "Error interno del servidor" });
+    }
+  });
+
+  // ========== EMAIL STATUS (admin) ==========
+  app.get("/api/email-status", (req, res) => {
+    if (!req.isAuthenticated() || req.user?.role !== "admin") {
+      return res.status(403).json({ message: "Solo administradores" });
+    }
+    const { getEmailStatus } = require("./email");
+    res.json(getEmailStatus());
+  });
+
+  // Resend verification for currently logged-in user
+  app.post("/api/resend-my-verification", async (req, res) => {
+    if (!req.isAuthenticated()) return res.status(401).json({ message: "No autenticado" });
+    const user = req.user!;
+    if (user.emailVerified) {
+      return res.json({ message: "Tu correo ya esta verificado" });
+    }
+    if (!user.email) {
+      return res.status(400).json({ message: "No tienes correo registrado en tu perfil" });
+    }
+    if (!isEmailConfigured) {
+      return res.status(503).json({ message: "El servicio de correo no esta configurado. Contacta al administrador." });
+    }
+    try {
+      const token = randomBytes(32).toString("hex");
+      const expires = new Date(Date.now() + 24 * 60 * 60 * 1000);
+      await storage.updateUser(user.id, {
+        emailVerifyToken: token,
+        emailVerifyExpires: expires,
+      });
+      sendVerificationEmail(user.email, token, user.displayName);
+      res.json({ message: "Correo de verificacion enviado! Revisa tu bandeja de entrada y spam." });
+    } catch (err) {
+      console.error("Resend my verification error:", err);
+      res.status(500).json({ message: "Error al enviar correo de verificacion" });
     }
   });
 

@@ -183,6 +183,10 @@ export const updateUserSchema = createInsertSchema(users).pick({
   tiktok: true,
   twitter: true,
   website: true,
+  emailVerified: true,
+  emailVerifyToken: true,
+  emailVerifyExpires: true,
+  password: true,
 }).partial();
 
 export const changePasswordSchema = z.object({

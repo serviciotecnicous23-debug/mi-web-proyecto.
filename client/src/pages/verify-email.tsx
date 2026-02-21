@@ -1,12 +1,11 @@
 import { useState, useEffect } from "react";
-import { Link, useSearch } from "wouter";
+import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Loader2, CheckCircle, XCircle, ArrowLeft } from "lucide-react";
 
 export default function VerifyEmailPage() {
-  const searchString = useSearch();
-  const params = new URLSearchParams(searchString);
+  const params = new URLSearchParams(window.location.search);
   const token = params.get("token");
   const [status, setStatus] = useState<"loading" | "success" | "error" | "no-token">(
     token ? "loading" : "no-token"
