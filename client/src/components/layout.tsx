@@ -22,6 +22,13 @@ import {
   Award,
   BarChart3,
   DollarSign,
+  ChevronDown,
+  Home,
+  Calendar,
+  Video,
+  Church,
+  MapPin,
+  FileText,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -34,23 +41,83 @@ import {
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { useState } from "react";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetDescription,
+} from "@/components/ui/sheet";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { ROLES } from "@shared/schema";
+import { ThemeToggle } from "@/components/ThemeProvider";
+import { GlobalSearch } from "@/components/GlobalSearch";
+import { ScrollToTop, BackToTop } from "@/components/ScrollToTop";
 
-const navLinks = [
+// Desktop nav links (compact)
+const desktopNavLinks = [
   { href: "/", label: "Inicio" },
-  { href: "/historia", label: "Historia" },
-  { href: "/equipo", label: "Equipo" },
   { href: "/eventos", label: "Eventos" },
   { href: "/capacitaciones", label: "Capacitaciones" },
   { href: "/biblioteca", label: "Biblioteca" },
-  { href: "/oracion", label: "Oracion" },
-  { href: "/regiones", label: "Regiones" },
-  { href: "/iglesias", label: "Iglesias" },
+  { href: "/sermones", label: "Sermones" },
   { href: "/en-vivo", label: "En Vivo" },
   { href: "/contacto", label: "Contacto" },
+];
+
+// Mobile nav organized in collapsible groups
+const mobileNavGroups = [
+  {
+    title: "Inicio",
+    icon: Home,
+    links: [{ href: "/", label: "Inicio", icon: Flame }],
+    alwaysOpen: true,
+  },
+  {
+    title: "Ministerio",
+    icon: Globe,
+    links: [
+      { href: "/historia", label: "Historia", icon: BookOpen },
+      { href: "/equipo", label: "Equipo", icon: Users },
+      { href: "/regiones", label: "Regiones", icon: Globe },
+      { href: "/iglesias", label: "Iglesias", icon: Church },
+    ],
+  },
+  {
+    title: "Formacion",
+    icon: GraduationCap,
+    links: [
+      { href: "/capacitaciones", label: "Capacitaciones", icon: GraduationCap },
+      { href: "/biblioteca", label: "Biblioteca", icon: Library },
+      { href: "/sermones", label: "Sermones", icon: FileText },
+      { href: "/en-vivo", label: "En Vivo", icon: Video },
+    ],
+  },
+  {
+    title: "Comunidad",
+    icon: Heart,
+    links: [
+      { href: "/comunidad", label: "Comunidad", icon: MessageSquare },
+      { href: "/oracion", label: "Oracion", icon: Heart },
+      { href: "/eventos", label: "Eventos", icon: Calendar },
+      { href: "/grupos", label: "Grupos", icon: Users },
+      { href: "/calendario", label: "Calendario", icon: Calendar },
+    ],
+  },
+  {
+    title: "Mas",
+    icon: MapPin,
+    links: [{ href: "/contacto", label: "Contacto", icon: MapPin }],
+    alwaysOpen: true,
+  },
 ];
 
 type Notification = {
@@ -63,6 +130,100 @@ type Notification = {
   createdAt: string;
 };
 
+// ========== MOBILE NAV GROUP COMPONENT ==========
+function MobileNavGroup({
+  group,
+  location,
+  onNavigate,
+}: {
+  group: (typeof mobileNavGroups)[number];
+  location: string;
+  onNavigate: () => void;
+}) {
+  // Check if any link in this group matches current location
+  const isActive = group.links.some(
+    (l) => l.href === location || (l.href !== "/" && location.startsWith(l.href))
+  );
+  const [open, setOpen] = useState(isActive || !!group.alwaysOpen);
+
+  if (group.alwaysOpen) {
+    return (
+      <div className="space-y-1">
+        {group.links.map((link) => {
+          const Icon = link.icon;
+          return (
+            <Link key={link.href} href={link.href} onClick={onNavigate}>
+              <Button
+                variant={
+                  link.href === location ||
+                  (link.href !== "/" && location.startsWith(link.href))
+                    ? "secondary"
+                    : "ghost"
+                }
+                className="w-full justify-start gap-3"
+                size="sm"
+              >
+                <Icon className="w-4 h-4" />
+                {link.label}
+              </Button>
+            </Link>
+          );
+        })}
+      </div>
+    );
+  }
+
+  const GroupIcon = group.icon;
+
+  return (
+    <Collapsible open={open} onOpenChange={setOpen}>
+      <CollapsibleTrigger asChild>
+        <Button
+          variant="ghost"
+          className={`w-full justify-between gap-2 font-semibold text-xs uppercase tracking-wider ${
+            isActive ? "text-primary" : "text-muted-foreground"
+          }`}
+          size="sm"
+        >
+          <span className="flex items-center gap-2">
+            <GroupIcon className="w-4 h-4" />
+            {group.title}
+          </span>
+          <ChevronDown
+            className={`w-4 h-4 transition-transform duration-200 ${
+              open ? "rotate-180" : ""
+            }`}
+          />
+        </Button>
+      </CollapsibleTrigger>
+      <CollapsibleContent className="pl-3 space-y-1 animate-in slide-in-from-top-2 duration-200">
+        {group.links.map((link) => {
+          const Icon = link.icon;
+          const active =
+            link.href === location ||
+            (link.href !== "/" && location.startsWith(link.href));
+          return (
+            <Link key={link.href} href={link.href} onClick={onNavigate}>
+              <Button
+                variant={active ? "secondary" : "ghost"}
+                className="w-full justify-start gap-3"
+                size="sm"
+              >
+                <Icon className="w-4 h-4" />
+                {link.label}
+                {active && (
+                  <span className="ml-auto w-1.5 h-1.5 rounded-full bg-primary" />
+                )}
+              </Button>
+            </Link>
+          );
+        })}
+      </CollapsibleContent>
+    </Collapsible>
+  );
+}
+
+// ========== NOTIFICATION BELL ==========
 function NotificationBell() {
   const { data: countData } = useQuery<{ count: number }>({
     queryKey: ["/api/notifications/unread-count"],
@@ -88,8 +249,8 @@ function NotificationBell() {
   return (
     <Popover>
       <PopoverTrigger asChild>
-        <Button variant="ghost" size="icon" className="relative" data-testid="button-notifications">
-          <Bell className="w-5 h-5" />
+        <Button variant="ghost" size="icon" className="relative" data-testid="button-notifications" aria-label={`Notificaciones${unreadCount > 0 ? ` - ${unreadCount} sin leer` : ""}`}>
+          <Bell className="w-5 h-5" aria-hidden="true" />
           {unreadCount > 0 && (
             <span className="absolute -top-0.5 -right-0.5 bg-destructive text-destructive-foreground text-[10px] font-bold rounded-full w-4 h-4 flex items-center justify-center" data-testid="badge-unread-count">
               {unreadCount > 9 ? "9+" : unreadCount}
@@ -134,19 +295,60 @@ export function Navbar() {
   const { user, logout } = useAuth();
   const [location] = useLocation();
   const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
 
   const roleLabel = user ? (ROLES[user.role as keyof typeof ROLES] || user.role) : "";
 
+  const closeMenu = useCallback(() => setMenuOpen(false), []);
+
+  // Focus trap for mobile menu (accessibility)
+  useEffect(() => {
+    if (!menuOpen) return;
+    const el = menuRef.current;
+    if (!el) return;
+
+    const focusable = el.querySelectorAll<HTMLElement>(
+      'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+    );
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+
+    function trapFocus(e: KeyboardEvent) {
+      if (e.key === "Escape") {
+        setMenuOpen(false);
+        return;
+      }
+      if (e.key !== "Tab") return;
+      if (e.shiftKey) {
+        if (document.activeElement === first) {
+          e.preventDefault();
+          last?.focus();
+        }
+      } else {
+        if (document.activeElement === last) {
+          e.preventDefault();
+          first?.focus();
+        }
+      }
+    }
+
+    document.addEventListener("keydown", trapFocus);
+    // Auto-focus first item
+    setTimeout(() => first?.focus(), 100);
+    return () => document.removeEventListener("keydown", trapFocus);
+  }, [menuOpen]);
+
   return (
-    <nav className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 sticky top-0 z-50">
+    <nav className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 sticky top-0 z-50" role="navigation" aria-label="Navegacion principal">
       <div className="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between gap-4">
-        <Link href="/" className="flex items-center gap-2" data-testid="link-home-logo">
-          <Flame className="w-7 h-7 text-primary" />
+        <Link href="/" className="flex items-center gap-2" data-testid="link-home-logo" aria-label="Ir al inicio - Avivando el Fuego">
+          <Flame className="w-7 h-7 text-primary" aria-hidden="true" />
           <span className="font-bold text-lg hidden sm:inline">Avivando el Fuego</span>
         </Link>
 
-        <div className="hidden md:flex items-center gap-1">
-          {navLinks.map((l) => (
+        {/* Desktop navigation */}
+        <div className="hidden lg:flex items-center gap-1">
+          {desktopNavLinks.map((l) => (
             <Link key={l.href} href={l.href}>
               <Button
                 variant={location === l.href || (l.href !== "/" && location.startsWith(l.href)) ? "secondary" : "ghost"}
@@ -159,261 +361,314 @@ export function Navbar() {
           ))}
         </div>
 
-        <div className="hidden md:flex items-center gap-2">
-          {user ? (
-            <>
-            <NotificationBell />
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon" data-testid="button-user-menu">
-                  <Avatar className="h-8 w-8">
-                    {user.avatarUrl && <AvatarImage src={user.avatarUrl} alt={user.displayName || user.username} />}
-                    <AvatarFallback className="bg-primary/10 text-primary text-xs">
-                      {(user.displayName || user.username).slice(0, 2).toUpperCase()}
-                    </AvatarFallback>
-                  </Avatar>
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent className="w-56" align="end">
-                <DropdownMenuLabel>
-                  <div className="flex flex-col gap-1">
-                    <p className="text-sm font-medium">{user.displayName || user.username}</p>
-                    <p className="text-xs text-muted-foreground">{roleLabel}</p>
-                  </div>
-                </DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem asChild>
-                  <Link href="/perfil" className="cursor-pointer">
-                    <User className="mr-2 h-4 w-4" />
-                    Mi Perfil
-                  </Link>
-                </DropdownMenuItem>
-                <DropdownMenuItem asChild>
-                  <Link href="/perfil?tab=amigos" className="cursor-pointer">
-                    <Users className="mr-2 h-4 w-4" />
-                    Amigos
-                  </Link>
-                </DropdownMenuItem>
-                <DropdownMenuItem asChild>
-                  <Link href="/mis-capacitaciones" className="cursor-pointer">
-                    <GraduationCap className="mr-2 h-4 w-4" />
-                    Mis Capacitaciones
-                  </Link>
-                </DropdownMenuItem>
-                <DropdownMenuItem asChild>
-                  <Link href="/comunidad" className="cursor-pointer">
-                    <MessageSquare className="mr-2 h-4 w-4" />
-                    Comunidad
-                  </Link>
-                </DropdownMenuItem>
-                <DropdownMenuItem asChild>
-                  <Link href="/mensajes" className="cursor-pointer">
-                    <Mail className="mr-2 h-4 w-4" />
-                    Mensajes
-                  </Link>
-                </DropdownMenuItem>
-                <DropdownMenuItem asChild>
-                  <Link href="/biblioteca" className="cursor-pointer">
-                    <Library className="mr-2 h-4 w-4" />
-                    Biblioteca
-                  </Link>
-                </DropdownMenuItem>
-                <DropdownMenuItem asChild>
-                  <Link href="/oracion" className="cursor-pointer">
-                    <Heart className="mr-2 h-4 w-4" />
-                    Oracion
-                  </Link>
-                </DropdownMenuItem>
-                <DropdownMenuItem asChild>
-                  <Link href="/regiones" className="cursor-pointer">
-                    <Globe className="mr-2 h-4 w-4" />
-                    Regiones
-                  </Link>
-                </DropdownMenuItem>
-                <DropdownMenuItem asChild>
-                  <Link href="/certificados" className="cursor-pointer">
-                    <Award className="mr-2 h-4 w-4" />
-                    Certificados
-                  </Link>
-                </DropdownMenuItem>
-                {(user.role === "obrero" || user.role === "admin") && (
-                  <DropdownMenuItem asChild>
-                    <Link href="/maestro" className="cursor-pointer">
-                      <BookOpen className="mr-2 h-4 w-4" />
-                      Panel Maestro
-                    </Link>
-                  </DropdownMenuItem>
-                )}
-                {user.role === "admin" && (
-                  <>
-                  <DropdownMenuItem asChild>
-                    <Link href="/admin" className="cursor-pointer">
-                      <Shield className="mr-2 h-4 w-4" />
-                      Panel Admin
-                    </Link>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem asChild>
-                    <Link href="/reportes" className="cursor-pointer">
-                      <BarChart3 className="mr-2 h-4 w-4" />
-                      Reportes
-                    </Link>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem asChild>
-                    <Link href="/diezmos" className="cursor-pointer">
-                      <DollarSign className="mr-2 h-4 w-4" />
-                      Diezmos
-                    </Link>
-                  </DropdownMenuItem>
-                  </>
-                )}
-                <DropdownMenuSeparator />
-                <DropdownMenuItem
-                  className="text-destructive focus:text-destructive cursor-pointer"
-                  onClick={() => logout()}
-                  data-testid="button-logout"
-                >
-                  <LogOut className="mr-2 h-4 w-4" />
-                  Cerrar Sesion
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-            </>
-          ) : (
-            <div className="flex items-center gap-2">
-              <Link href="/login">
-                <Button variant="ghost" size="sm" data-testid="link-login">
-                  Iniciar Sesion
-                </Button>
-              </Link>
-              <Link href="/registro">
-                <Button size="sm" data-testid="link-register">
-                  <Flame className="w-4 h-4 mr-1" />
-                  Unirse
-                </Button>
-              </Link>
-            </div>
-          )}
-        </div>
+        {/* Right side: Search + Theme + Auth */}
+        <div className="flex items-center gap-2">
+          <GlobalSearch />
+          <ThemeToggle />
 
-        <Button
-          variant="ghost"
-          size="icon"
-          className="md:hidden"
-          onClick={() => setMenuOpen(!menuOpen)}
-          data-testid="button-mobile-menu"
-        >
-          {menuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
-        </Button>
+          {/* Desktop auth area */}
+          <div className="hidden md:flex items-center gap-2">
+            {user ? (
+              <>
+                <NotificationBell />
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" size="icon" data-testid="button-user-menu" aria-label="Menu de usuario">
+                      <Avatar className="h-8 w-8">
+                        {user.avatarUrl && <AvatarImage src={user.avatarUrl} alt={user.displayName || user.username} />}
+                        <AvatarFallback className="bg-primary/10 text-primary text-xs">
+                          {(user.displayName || user.username).slice(0, 2).toUpperCase()}
+                        </AvatarFallback>
+                      </Avatar>
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent className="w-56" align="end">
+                    <DropdownMenuLabel>
+                      <div className="flex flex-col gap-1">
+                        <p className="text-sm font-medium">{user.displayName || user.username}</p>
+                        <p className="text-xs text-muted-foreground">{roleLabel}</p>
+                      </div>
+                    </DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem asChild>
+                      <Link href="/perfil" className="cursor-pointer">
+                        <User className="mr-2 h-4 w-4" aria-hidden="true" />
+                        Mi Perfil
+                      </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem asChild>
+                      <Link href="/perfil?tab=amigos" className="cursor-pointer">
+                        <Users className="mr-2 h-4 w-4" aria-hidden="true" />
+                        Amigos
+                      </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem asChild>
+                      <Link href="/mis-capacitaciones" className="cursor-pointer">
+                        <GraduationCap className="mr-2 h-4 w-4" aria-hidden="true" />
+                        Mis Capacitaciones
+                      </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem asChild>
+                      <Link href="/comunidad" className="cursor-pointer">
+                        <MessageSquare className="mr-2 h-4 w-4" aria-hidden="true" />
+                        Comunidad
+                      </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem asChild>
+                      <Link href="/mensajes" className="cursor-pointer">
+                        <Mail className="mr-2 h-4 w-4" aria-hidden="true" />
+                        Mensajes
+                      </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem asChild>
+                      <Link href="/biblioteca" className="cursor-pointer">
+                        <Library className="mr-2 h-4 w-4" aria-hidden="true" />
+                        Biblioteca
+                      </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem asChild>
+                      <Link href="/oracion" className="cursor-pointer">
+                        <Heart className="mr-2 h-4 w-4" aria-hidden="true" />
+                        Oracion
+                      </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem asChild>
+                      <Link href="/regiones" className="cursor-pointer">
+                        <Globe className="mr-2 h-4 w-4" aria-hidden="true" />
+                        Regiones
+                      </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem asChild>
+                      <Link href="/certificados" className="cursor-pointer">
+                        <Award className="mr-2 h-4 w-4" aria-hidden="true" />
+                        Certificados
+                      </Link>
+                    </DropdownMenuItem>
+                    {(user.role === "obrero" || user.role === "admin") && (
+                      <DropdownMenuItem asChild>
+                        <Link href="/maestro" className="cursor-pointer">
+                          <BookOpen className="mr-2 h-4 w-4" aria-hidden="true" />
+                          Panel Maestro
+                        </Link>
+                      </DropdownMenuItem>
+                    )}
+                    {user.role === "admin" && (
+                      <>
+                        <DropdownMenuItem asChild>
+                          <Link href="/admin" className="cursor-pointer">
+                            <Shield className="mr-2 h-4 w-4" aria-hidden="true" />
+                            Panel Admin
+                          </Link>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem asChild>
+                          <Link href="/reportes" className="cursor-pointer">
+                            <BarChart3 className="mr-2 h-4 w-4" aria-hidden="true" />
+                            Reportes
+                          </Link>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem asChild>
+                          <Link href="/diezmos" className="cursor-pointer">
+                            <DollarSign className="mr-2 h-4 w-4" aria-hidden="true" />
+                            Diezmos
+                          </Link>
+                        </DropdownMenuItem>
+                      </>
+                    )}
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem
+                      className="text-destructive focus:text-destructive cursor-pointer"
+                      onClick={() => logout()}
+                      data-testid="button-logout"
+                    >
+                      <LogOut className="mr-2 h-4 w-4" aria-hidden="true" />
+                      Cerrar Sesion
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </>
+            ) : (
+              <div className="flex items-center gap-2">
+                <Link href="/login">
+                  <Button variant="ghost" size="sm" data-testid="link-login">
+                    Iniciar Sesion
+                  </Button>
+                </Link>
+                <Link href="/registro">
+                  <Button size="sm" data-testid="link-register">
+                    <Flame className="w-4 h-4 mr-1" aria-hidden="true" />
+                    Unirse
+                  </Button>
+                </Link>
+              </div>
+            )}
+          </div>
+
+          {/* Mobile hamburger */}
+          <Button
+            variant="ghost"
+            size="icon"
+            className="lg:hidden"
+            onClick={() => setMenuOpen(!menuOpen)}
+            data-testid="button-mobile-menu"
+            aria-label={menuOpen ? "Cerrar menu" : "Abrir menu de navegacion"}
+            aria-expanded={menuOpen}
+          >
+            {menuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+          </Button>
+        </div>
       </div>
 
-      {menuOpen && (
-        <div className="md:hidden border-t bg-background px-4 pb-4 pt-2 flex flex-col gap-1">
-          {navLinks.map((l) => (
-            <Link key={l.href} href={l.href} onClick={() => setMenuOpen(false)}>
-              <Button
-                variant={location === l.href ? "secondary" : "ghost"}
-                className="w-full justify-start"
-                size="sm"
-              >
-                {l.label}
-              </Button>
-            </Link>
-          ))}
-          <div className="border-t my-2" />
-          {user ? (
-            <>
-              <Link href="/mis-capacitaciones" onClick={() => setMenuOpen(false)}>
-                <Button variant="ghost" className="w-full justify-start" size="sm" data-testid="link-mobile-mis-capacitaciones">
-                  <GraduationCap className="w-4 h-4 mr-1" /> Mis Capacitaciones
-                </Button>
-              </Link>
-              {(user.role === "obrero" || user.role === "admin") && (
-                <Link href="/maestro" onClick={() => setMenuOpen(false)}>
-                  <Button variant="ghost" className="w-full justify-start" size="sm" data-testid="link-mobile-maestro">
-                    <BookOpen className="w-4 h-4 mr-1" /> Panel Maestro
-                  </Button>
-                </Link>
-              )}
-              {user.role === "admin" && (
-                <Link href="/admin" onClick={() => setMenuOpen(false)}>
-                  <Button variant="outline" className="w-full justify-start" size="sm" data-testid="link-mobile-admin">
-                    <Shield className="w-4 h-4 mr-1" /> Panel Admin
-                  </Button>
-                </Link>
-              )}
-              <Link href="/comunidad" onClick={() => setMenuOpen(false)}>
-                <Button variant="ghost" className="w-full justify-start" size="sm" data-testid="link-mobile-comunidad">
-                  <MessageSquare className="w-4 h-4 mr-1" /> Comunidad
-                </Button>
-              </Link>
-              <Link href="/mensajes" onClick={() => setMenuOpen(false)}>
-                <Button variant="ghost" className="w-full justify-start" size="sm" data-testid="link-mobile-mensajes">
-                  <Mail className="w-4 h-4 mr-1" /> Mensajes
-                </Button>
-              </Link>
-              <Link href="/biblioteca" onClick={() => setMenuOpen(false)}>
-                <Button variant="ghost" className="w-full justify-start" size="sm" data-testid="link-mobile-biblioteca">
-                  <Library className="w-4 h-4 mr-1" /> Biblioteca
-                </Button>
-              </Link>
-              <Link href="/oracion" onClick={() => setMenuOpen(false)}>
-                <Button variant="ghost" className="w-full justify-start" size="sm" data-testid="link-mobile-oracion">
-                  <Heart className="w-4 h-4 mr-1" /> Oracion
-                </Button>
-              </Link>
-              <Link href="/regiones" onClick={() => setMenuOpen(false)}>
-                <Button variant="ghost" className="w-full justify-start" size="sm" data-testid="link-mobile-regiones">
-                  <Globe className="w-4 h-4 mr-1" /> Regiones
-                </Button>
-              </Link>
-              <Link href="/certificados" onClick={() => setMenuOpen(false)}>
-                <Button variant="ghost" className="w-full justify-start" size="sm">
-                  <Award className="w-4 h-4 mr-1" /> Certificados
-                </Button>
-              </Link>
-              {user.role === "admin" && (
-                <>
-                <Link href="/reportes" onClick={() => setMenuOpen(false)}>
-                  <Button variant="ghost" className="w-full justify-start" size="sm">
-                    <BarChart3 className="w-4 h-4 mr-1" /> Reportes
-                  </Button>
-                </Link>
-                <Link href="/diezmos" onClick={() => setMenuOpen(false)}>
-                  <Button variant="ghost" className="w-full justify-start" size="sm">
-                    <DollarSign className="w-4 h-4 mr-1" /> Diezmos
-                  </Button>
-                </Link>
-                </>
-              )}
-              <Link href="/perfil" onClick={() => setMenuOpen(false)}>
-                <Button variant="ghost" className="w-full justify-start" size="sm" data-testid="link-mobile-perfil">
-                  <User className="w-4 h-4 mr-1" /> Mi Perfil
-                </Button>
-              </Link>
+      {/* ========== MOBILE SHEET MENU ========== */}
+      <Sheet open={menuOpen} onOpenChange={setMenuOpen}>
+        <SheetContent
+          side="left"
+          className="w-[300px] sm:w-[340px] p-0"
+          ref={menuRef}
+        >
+          <SheetHeader className="p-4 pb-2 border-b">
+            <SheetTitle className="flex items-center gap-2 text-left">
+              <Flame className="w-6 h-6 text-primary" aria-hidden="true" />
+              Avivando el Fuego
+            </SheetTitle>
+            <SheetDescription className="text-left text-xs">
+              Ministerio Evangelistico Internacional
+            </SheetDescription>
+          </SheetHeader>
+
+          <ScrollArea className="h-[calc(100vh-10rem)] px-3 py-3">
+            {/* User info card (if logged in) */}
+            {user && (
+              <div className="mb-4 p-3 rounded-lg bg-muted/50 flex items-center gap-3">
+                <Avatar className="h-10 w-10">
+                  {user.avatarUrl && <AvatarImage src={user.avatarUrl} alt={user.displayName || user.username} />}
+                  <AvatarFallback className="bg-primary/10 text-primary text-xs">
+                    {(user.displayName || user.username).slice(0, 2).toUpperCase()}
+                  </AvatarFallback>
+                </Avatar>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium truncate">{user.displayName || user.username}</p>
+                  <p className="text-xs text-muted-foreground">{roleLabel}</p>
+                </div>
+              </div>
+            )}
+
+            {/* Grouped navigation */}
+            <div className="space-y-1">
+              {mobileNavGroups.map((group) => (
+                <MobileNavGroup
+                  key={group.title}
+                  group={group}
+                  location={location}
+                  onNavigate={closeMenu}
+                />
+              ))}
+            </div>
+
+            {/* Authenticated links */}
+            {user && (
+              <>
+                <div className="my-3 border-t" />
+                <Collapsible defaultOpen>
+                  <CollapsibleTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      className="w-full justify-between gap-2 font-semibold text-xs uppercase tracking-wider text-muted-foreground"
+                      size="sm"
+                    >
+                      <span className="flex items-center gap-2">
+                        <User className="w-4 h-4" aria-hidden="true" />
+                        Mi Cuenta
+                      </span>
+                      <ChevronDown className="w-4 h-4 transition-transform duration-200 [[data-state=open]>&]:rotate-180" />
+                    </Button>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent className="pl-3 space-y-1 animate-in slide-in-from-top-2 duration-200">
+                    <Link href="/perfil" onClick={closeMenu}>
+                      <Button variant="ghost" className="w-full justify-start gap-3" size="sm" data-testid="link-mobile-perfil">
+                        <User className="w-4 h-4" aria-hidden="true" /> Mi Perfil
+                      </Button>
+                    </Link>
+                    <Link href="/mis-capacitaciones" onClick={closeMenu}>
+                      <Button variant="ghost" className="w-full justify-start gap-3" size="sm" data-testid="link-mobile-mis-capacitaciones">
+                        <GraduationCap className="w-4 h-4" aria-hidden="true" /> Mis Capacitaciones
+                      </Button>
+                    </Link>
+                    <Link href="/certificados" onClick={closeMenu}>
+                      <Button variant="ghost" className="w-full justify-start gap-3" size="sm">
+                        <Award className="w-4 h-4" aria-hidden="true" /> Certificados
+                      </Button>
+                    </Link>
+                    <Link href="/mensajes" onClick={closeMenu}>
+                      <Button variant="ghost" className="w-full justify-start gap-3" size="sm" data-testid="link-mobile-mensajes">
+                        <Mail className="w-4 h-4" aria-hidden="true" /> Mensajes
+                      </Button>
+                    </Link>
+                  </CollapsibleContent>
+                </Collapsible>
+
+                {/* Admin/Teacher panel links */}
+                {(user.role === "obrero" || user.role === "admin") && (
+                  <>
+                    <div className="my-2 border-t" />
+                    <Link href="/maestro" onClick={closeMenu}>
+                      <Button variant="ghost" className="w-full justify-start gap-3" size="sm" data-testid="link-mobile-maestro">
+                        <BookOpen className="w-4 h-4" aria-hidden="true" /> Panel Maestro
+                      </Button>
+                    </Link>
+                  </>
+                )}
+                {user.role === "admin" && (
+                  <div className="space-y-1">
+                    <Link href="/admin" onClick={closeMenu}>
+                      <Button variant="outline" className="w-full justify-start gap-3" size="sm" data-testid="link-mobile-admin">
+                        <Shield className="w-4 h-4" aria-hidden="true" /> Panel Admin
+                      </Button>
+                    </Link>
+                    <Link href="/reportes" onClick={closeMenu}>
+                      <Button variant="ghost" className="w-full justify-start gap-3" size="sm">
+                        <BarChart3 className="w-4 h-4" aria-hidden="true" /> Reportes
+                      </Button>
+                    </Link>
+                    <Link href="/diezmos" onClick={closeMenu}>
+                      <Button variant="ghost" className="w-full justify-start gap-3" size="sm">
+                        <DollarSign className="w-4 h-4" aria-hidden="true" /> Diezmos
+                      </Button>
+                    </Link>
+                  </div>
+                )}
+              </>
+            )}
+          </ScrollArea>
+
+          {/* Bottom action bar */}
+          <div className="border-t p-3 space-y-2">
+            {user ? (
               <Button
                 variant="ghost"
-                className="w-full justify-start"
+                className="w-full justify-start gap-3 text-destructive hover:text-destructive"
                 size="sm"
-                onClick={() => { logout(); setMenuOpen(false); }}
+                onClick={() => { logout(); closeMenu(); }}
                 data-testid="button-mobile-logout"
               >
-                <LogOut className="w-4 h-4 mr-1" /> Cerrar Sesion
+                <LogOut className="w-4 h-4" aria-hidden="true" /> Cerrar Sesion
               </Button>
-            </>
-          ) : (
-            <>
-              <Link href="/login" onClick={() => setMenuOpen(false)}>
-                <Button variant="ghost" className="w-full justify-start" size="sm" data-testid="link-mobile-login">
-                  Iniciar Sesion
-                </Button>
-              </Link>
-              <Link href="/registro" onClick={() => setMenuOpen(false)}>
-                <Button className="w-full" size="sm" data-testid="link-mobile-register">Unirse al Ministerio</Button>
-              </Link>
-            </>
-          )}
-        </div>
-      )}
+            ) : (
+              <div className="space-y-2">
+                <Link href="/login" onClick={closeMenu}>
+                  <Button variant="ghost" className="w-full justify-start" size="sm" data-testid="link-mobile-login">
+                    Iniciar Sesion
+                  </Button>
+                </Link>
+                <Link href="/registro" onClick={closeMenu}>
+                  <Button className="w-full" size="sm" data-testid="link-mobile-register">
+                    <Flame className="w-4 h-4 mr-1" aria-hidden="true" /> Unirse al Ministerio
+                  </Button>
+                </Link>
+              </div>
+            )}
+          </div>
+        </SheetContent>
+      </Sheet>
     </nav>
   );
 }
@@ -524,10 +779,21 @@ function EmailVerifyBanner() {
 export function Layout({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-screen flex flex-col bg-background font-sans">
+      {/* Skip to content link for screen readers - 5.5 Accessibility */}
+      <a
+        href="#main-content"
+        className="skip-to-content sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-[100] focus:px-4 focus:py-2 focus:bg-primary focus:text-primary-foreground focus:rounded-md focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:text-sm focus:font-medium"
+      >
+        Saltar al contenido principal
+      </a>
+      <ScrollToTop />
       <Navbar />
       <EmailVerifyBanner />
-      <main className="flex-1">{children}</main>
+      <main id="main-content" className="flex-1 focus:outline-none" tabIndex={-1}>
+        {children}
+      </main>
       <Footer />
+      <BackToTop />
     </div>
   );
 }

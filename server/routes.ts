@@ -230,6 +230,124 @@ ${urls}
     });
   });
 
+  // ========== GLOBAL SEARCH ==========
+  app.get("/api/search", async (req, res) => {
+    try {
+      const q = ((req.query.q as string) || "").trim().toLowerCase();
+      if (q.length < 2) return res.json({ results: [] });
+
+      const results: Array<{
+        id: number;
+        type: string;
+        title: string;
+        description?: string;
+        url: string;
+      }> = [];
+
+      // Search courses
+      try {
+        const courses = await storage.listActiveCourses();
+        courses
+          .filter(
+            (c: any) =>
+              c.title?.toLowerCase().includes(q) ||
+              c.description?.toLowerCase().includes(q) ||
+              c.category?.toLowerCase().includes(q)
+          )
+          .slice(0, 5)
+          .forEach((c: any) =>
+            results.push({
+              id: c.id,
+              type: "course",
+              title: c.title,
+              description: c.description?.slice(0, 100),
+              url: `/capacitaciones/${c.id}`,
+            })
+          );
+      } catch {}
+
+      // Search events
+      try {
+        const events = await storage.listPublishedEvents();
+        events
+          .filter(
+            (e: any) =>
+              e.title?.toLowerCase().includes(q) ||
+              e.description?.toLowerCase().includes(q) ||
+              e.location?.toLowerCase().includes(q)
+          )
+          .slice(0, 5)
+          .forEach((e: any) =>
+            results.push({
+              id: e.id,
+              type: "event",
+              title: e.title,
+              description: e.description?.slice(0, 100),
+              url: `/eventos`,
+            })
+          );
+      } catch {}
+
+      // Search library resources
+      try {
+        const resources = await storage.listLibraryResources(undefined as any, q);
+        (resources as any[])
+          .slice(0, 5)
+          .forEach((r: any) =>
+            results.push({
+              id: r.id,
+              type: "library",
+              title: r.title,
+              description: r.description?.slice(0, 100),
+              url: `/biblioteca`,
+            })
+          );
+      } catch {}
+
+      // Search sermons
+      try {
+        const sermons = await storage.listSermons({ search: q });
+        (sermons as any[])
+          .slice(0, 5)
+          .forEach((s: any) =>
+            results.push({
+              id: s.id,
+              type: "sermon",
+              title: s.title,
+              description: s.summary?.slice(0, 100) || s.series,
+              url: `/sermones`,
+            })
+          );
+      } catch {}
+
+      // Search community posts
+      try {
+        const posts = await storage.listMemberPosts();
+        posts
+          .filter(
+            (p: any) =>
+              p.content?.toLowerCase().includes(q) ||
+              p.title?.toLowerCase().includes(q)
+          )
+          .slice(0, 3)
+          .forEach((p: any) =>
+            results.push({
+              id: p.id,
+              type: "post",
+              title: p.content?.slice(0, 80) || "Publicacion",
+              description: undefined,
+              url: `/comunidad`,
+            })
+          );
+      } catch {}
+
+      res.json({ results: results.slice(0, 15) });
+    } catch (err) {
+      console.error("Global search error:", err);
+      res.json({ results: [] });
+    }
+  });
+
   // ========== RATE LIMITING ==========
   // Protect auth endpoints from brute force attacks
   const authLimiter = rateLimit({

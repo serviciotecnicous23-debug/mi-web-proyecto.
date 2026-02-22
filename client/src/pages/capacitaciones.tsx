@@ -33,6 +33,8 @@ import {
   Video, ArrowRight, Bell, Calendar, CheckCircle, AlertTriangle,
   Pencil, X,
 } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
+import { CardGridSkeleton } from "@/components/SkeletonScreens";
 import { COURSE_CATEGORIES, ENROLLMENT_STATUSES, CARTELERA_CATEGORIES, DAYS_OF_WEEK, MEETING_PLATFORMS } from "@shared/schema";
 import type { Course } from "@shared/schema";
 
@@ -140,7 +142,15 @@ function CarteleraCentralTab({ canManage, user }: { canManage: boolean; user: an
     <div className="space-y-6">
       {/* Stats Cards */}
       {statsLoading ? (
-        <div className="flex justify-center py-8"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} className="rounded-lg border bg-card p-4 space-y-2">
+              <Skeleton className="h-8 w-8 rounded-full" />
+              <Skeleton className="h-6 w-16" />
+              <Skeleton className="h-4 w-24" />
+            </div>
+          ))}
+        </div>
       ) : stats ? (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           <StatCard icon={BookOpen} label="Cursos Totales" value={stats.totalCourses} color="text-blue-600 bg-blue-100" />
@@ -180,7 +190,19 @@ function CarteleraCentralTab({ canManage, user }: { canManage: boolean; user: an
 
       {/* Combined Announcements */}
       {(cartLoading || courseAnnsLoading) ? (
-        <div className="flex justify-center py-12"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>
+        <div className="space-y-4">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <div key={i} className="rounded-lg border bg-card p-4 space-y-3">
+              <div className="flex items-center gap-3">
+                <Skeleton className="h-5 w-5 rounded" />
+                <Skeleton className="h-5 w-48" />
+                <Skeleton className="h-5 w-16 ml-auto" />
+              </div>
+              <Skeleton className="h-4 w-3/4" />
+              <Skeleton className="h-4 w-1/2" />
+            </div>
+          ))}
+        </div>
       ) : (
         <div className="space-y-3">
           {(annFilter === "all" || annFilter === "cartelera" || annFilter.startsWith("cat_")) &&
