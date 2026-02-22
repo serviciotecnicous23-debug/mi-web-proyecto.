@@ -28,7 +28,7 @@ import { Label } from "@/components/ui/label";
 import {
   Loader2, Search, CheckCircle2, XCircle, UserPlus, Users, Mail,
   MessageSquare, Trash2, Eye, EyeOff, Clock, Calendar,
-  Plus, Pencil, FileText, Save, X, GraduationCap, BookOpen, Radio,
+  Plus, Pencil, FileText, Save, X, GraduationCap, BookOpen, Radio, Download,
 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
@@ -43,6 +43,73 @@ import { ROLES, COURSE_CATEGORIES, ENROLLMENT_STATUSES, ENROLLMENT_MODES, TEACHE
 import type { Event as EventType, SiteContent, Course } from "@shared/schema";
 import { SiWhatsapp } from "react-icons/si";
 import { ChevronDown, ChevronRight, Shield } from "lucide-react";
+import { format } from "date-fns";
+import { es } from "date-fns/locale";
+
+// Inline Certificate Preview for Admin panel
+function CertificatePreview({ cert, containerId }: { cert: any; containerId: string }) {
+  const studentName = cert.studentName || "Estudiante";
+  const courseName = cert.courseName || "Curso";
+  const teacherName = cert.teacherName || "";
+  const grade = cert.grade;
+  const issuedDate = cert.issuedAt
+    ? format(new Date(cert.issuedAt), "dd 'de' MMMM 'de' yyyy", { locale: es })
+    : format(new Date(), "dd 'de' MMMM 'de' yyyy", { locale: es });
+  const code = cert.verificationCode || cert.certificateCode || "";
+
+  return (
+    <div id={containerId} style={{
+      width: "700px", minHeight: "495px",
+      background: "linear-gradient(135deg, #fffbeb 0%, #fff 50%, #fef3c7 100%)",
+      border: "3px solid #b45309", borderRadius: "8px", position: "relative", overflow: "hidden",
+      fontFamily: "'Georgia', 'Times New Roman', serif", boxSizing: "border-box",
+    }}>
+      <div style={{ position: "absolute", top: 8, left: 8, right: 8, bottom: 8, border: "2px solid #d97706", borderRadius: 4, pointerEvents: "none" }} />
+      <div style={{ position: "absolute", top: 16, left: 16, right: 16, bottom: 16, border: "1px solid #f59e0b", borderRadius: 2, pointerEvents: "none" }} />
+      <div style={{ position: "relative", zIndex: 1, padding: "32px 40px", textAlign: "center" }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 10, marginBottom: 6 }}>
+          <div style={{ width: 40, height: 40, background: "linear-gradient(135deg, #dc2626, #991b1b)", borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 2px 6px rgba(0,0,0,0.15)" }}>
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" strokeWidth="2"><path d="M12 3q1 4 4 6.5t3 5.5a1 1 0 0 1-14 0 5 5 0 0 1 1-3 1 1 0 0 0 5 0c0-2-1.5-3-1.5-5q0-2 2.5-4" /></svg>
+          </div>
+        </div>
+        <h1 style={{ fontSize: "1.4em", color: "#92400e", margin: "0 0 2px", fontWeight: "bold", letterSpacing: 2, textTransform: "uppercase" }}>Avivando el Fuego</h1>
+        <p style={{ fontSize: "0.75em", color: "#a16207", margin: "0 0 4px", letterSpacing: 1 }}>Ministerio Evangelístico Internacional</p>
+        <div style={{ width: 160, height: 1, background: "linear-gradient(to right, transparent, #d97706, transparent)", margin: "10px auto" }} />
+        <h2 style={{ fontSize: "1.5em", color: "#78350f", margin: "6px 0", fontWeight: "normal", letterSpacing: 3, textTransform: "uppercase" }}>Certificado</h2>
+        <p style={{ fontSize: "0.8em", color: "#92400e", margin: "2px 0 12px", fontStyle: "italic" }}>de Finalización</p>
+        <p style={{ fontSize: "0.85em", color: "#78350f" }}>Se certifica que</p>
+        <div style={{ margin: "8px 0", padding: "6px 0", borderBottom: "2px solid #d97706" }}>
+          <p style={{ fontSize: "1.7em", color: "#1e3a5f", fontStyle: "italic", margin: 0, fontWeight: "bold" }}>{studentName}</p>
+        </div>
+        <p style={{ fontSize: "0.85em", color: "#78350f", margin: "10px 0 4px" }}>ha completado satisfactoriamente el curso</p>
+        <p style={{ fontSize: "1.3em", color: "#b45309", fontWeight: "bold", margin: "4px 0 10px" }}>«{courseName}»</p>
+        {grade && <p style={{ fontSize: "0.85em", color: "#78350f", margin: "4px 0" }}>Calificación: <strong style={{ color: "#b45309" }}>{grade}</strong></p>}
+        <p style={{ fontSize: "0.75em", color: "#92400e", margin: "6px 0 14px" }}>Otorgado el {issuedDate}</p>
+        <div style={{ display: "flex", justifyContent: "center", gap: 60, marginTop: 16 }}>
+          {teacherName && (
+            <div style={{ textAlign: "center" }}>
+              <div style={{ width: 160, borderTop: "1px solid #92400e", margin: "0 auto", paddingTop: 4 }}>
+                <p style={{ margin: 0, fontWeight: "bold", color: "#1e3a5f", fontSize: "0.85em" }}>{teacherName}</p>
+                <p style={{ margin: "2px 0 0", fontSize: "0.65em", color: "#92400e" }}>Instructor</p>
+              </div>
+            </div>
+          )}
+          <div style={{ textAlign: "center" }}>
+            <div style={{ width: 160, borderTop: "1px solid #92400e", margin: "0 auto", paddingTop: 4 }}>
+              <p style={{ margin: 0, fontWeight: "bold", color: "#1e3a5f", fontSize: "0.85em" }}>Avivando el Fuego</p>
+              <p style={{ margin: "2px 0 0", fontSize: "0.65em", color: "#92400e" }}>Ministerio</p>
+            </div>
+          </div>
+        </div>
+        {code && (
+          <div style={{ marginTop: 12, padding: "4px 12px", background: "rgba(180,83,9,0.08)", borderRadius: 4, display: "inline-block" }}>
+            <p style={{ fontSize: "0.6em", color: "#92400e", margin: 0 }}>Código: <strong>{code}</strong></p>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
 
 const CONTENT_SECTIONS = [
   { key: "home_hero", label: "Inicio - Hero Principal", description: "Texto principal y versiculo de la pagina de inicio" },
@@ -270,6 +337,38 @@ function LiveStreamAdmin() {
 
 function AdminCourseEnrollments({ courseId, updateEnrollment }: { courseId: number; updateEnrollment: any }) {
   const { data: enrollmentsList, isLoading } = useCourseEnrollments(courseId);
+  const [certPreview, setCertPreview] = useState<any>(null);
+  const [loadingCert, setLoadingCert] = useState<number | null>(null);
+
+  const viewCertificate = async (enrollmentId: number) => {
+    setLoadingCert(enrollmentId);
+    try {
+      const res = await fetch(`/api/certificates/by-enrollment/${enrollmentId}`, { credentials: "include" });
+      if (res.ok) {
+        const cert = await res.json();
+        setCertPreview(cert);
+      } else {
+        alert("Certificado aún no generado. Intenta marcar como 'Completar y Certificar' primero.");
+      }
+    } catch { alert("Error al cargar certificado"); }
+    setLoadingCert(null);
+  };
+
+  const downloadCertPdf = async () => {
+    const el = document.getElementById("admin-cert-preview");
+    if (!el) return;
+    try {
+      const html2canvas = (await import("html2canvas")).default;
+      const { jsPDF } = await import("jspdf");
+      const canvas = await html2canvas(el, { scale: 2, useCORS: true, backgroundColor: "#fffbeb", logging: false });
+      const imgData = canvas.toDataURL("image/png");
+      const pdf = new jsPDF({ orientation: "landscape", unit: "px", format: [canvas.width / 2, canvas.height / 2] });
+      pdf.addImage(imgData, "PNG", 0, 0, canvas.width / 2, canvas.height / 2);
+      pdf.save(`certificado-${(certPreview?.studentName || "estudiante").replace(/\s+/g, "-").toLowerCase()}.pdf`);
+    } catch (err) {
+      console.error("PDF error:", err);
+    }
+  };
 
   if (isLoading) return <div className="py-4 flex justify-center"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>;
   if (!enrollmentsList?.length) return <p className="text-muted-foreground text-sm py-4 text-center mt-3 border-t">No hay inscripciones en este curso.</p>;
@@ -277,6 +376,29 @@ function AdminCourseEnrollments({ courseId, updateEnrollment }: { courseId: numb
   return (
     <div className="mt-4 pt-3 border-t space-y-2">
       <h4 className="text-sm font-semibold mb-2">Inscripciones del Curso</h4>
+
+      {/* Certificate Preview Card */}
+      {certPreview && (
+        <div className="mb-4 p-4 border-2 border-orange-300 rounded-lg bg-orange-50/50">
+          <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+            <h5 className="font-semibold text-orange-700 flex items-center gap-2">
+              <GraduationCap className="w-4 h-4" /> Certificado de {certPreview.studentName}
+            </h5>
+            <div className="flex gap-2">
+              <Button size="sm" className="bg-orange-600 hover:bg-orange-700 text-white" onClick={downloadCertPdf}>
+                <Download className="w-4 h-4 mr-1" /> Descargar PDF
+              </Button>
+              <Button size="sm" variant="ghost" onClick={() => setCertPreview(null)}>
+                <XCircle className="w-4 h-4" />
+              </Button>
+            </div>
+          </div>
+          <div className="overflow-x-auto flex justify-center">
+            <CertificatePreview cert={certPreview} containerId="admin-cert-preview" />
+          </div>
+        </div>
+      )}
+
       {enrollmentsList.map((e: any) => (
         <div key={e.id} className="flex flex-wrap items-center justify-between gap-3 p-3 rounded-md bg-muted/50" data-testid={`admin-enrollment-${e.id}`}>
           <div className="flex items-start gap-3 flex-1 min-w-0">
@@ -317,6 +439,10 @@ function AdminCourseEnrollments({ courseId, updateEnrollment }: { courseId: numb
             {e.status === "completado" && (
               <>
                 <Badge variant="secondary" className="bg-green-100 text-green-700 text-xs">Certificado Generado</Badge>
+                <Button size="sm" variant="outline" className="text-orange-600 border-orange-300 hover:bg-orange-50" onClick={() => viewCertificate(e.id)} disabled={loadingCert === e.id}>
+                  {loadingCert === e.id ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : <GraduationCap className="w-4 h-4 mr-1" />}
+                  Ver Certificado
+                </Button>
                 <Button size="sm" variant="ghost" onClick={() => updateEnrollment.mutate({ id: e.id, courseId, updates: { status: "aprobado" } })} data-testid={`button-admin-revert-enrollment-${e.id}`}>
                   <XCircle className="w-4 h-4 mr-1" /> Revertir
                 </Button>

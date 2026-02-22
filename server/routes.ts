@@ -2793,6 +2793,23 @@ ${urls}
     res.json(certs);
   });
 
+  // Get certificate by enrollment ID (for admin/teacher to view student certs)
+  app.get("/api/certificates/by-enrollment/:enrollmentId", async (req, res) => {
+    if (!isTeacherOrAdmin(req)) return res.sendStatus(403);
+    const cert = await storage.getCertificateByEnrollment(parseInt(req.params.enrollmentId));
+    if (!cert) return res.status(404).json({ message: "Certificado no encontrado para esta inscripcion" });
+    const certUser = await storage.getUser(cert.userId);
+    const course = await storage.getCourse(cert.courseId);
+    res.json({
+      ...cert,
+      verificationCode: cert.certificateCode,
+      studentName: certUser?.displayName || certUser?.username || "Estudiante",
+      courseName: course?.title || "Curso",
+      teacherName: cert.teacherName,
+      courseCategory: course?.category,
+    });
+  });
+
   app.get(api.certificates.get.path, async (req, res) => {
     const cert = await storage.getCertificate(parseInt(req.params.id));
     if (!cert) return res.sendStatus(404);
