@@ -398,14 +398,19 @@ function CourseManager({ courseId, onBack }: { courseId: number; onBack: () => v
                           </Button>
                         )}
                         {e.status === "aprobado" && (
-                          <Button size="sm" variant="ghost" onClick={() => updateEnrollment.mutate({ id: e.id, courseId, updates: { status: "completado" } })} data-testid={`button-complete-${e.id}`}>
-                            <CheckCircle2 className="w-4 h-4" />
+                          <Button size="sm" variant="default" className="bg-green-600 hover:bg-green-700" onClick={() => updateEnrollment.mutate({ id: e.id, courseId, updates: { status: "completado" } })} data-testid={`button-complete-${e.id}`}>
+                            <CheckCircle2 className="w-4 h-4 mr-1" /> Completar
                           </Button>
                         )}
                         {e.status === "completado" && (
-                          <Button size="sm" variant="outline" onClick={() => updateEnrollment.mutate({ id: e.id, courseId, updates: { status: "aprobado" } })} data-testid={`button-revert-${e.id}`} title="Revertir a Aprobado">
-                            <XCircle className="w-4 h-4 mr-1" /> Revertir
-                          </Button>
+                          <>
+                            <Badge variant="secondary" className="bg-green-100 text-green-700 text-xs flex items-center gap-1">
+                              <GraduationCap className="w-3 h-3" /> Certificado generado
+                            </Badge>
+                            <Button size="sm" variant="outline" onClick={() => updateEnrollment.mutate({ id: e.id, courseId, updates: { status: "aprobado" } })} data-testid={`button-revert-${e.id}`} title="Revertir a Aprobado">
+                              <XCircle className="w-4 h-4 mr-1" /> Revertir
+                            </Button>
+                          </>
                         )}
                       </div>
                     </div>

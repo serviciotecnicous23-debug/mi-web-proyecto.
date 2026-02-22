@@ -672,9 +672,20 @@ export default function AdminDashboard() {
                     <CardTitle>Gestion de Cursos</CardTitle>
                     <CardDescription>Crea cursos y asigna maestros.</CardDescription>
                   </div>
-                  <Button onClick={openNewCourseDialog} data-testid="button-new-course">
-                    <Plus className="h-4 w-4 mr-1" /> Nuevo Curso
-                  </Button>
+                  <div className="flex flex-wrap gap-2">
+                    <Button onClick={openNewCourseDialog} data-testid="button-new-course">
+                      <Plus className="h-4 w-4 mr-1" /> Nuevo Curso
+                    </Button>
+                    <Button variant="outline" onClick={async () => {
+                      try {
+                        const res = await fetch("/api/certificates/backfill", { method: "POST", credentials: "include" });
+                        const data = await res.json();
+                        alert(data.message || "Certificados generados");
+                      } catch { alert("Error al generar certificados"); }
+                    }} data-testid="button-backfill-certs">
+                      <GraduationCap className="h-4 w-4 mr-1" /> Generar Certificados Retroactivos
+                    </Button>
+                  </div>
                 </div>
               </CardHeader>
               <CardContent>

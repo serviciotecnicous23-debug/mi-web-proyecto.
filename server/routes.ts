@@ -2827,6 +2827,37 @@ ${urls}
     }
   });
 
+  // Backfill: generate certificates for all completed enrollments that don't have one yet
+  app.post("/api/certificates/backfill", async (req, res) => {
+    if (!isAdmin(req)) return res.sendStatus(403);
+    try {
+      const allCourses = await storage.listCourses();
+      let generated = 0;
+      for (const course of allCourses) {
+        const enrollmentsList = await storage.listEnrollmentsByCourse(course.id);
+        const teacher = course.teacherId ? await storage.getUser(course.teacherId) : null;
+        for (const e of enrollmentsList) {
+          if (e.status === "completado") {
+            const existing = await storage.getCertificateByEnrollment(e.id);
+            if (!existing) {
+              const code = `CERT-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).substring(2, 7).toUpperCase()}`;
+              await storage.createCertificate(
+                e.userId, e.courseId, e.id, code,
+                teacher?.displayName || teacher?.username || undefined,
+                e.grade || undefined
+              );
+              generated++;
+            }
+          }
+        }
+      }
+      res.json({ message: `Se generaron ${generated} certificados retroactivos` });
+    } catch (err) {
+      console.error("Backfill error:", err);
+      res.status(500).json({ message: "Error en la generacion retroactiva" });
+    }
+  });
+
   // ========== TITHES ==========
   app.get(api.tithes.list.path, async (req, res) => {
     if (!isAdmin(req)) return res.sendStatus(403);
