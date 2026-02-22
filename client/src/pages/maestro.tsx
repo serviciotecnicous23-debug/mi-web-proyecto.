@@ -117,11 +117,16 @@ function CourseList({ userId, onSelect }: { userId: number; onSelect: (id: numbe
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {courses.map((c: Course) => (
-            <Card key={c.id} className="cursor-pointer hover-elevate" onClick={() => onSelect(c.id)} data-testid={`card-teacher-course-${c.id}`}>
+            <Card key={c.id} className={`cursor-pointer hover-elevate ${(c as any).pendingCount > 0 ? "border-destructive border-2" : ""}`} onClick={() => onSelect(c.id)} data-testid={`card-teacher-course-${c.id}`}>
               <CardHeader>
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <Badge variant="secondary">{COURSE_CATEGORIES[c.category as keyof typeof COURSE_CATEGORIES] || c.category}</Badge>
-                  <Badge variant={c.isActive ? "default" : "outline"}>{c.isActive ? "Activo" : "Inactivo"}</Badge>
+                  <div className="flex items-center gap-2">
+                    {(c as any).pendingCount > 0 && (
+                      <Badge variant="destructive" className="animate-pulse">{(c as any).pendingCount} solicitud(es)</Badge>
+                    )}
+                    <Badge variant={c.isActive ? "default" : "outline"}>{c.isActive ? "Activo" : "Inactivo"}</Badge>
+                  </div>
                 </div>
                 <CardTitle className="text-lg mt-2">{c.title}</CardTitle>
                 <CardDescription className="line-clamp-2">{c.description}</CardDescription>
@@ -322,7 +327,7 @@ function CourseManager({ courseId, onBack }: { courseId: number; onBack: () => v
               {(course as any).enrolledCount || 0}{course.maxStudents ? `/${course.maxStudents}` : ""} inscritos
             </span>
             {(course as any).pendingCount > 0 && (
-              <Badge variant="outline" className="text-xs">{(course as any).pendingCount} pendiente(s)</Badge>
+              <Badge variant="destructive" className="text-xs animate-pulse">{(course as any).pendingCount} pendiente(s)</Badge>
             )}
           </div>
         </div>
@@ -330,7 +335,12 @@ function CourseManager({ courseId, onBack }: { courseId: number; onBack: () => v
 
       <Tabs defaultValue="students" className="space-y-4">
         <TabsList className="flex flex-wrap">
-          <TabsTrigger value="students" data-testid="tab-students"><Users className="w-4 h-4 mr-1" /> Estudiantes</TabsTrigger>
+          <TabsTrigger value="students" data-testid="tab-students">
+            <Users className="w-4 h-4 mr-1" /> Estudiantes
+            {enrollmentsList?.filter((e: any) => e.status === "solicitado").length > 0 && (
+              <Badge variant="destructive" className="ml-1">{enrollmentsList.filter((e: any) => e.status === "solicitado").length}</Badge>
+            )}
+          </TabsTrigger>
           <TabsTrigger value="materials" data-testid="tab-materials"><FileText className="w-4 h-4 mr-1" /> Materiales</TabsTrigger>
           <TabsTrigger value="sessions" data-testid="tab-sessions"><Calendar className="w-4 h-4 mr-1" /> Sesiones</TabsTrigger>
           <TabsTrigger value="config" data-testid="tab-config"><Pencil className="w-4 h-4 mr-1" /> Configuracion</TabsTrigger>

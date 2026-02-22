@@ -559,6 +559,7 @@ export default function AdminDashboard() {
             </TabsTrigger>
             <TabsTrigger value="courses" className="gap-2" data-testid="tab-courses">
               <GraduationCap className="h-4 w-4" /> Cursos
+              {allCourses && (() => { const pc = allCourses.reduce((s: number, c: any) => s + ((c as any).pendingCount || 0), 0); return pc > 0 ? <Badge variant="destructive" className="ml-1">{pc}</Badge> : null; })()}
             </TabsTrigger>
             <TabsTrigger value="teacher-requests" className="gap-2" data-testid="tab-teacher-requests">
               <BookOpen className="h-4 w-4" /> Maestros
@@ -694,14 +695,14 @@ export default function AdminDashboard() {
                                   {!teacher && <span className="text-primary">Sin maestro asignado</span>}
                                   <span>Inscritos: {(course as any).enrolledCount || 0}{course.maxStudents ? `/${course.maxStudents}` : ""}</span>
                                   {(course as any).pendingCount > 0 && (
-                                    <Badge variant="outline" className="text-xs">{(course as any).pendingCount} solicitud(es)</Badge>
+                                    <Badge variant="destructive" className="text-xs animate-pulse">{(course as any).pendingCount} solicitud(es) pendiente(s)</Badge>
                                   )}
                                 </div>
                               </div>
                               <div className="flex items-center gap-1">
-                                <Button variant="ghost" size="sm" onClick={() => setExpandedCourse(isExpanded ? null : course.id)} data-testid={`button-expand-enrollments-${course.id}`}>
+                                <Button variant={(course as any).pendingCount > 0 ? "default" : "ghost"} size="sm" onClick={() => setExpandedCourse(isExpanded ? null : course.id)} data-testid={`button-expand-enrollments-${course.id}`}>
                                   {isExpanded ? <ChevronDown className="h-4 w-4 mr-1" /> : <ChevronRight className="h-4 w-4 mr-1" />}
-                                  Inscripciones
+                                  Inscripciones {(course as any).pendingCount > 0 && `(${(course as any).pendingCount})`}
                                 </Button>
                                 <Button variant="ghost" size="icon" onClick={() => openEditCourseDialog(course)} data-testid={`button-edit-course-${course.id}`}>
                                   <Pencil className="h-4 w-4" />
