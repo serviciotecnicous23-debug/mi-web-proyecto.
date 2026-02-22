@@ -1269,10 +1269,18 @@ ${urls}
       courseList = await storage.listActiveCourses();
     }
     const counts = await storage.getEnrollmentCounts();
+    // Enrich with teacher info
+    const teacherIds = Array.from(new Set(courseList.map(c => c.teacherId).filter(Boolean))) as number[];
+    const teacherMap: Record<number, { displayName: string | null; username: string; avatarUrl: string | null }> = {};
+    for (const tid of teacherIds) {
+      const t = await storage.getUser(tid);
+      if (t) teacherMap[tid] = { displayName: t.displayName, username: t.username, avatarUrl: t.avatarUrl };
+    }
     res.json(courseList.map(c => ({
       ...c,
       enrolledCount: counts[c.id]?.approved || 0,
       pendingCount: counts[c.id]?.pending || 0,
+      teacher: c.teacherId && teacherMap[c.teacherId] ? teacherMap[c.teacherId] : null,
     })));
   });
 
@@ -1283,10 +1291,12 @@ ${urls}
       return res.sendStatus(404);
     }
     const counts = await storage.getEnrollmentCounts();
+    const teacher = course.teacherId ? await storage.getUser(course.teacherId) : null;
     res.json({
       ...course,
       enrolledCount: counts[course.id]?.approved || 0,
       pendingCount: counts[course.id]?.pending || 0,
+      teacher: teacher ? { displayName: teacher.displayName, username: teacher.username, avatarUrl: teacher.avatarUrl, bio: teacher.bio } : null,
     });
   });
 
@@ -1505,6 +1515,26 @@ ${urls}
       const input = api.enrollments.update.input.parse(req.body);
       const enrollment = await storage.updateEnrollment(parseInt(req.params.id), input);
       if (!enrollment) return res.sendStatus(404);
+
+      // Auto-generate certificate when marking as "completado"
+      if (input.status === "completado") {
+        try {
+          const existingCert = await storage.getCertificateByEnrollment(enrollment.id);
+          if (!existingCert) {
+            const course = await storage.getCourse(enrollment.courseId);
+            const teacher = course?.teacherId ? await storage.getUser(course.teacherId) : null;
+            const code = `CERT-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).substring(2, 7).toUpperCase()}`;
+            await storage.createCertificate(
+              enrollment.userId, enrollment.courseId, enrollment.id, code,
+              teacher?.displayName || teacher?.username || undefined,
+              enrollment.grade || undefined
+            );
+          }
+        } catch (certErr) {
+          console.error("Auto-certificate generation failed:", certErr);
+        }
+      }
+
       res.json(enrollment);
     } catch (err) {
       if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });

@@ -314,6 +314,7 @@ export interface IStorage {
   createCertificate(userId: number, courseId: number, enrollmentId: number, code: string, teacherName?: string, grade?: string): Promise<Certificate>;
   getCertificate(id: number): Promise<Certificate | undefined>;
   getCertificateByCode(code: string): Promise<Certificate | undefined>;
+  getCertificateByEnrollment(enrollmentId: number): Promise<Certificate | undefined>;
   listCertificatesByUser(userId: number): Promise<(Certificate & { course: { title: string } })[]>;
 
   // Tithes
@@ -704,10 +705,24 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteCourse(id: number): Promise<void> {
-    await db.delete(enrollments).where(eq(enrollments.courseId, id));
-    await db.delete(courseMaterials).where(eq(courseMaterials.courseId, id));
-    await db.delete(courseSessions).where(eq(courseSessions.courseId, id));
-    await db.delete(courses).where(eq(courses.id, id));
+    // Soft-delete: deactivate and close enrollment instead of destroying data
+    // This preserves enrollments, certificates, and student achievements
+    const hasCertificates = await db.select({ id: certificates.id }).from(certificates).where(eq(certificates.courseId, id)).limit(1);
+    const hasCompletedEnrollments = await db.select({ id: enrollments.id }).from(enrollments).where(and(eq(enrollments.courseId, id), or(eq(enrollments.status, "completado"), eq(enrollments.status, "aprobado")))).limit(1);
+
+    if (hasCertificates.length > 0 || hasCompletedEnrollments.length > 0) {
+      // Soft delete: keep data, just deactivate
+      await db.update(courses).set({ isActive: false, enrollmentStatus: "closed" }).where(eq(courses.id, id));
+    } else {
+      // No completions or certificates — safe to hard delete
+      await db.delete(enrollments).where(eq(enrollments.courseId, id));
+      await db.delete(courseMaterials).where(eq(courseMaterials.courseId, id));
+      await db.delete(courseSessions).where(eq(courseSessions.courseId, id));
+      // Also clean announcements and schedule
+      await db.delete(courseAnnouncements).where(eq(courseAnnouncements.courseId, id));
+      await db.delete(courseSchedule).where(eq(courseSchedule.courseId, id));
+      await db.delete(courses).where(eq(courses.id, id));
+    }
   }
 
   async createCourseMaterial(material: InsertCourseMaterial): Promise<CourseMaterial> {
@@ -858,6 +873,10 @@ export class DatabaseStorage implements IStorage {
         username: users.username,
         displayName: users.displayName,
         userRole: users.role,
+        avatarUrl: users.avatarUrl,
+        email: users.email,
+        country: users.country,
+        cargo: users.cargo,
       })
       .from(enrollments)
       .innerJoin(users, eq(enrollments.userId, users.id))
@@ -873,8 +892,13 @@ export class DatabaseStorage implements IStorage {
       observations: r.observations,
       enrolledAt: r.enrolledAt,
       completedAt: r.completedAt,
-      user: { id: r.userId, username: r.username, displayName: r.displayName, role: r.userRole },
+      user: { id: r.userId, username: r.username, displayName: r.displayName, role: r.userRole, avatarUrl: r.avatarUrl || null, email: r.email || null, country: r.country || null, cargo: r.cargo || null },
     }));
+  }
+
+  async getCertificateByEnrollment(enrollmentId: number): Promise<Certificate | undefined> {
+    const [cert] = await db.select().from(certificates).where(eq(certificates.enrollmentId, enrollmentId));
+    return cert;
   }
 
   async updateEnrollment(id: number, updates: UpdateEnrollment): Promise<Enrollment | undefined> {
@@ -2057,11 +2081,11 @@ export class DatabaseStorage implements IStorage {
       teacherName: certificates.teacherName,
       grade: certificates.grade,
       courseTitle: courses.title,
-    }).from(certificates).innerJoin(courses, eq(certificates.courseId, courses.id)).where(eq(certificates.userId, userId)).orderBy(desc(certificates.issuedAt));
+    }).from(certificates).leftJoin(courses, eq(certificates.courseId, courses.id)).where(eq(certificates.userId, userId)).orderBy(desc(certificates.issuedAt));
     return rows.map(r => ({
       id: r.id, userId: r.userId, courseId: r.courseId, enrollmentId: r.enrollmentId,
       certificateCode: r.certificateCode, issuedAt: r.issuedAt, teacherName: r.teacherName, grade: r.grade,
-      course: { title: r.courseTitle },
+      course: { title: r.courseTitle || "Curso eliminado" },
     }));
   }
 

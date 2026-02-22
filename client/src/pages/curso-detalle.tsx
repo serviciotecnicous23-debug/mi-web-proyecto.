@@ -9,10 +9,11 @@ import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Loader2, BookOpen, Calendar, Clock, Video, FileText, Link as LinkIcon,
-  Music, Presentation, GraduationCap, ExternalLink, ArrowLeft, Users, Shield,
+  Music, Presentation, GraduationCap, ExternalLink, ArrowLeft, Users, Shield, UserCircle,
 } from "lucide-react";
 import { COURSE_CATEGORIES, ENROLLMENT_STATUSES, MATERIAL_TYPES, TEACHER_REQUEST_STATUSES } from "@shared/schema";
 import type { CourseMaterial, CourseSession } from "@shared/schema";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 const materialIcons: Record<string, any> = {
   documento: FileText,
@@ -87,6 +88,22 @@ export default function CursoDetalle({ params }: { params: { id: string } }) {
               </Badge>
               <h1 className="text-2xl font-bold mb-3" data-testid="text-course-detail-title">{course.title}</h1>
               <p className="text-muted-foreground whitespace-pre-wrap">{course.description}</p>
+
+              {(course as any).teacher && (
+                <div className="flex items-center gap-3 mt-4 p-3 bg-muted/50 rounded-md">
+                  <Avatar className="w-10 h-10">
+                    <AvatarImage src={(course as any).teacher.avatarUrl} />
+                    <AvatarFallback>
+                      {((course as any).teacher.displayName || (course as any).teacher.username || "?").charAt(0).toUpperCase()}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div>
+                    <p className="text-sm font-medium">{(course as any).teacher.displayName || (course as any).teacher.username}</p>
+                    <p className="text-xs text-muted-foreground flex items-center gap-1"><UserCircle className="w-3 h-3" /> Maestro del curso</p>
+                    {(course as any).teacher.bio && <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{(course as any).teacher.bio}</p>}
+                  </div>
+                </div>
+              )}
             </div>
 
             {sessions && sessions.length > 0 && (

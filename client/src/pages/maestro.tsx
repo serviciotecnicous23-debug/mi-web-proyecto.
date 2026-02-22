@@ -35,6 +35,7 @@ import {
 } from "lucide-react";
 import { MATERIAL_TYPES, ENROLLMENT_STATUSES, ENROLLMENT_MODES, COURSE_CATEGORIES, DAYS_OF_WEEK, MEETING_PLATFORMS } from "@shared/schema";
 import type { Course, CourseMaterial, CourseSession, Enrollment, CourseAnnouncement, CourseScheduleEntry } from "@shared/schema";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 export default function MaestroPanel() {
   const { user, isLoading: authLoading } = useAuth();
@@ -361,11 +362,21 @@ function CourseManager({ courseId, onBack }: { courseId: number; onBack: () => v
                 <div className="space-y-3">
                   {enrollmentsList.map((e: any) => (
                     <div key={e.id} className="flex flex-wrap items-center justify-between gap-3 p-3 rounded-md bg-muted/50" data-testid={`student-enrollment-${e.id}`}>
-                      <div className="flex-1 min-w-0">
-                        <p className="font-medium text-sm">{e.user.displayName || e.user.username}</p>
-                        <p className="text-xs text-muted-foreground">@{e.user.username}</p>
-                        {e.grade && <p className="text-xs mt-1">Calificacion: <span className="font-semibold">{e.grade}</span></p>}
-                        {e.observations && <p className="text-xs text-muted-foreground mt-1">{e.observations}</p>}
+                      <div className="flex items-start gap-3 flex-1 min-w-0">
+                        <Avatar className="w-8 h-8 shrink-0">
+                          <AvatarImage src={e.user.avatarUrl} />
+                          <AvatarFallback className="text-xs">
+                            {(e.user.displayName || e.user.username || "?").charAt(0).toUpperCase()}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className="min-w-0">
+                          <p className="font-medium text-sm">{e.user.displayName || e.user.username}</p>
+                          <p className="text-xs text-muted-foreground">@{e.user.username}</p>
+                          {e.user.email && <p className="text-xs text-muted-foreground">{e.user.email}</p>}
+                          {e.user.country && <p className="text-xs text-muted-foreground">{e.user.country}{e.user.cargo ? ` · ${e.user.cargo}` : ""}</p>}
+                          {e.grade && <p className="text-xs mt-1">Calificacion: <span className="font-semibold">{e.grade}</span></p>}
+                          {e.observations && <p className="text-xs text-muted-foreground mt-1">{e.observations}</p>}
+                        </div>
                       </div>
                       <div className="flex flex-wrap items-center gap-2">
                         <Badge variant={e.status === "aprobado" ? "default" : e.status === "completado" ? "secondary" : e.status === "rechazado" ? "destructive" : "outline"}>

@@ -669,6 +669,19 @@ function CursosTab({ user }: { user: any }) {
                   </div>
                   <CardTitle className="text-lg mt-2" data-testid={`text-course-title-${course.id}`}>{course.title}</CardTitle>
                   <CardDescription className="line-clamp-3">{course.description}</CardDescription>
+                  {(course as any).teacher && (
+                    <div className="flex items-center gap-2 mt-2">
+                      <Avatar className="w-5 h-5">
+                        <AvatarImage src={(course as any).teacher.avatarUrl} />
+                        <AvatarFallback className="text-[9px]">
+                          {((course as any).teacher.displayName || (course as any).teacher.username || "?").charAt(0).toUpperCase()}
+                        </AvatarFallback>
+                      </Avatar>
+                      <span className="text-xs text-muted-foreground">
+                        Maestro: {(course as any).teacher.displayName || (course as any).teacher.username}
+                      </span>
+                    </div>
+                  )}
                 </CardHeader>
                 <CardContent className="pt-0">
                   <div className="flex flex-wrap items-center gap-2">
