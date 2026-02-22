@@ -507,6 +507,116 @@ CREATE TABLE IF NOT EXISTS "push_subscriptions" (
   "auth" text NOT NULL,
   "created_at" timestamp DEFAULT now()
 );
+
+-- Certificates
+CREATE TABLE IF NOT EXISTS "certificates" (
+  "id" serial PRIMARY KEY,
+  "user_id" integer NOT NULL REFERENCES "users"("id"),
+  "course_id" integer NOT NULL REFERENCES "courses"("id"),
+  "enrollment_id" integer NOT NULL REFERENCES "enrollments"("id"),
+  "certificate_code" text NOT NULL UNIQUE,
+  "issued_at" timestamp DEFAULT now(),
+  "teacher_name" text,
+  "grade" text
+);
+
+-- Tithes and offerings
+CREATE TABLE IF NOT EXISTS "tithes" (
+  "id" serial PRIMARY KEY,
+  "user_id" integer REFERENCES "users"("id"),
+  "donor_name" text NOT NULL,
+  "amount" text NOT NULL,
+  "currency" text NOT NULL DEFAULT 'USD',
+  "type" text NOT NULL DEFAULT 'diezmo',
+  "method" text NOT NULL DEFAULT 'efectivo',
+  "church_id" integer REFERENCES "ministry_churches"("id"),
+  "region_name" text,
+  "notes" text,
+  "receipt_sent" boolean NOT NULL DEFAULT false,
+  "created_at" timestamp DEFAULT now(),
+  "recorded_by" integer REFERENCES "users"("id")
+);
+
+-- Sermons
+CREATE TABLE IF NOT EXISTS "sermons" (
+  "id" serial PRIMARY KEY,
+  "title" text NOT NULL,
+  "description" text,
+  "preacher_id" integer REFERENCES "users"("id"),
+  "preacher_name" text,
+  "sermon_date" timestamp,
+  "category" text NOT NULL DEFAULT 'general',
+  "series_name" text,
+  "video_url" text,
+  "audio_url" text,
+  "content" text,
+  "image_url" text,
+  "is_published" boolean NOT NULL DEFAULT true,
+  "created_by" integer REFERENCES "users"("id"),
+  "created_at" timestamp DEFAULT now()
+);
+
+-- Sermon notes
+CREATE TABLE IF NOT EXISTS "sermon_notes" (
+  "id" serial PRIMARY KEY,
+  "sermon_id" integer NOT NULL REFERENCES "sermons"("id"),
+  "user_id" integer NOT NULL REFERENCES "users"("id"),
+  "content" text NOT NULL,
+  "created_at" timestamp DEFAULT now(),
+  "updated_at" timestamp DEFAULT now()
+);
+
+-- Small groups
+CREATE TABLE IF NOT EXISTS "small_groups" (
+  "id" serial PRIMARY KEY,
+  "name" text NOT NULL,
+  "description" text,
+  "leader_id" integer NOT NULL REFERENCES "users"("id"),
+  "meeting_day" integer,
+  "meeting_time" text,
+  "meeting_location" text,
+  "meeting_url" text,
+  "max_members" integer,
+  "is_active" boolean NOT NULL DEFAULT true,
+  "created_at" timestamp DEFAULT now()
+);
+
+-- Small group members
+CREATE TABLE IF NOT EXISTS "small_group_members" (
+  "id" serial PRIMARY KEY,
+  "group_id" integer NOT NULL REFERENCES "small_groups"("id"),
+  "user_id" integer NOT NULL REFERENCES "users"("id"),
+  "role" text NOT NULL DEFAULT 'miembro',
+  "joined_at" timestamp DEFAULT now()
+);
+
+-- Small group meetings
+CREATE TABLE IF NOT EXISTS "small_group_meetings" (
+  "id" serial PRIMARY KEY,
+  "group_id" integer NOT NULL REFERENCES "small_groups"("id"),
+  "title" text NOT NULL,
+  "meeting_date" timestamp NOT NULL,
+  "notes" text,
+  "created_at" timestamp DEFAULT now()
+);
+
+-- Small group attendance
+CREATE TABLE IF NOT EXISTS "small_group_attendance" (
+  "id" serial PRIMARY KEY,
+  "meeting_id" integer NOT NULL REFERENCES "small_group_meetings"("id"),
+  "user_id" integer NOT NULL REFERENCES "users"("id"),
+  "status" text NOT NULL DEFAULT 'presente',
+  "created_at" timestamp DEFAULT now()
+);
+
+-- Small group messages
+CREATE TABLE IF NOT EXISTS "small_group_messages" (
+  "id" serial PRIMARY KEY,
+  "group_id" integer NOT NULL REFERENCES "small_groups"("id"),
+  "user_id" integer NOT NULL REFERENCES "users"("id"),
+  "content" text NOT NULL,
+  "created_at" timestamp DEFAULT now()
+);
 `;
 
 // ALTER TABLE statements to add columns that might be missing from older schemas

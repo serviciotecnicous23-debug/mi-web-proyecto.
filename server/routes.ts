@@ -1517,6 +1517,7 @@ ${urls}
       if (!enrollment) return res.sendStatus(404);
 
       // Auto-generate certificate when marking as "completado"
+      let generatedCert = null;
       if (input.status === "completado") {
         try {
           const existingCert = await storage.getCertificateByEnrollment(enrollment.id);
@@ -1524,18 +1525,22 @@ ${urls}
             const course = await storage.getCourse(enrollment.courseId);
             const teacher = course?.teacherId ? await storage.getUser(course.teacherId) : null;
             const code = `CERT-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).substring(2, 7).toUpperCase()}`;
-            await storage.createCertificate(
+            generatedCert = await storage.createCertificate(
               enrollment.userId, enrollment.courseId, enrollment.id, code,
               teacher?.displayName || teacher?.username || undefined,
               enrollment.grade || undefined
             );
+            console.log(`✓ Certificate generated for enrollment ${enrollment.id}: ${code}`);
+          } else {
+            generatedCert = existingCert;
+            console.log(`Certificate already exists for enrollment ${enrollment.id}`);
           }
-        } catch (certErr) {
-          console.error("Auto-certificate generation failed:", certErr);
+        } catch (certErr: any) {
+          console.error("✗ Auto-certificate generation failed:", certErr?.message || certErr);
         }
       }
 
-      res.json(enrollment);
+      res.json({ ...enrollment, certificate: generatedCert });
     } catch (err) {
       if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });
       res.sendStatus(500);
