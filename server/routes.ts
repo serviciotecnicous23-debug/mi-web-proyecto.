@@ -1098,6 +1098,20 @@ ${urls}
         return res.status(400).json({ message: "La fecha del evento no es valida" });
       }
       const event = await storage.createEvent({ ...input, createdBy: req.user!.id });
+      
+      // Push notification for new event (non-blocking)
+      if (isPushConfigured) {
+        (async () => {
+          try {
+            const allSubs = await storage.getAllPushSubscriptions();
+            const payload: PushPayload = { title: "Nuevo Evento", body: event.title, url: "/eventos", icon: "/icons/icon-192x192.png" };
+            const subs = allSubs.map(s => ({ id: s.id, subscription: { endpoint: s.endpoint, keys: { p256dh: s.p256dh, auth: s.auth } } }));
+            const expired = await sendPushToMany(subs, payload);
+            if (expired.length > 0) await storage.deletePushSubscriptionsByIds(expired);
+          } catch (e) { console.error("[push] Event push error:", e); }
+        })();
+      }
+      
       res.status(201).json(event);
     } catch (err: any) {
       console.error("Error creating event:", err);
@@ -1287,6 +1301,19 @@ ${urls}
         content: `Se abrio el curso: ${course.title}`,
         link: `/capacitaciones/${course.id}`,
       });
+      
+      // Push notification for new course (non-blocking)
+      if (isPushConfigured) {
+        (async () => {
+          try {
+            const allSubs = await storage.getAllPushSubscriptions();
+            const payload: PushPayload = { title: "Nuevo Curso Disponible", body: course.title, url: `/capacitaciones/${course.id}`, icon: "/icons/icon-192x192.png" };
+            const subs = allSubs.map(s => ({ id: s.id, subscription: { endpoint: s.endpoint, keys: { p256dh: s.p256dh, auth: s.auth } } }));
+            const expired = await sendPushToMany(subs, payload);
+            if (expired.length > 0) await storage.deletePushSubscriptionsByIds(expired);
+          } catch (e) { console.error("[push] Course push error:", e); }
+        })();
+      }
       
       // Email notification for new course (non-blocking, batched)
       if (isEmailConfigured) {
@@ -2372,6 +2399,20 @@ ${urls}
     const parsed = api.cartelera.create.input.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ message: parsed.error.message });
     const ann = await storage.createCarteleraAnnouncement(req.user!.id, parsed.data);
+    
+    // Push notification for cartelera announcement (non-blocking)
+    if (isPushConfigured) {
+      (async () => {
+        try {
+          const allSubs = await storage.getAllPushSubscriptions();
+          const payload: PushPayload = { title: "Nuevo Anuncio en Cartelera", body: ann.title, url: "/comunidad", icon: "/icons/icon-192x192.png" };
+          const subs = allSubs.map(s => ({ id: s.id, subscription: { endpoint: s.endpoint, keys: { p256dh: s.p256dh, auth: s.auth } } }));
+          const expired = await sendPushToMany(subs, payload);
+          if (expired.length > 0) await storage.deletePushSubscriptionsByIds(expired);
+        } catch (e) { console.error("[push] Cartelera push error:", e); }
+      })();
+    }
+    
     res.json(ann);
   });
 
@@ -2506,6 +2547,28 @@ ${urls}
         return res.status(400).json({ message: "No puedes enviarte mensajes a ti mismo" });
       }
       const msg = await storage.sendDirectMessage(req.user!.id, input);
+      
+      // Push notification for direct message (non-blocking)
+      if (isPushConfigured) {
+        try {
+          const receiverSubs = await storage.getPushSubscriptionsByUser(input.receiverId);
+          if (receiverSubs.length > 0) {
+            const senderName = req.user!.displayName || req.user!.username;
+            const payload: PushPayload = {
+              title: `Mensaje de ${senderName}`,
+              body: input.content.substring(0, 100),
+              url: "/mensajes",
+              icon: "/icons/icon-192x192.png",
+            };
+            sendPushToMany(
+              receiverSubs.map(s => ({ id: s.id, subscription: { endpoint: s.endpoint, keys: { p256dh: s.p256dh, auth: s.auth } } })),
+              payload
+            ).catch(e => console.error("[push] DM push error:", e));
+          }
+        } catch (pushErr) {
+          console.error("[push] DM notification error (non-blocking):", pushErr);
+        }
+      }
       
       // Email notification for direct message (non-blocking)
       if (isEmailConfigured) {
@@ -2677,6 +2740,342 @@ ${urls}
     const postId = parseInt(req.params.id);
     const optionId = await storage.getUserPollVote(postId, req.user!.id);
     res.json({ optionId });
+  });
+
+  // ========== CERTIFICATES ==========
+  app.get(api.certificates.myList.path, async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    const certs = await storage.listCertificatesByUser(req.user!.id);
+    res.json(certs);
+  });
+
+  app.get(api.certificates.listByUser.path, async (req, res) => {
+    if (!isAdmin(req)) return res.sendStatus(403);
+    const userId = parseInt(req.params.userId);
+    const certs = await storage.listCertificatesByUser(userId);
+    res.json(certs);
+  });
+
+  app.get(api.certificates.get.path, async (req, res) => {
+    const cert = await storage.getCertificate(parseInt(req.params.id));
+    if (!cert) return res.sendStatus(404);
+    // Get related data for rendering
+    const user = await storage.getUser(cert.userId);
+    const course = await storage.getCourse(cert.courseId);
+    res.json({ ...cert, user: { displayName: user?.displayName, username: user?.username }, course: { title: course?.title, category: course?.category } });
+  });
+
+  app.get(api.certificates.verify.path, async (req, res) => {
+    const cert = await storage.getCertificateByCode(req.params.code);
+    if (!cert) return res.status(404).json({ valid: false, message: "Certificado no encontrado" });
+    const user = await storage.getUser(cert.userId);
+    const course = await storage.getCourse(cert.courseId);
+    res.json({ valid: true, certificate: { ...cert, user: { displayName: user?.displayName }, course: { title: course?.title } } });
+  });
+
+  app.post(api.certificates.generate.path, async (req, res) => {
+    if (!isTeacherOrAdmin(req)) return res.sendStatus(403);
+    try {
+      const { enrollmentId } = req.body;
+      const enrollment = await storage.getEnrollment(enrollmentId);
+      if (!enrollment) return res.status(404).json({ message: "Inscripcion no encontrada" });
+      if (enrollment.status !== "completado") return res.status(400).json({ message: "El estudiante no ha completado el curso" });
+      
+      const course = await storage.getCourse(enrollment.courseId);
+      const teacher = course?.teacherId ? await storage.getUser(course.teacherId) : null;
+      const code = `CERT-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).substring(2, 7).toUpperCase()}`;
+      
+      const cert = await storage.createCertificate(
+        enrollment.userId, enrollment.courseId, enrollmentId, code,
+        teacher?.displayName || teacher?.username || undefined,
+        enrollment.grade || undefined
+      );
+      res.status(201).json(cert);
+    } catch (err) {
+      console.error("Certificate generation error:", err);
+      res.status(500).json({ message: "Error al generar certificado" });
+    }
+  });
+
+  // ========== TITHES ==========
+  app.get(api.tithes.list.path, async (req, res) => {
+    if (!isAdmin(req)) return res.sendStatus(403);
+    const { churchId, regionName, month } = req.query;
+    const list = await storage.listTithes({
+      churchId: churchId ? parseInt(churchId as string) : undefined,
+      regionName: regionName as string,
+      month: month as string,
+    });
+    res.json(list);
+  });
+
+  app.post(api.tithes.create.path, async (req, res) => {
+    if (!isAdmin(req)) return res.sendStatus(403);
+    try {
+      const input = api.tithes.create.input.parse(req.body);
+      const tithe = await storage.createTithe({ ...input, recordedBy: req.user!.id });
+      res.status(201).json(tithe);
+    } catch (err) {
+      if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });
+      res.sendStatus(500);
+    }
+  });
+
+  app.delete(api.tithes.delete.path, async (req, res) => {
+    if (!isAdmin(req)) return res.sendStatus(403);
+    await storage.deleteTithe(parseInt(req.params.id));
+    res.json({ success: true });
+  });
+
+  app.get(api.tithes.report.path, async (req, res) => {
+    if (!isAdmin(req)) return res.sendStatus(403);
+    const { month, year } = req.query;
+    const report = await storage.getTitheReport(month as string, year as string);
+    res.json(report);
+  });
+
+  // ========== REPORTS ==========
+  app.get(api.reports.dashboard.path, async (req, res) => {
+    if (!isAdmin(req)) return res.sendStatus(403);
+    const data = await storage.getReportDashboard();
+    res.json(data);
+  });
+
+  app.get(api.reports.memberGrowth.path, async (req, res) => {
+    if (!isAdmin(req)) return res.sendStatus(403);
+    const data = await storage.getMemberGrowthReport();
+    res.json(data);
+  });
+
+  app.get(api.reports.courseStats.path, async (req, res) => {
+    if (!isAdmin(req)) return res.sendStatus(403);
+    const data = await storage.getCourseStatsReport();
+    res.json(data);
+  });
+
+  app.get(api.reports.attendanceStats.path, async (req, res) => {
+    if (!isAdmin(req)) return res.sendStatus(403);
+    const data = await storage.getAttendanceReport();
+    res.json(data);
+  });
+
+  app.get(api.reports.prayerStats.path, async (req, res) => {
+    if (!isAdmin(req)) return res.sendStatus(403);
+    const data = await storage.getPrayerStatsReport();
+    res.json(data);
+  });
+
+  app.get(api.reports.libraryStats.path, async (req, res) => {
+    if (!isAdmin(req)) return res.sendStatus(403);
+    const data = await storage.getLibraryStatsReport();
+    res.json(data);
+  });
+
+  app.get(api.reports.enrollmentExport.path, async (req, res) => {
+    if (!isAdmin(req)) return res.sendStatus(403);
+    try {
+      const allCourses = await storage.listCourses();
+      const rows: any[] = [];
+      for (const course of allCourses) {
+        const enrollmentsList = await storage.listEnrollmentsByCourse(course.id);
+        for (const e of enrollmentsList) {
+          rows.push({
+            Curso: course.title,
+            Categoria: course.category,
+            Estudiante: e.user.displayName || e.user.username,
+            Estado: e.status,
+            Calificacion: e.grade || "",
+            FechaInscripcion: e.enrolledAt,
+            FechaCompletado: e.completedAt || "",
+          });
+        }
+      }
+      // Return as CSV
+      if (rows.length === 0) return res.status(200).send("Sin datos");
+      const headers = Object.keys(rows[0]);
+      const csv = [headers.join(","), ...rows.map(r => headers.map(h => `"${String(r[h]).replace(/"/g, '""')}"`).join(","))].join("\n");
+      res.setHeader("Content-Type", "text/csv; charset=utf-8");
+      res.setHeader("Content-Disposition", "attachment; filename=inscripciones.csv");
+      res.send("\uFEFF" + csv); // BOM for Excel
+    } catch (err) {
+      console.error("Export error:", err);
+      res.sendStatus(500);
+    }
+  });
+
+  // ========== SERMONS ==========
+  app.get(api.sermons.list.path, async (req, res) => {
+    const { category, preacherId, series, search } = req.query;
+    const list = await storage.listSermons({
+      category: category as string,
+      preacherId: preacherId ? parseInt(preacherId as string) : undefined,
+      series: series as string,
+      search: search as string,
+    });
+    res.json(list);
+  });
+
+  app.get(api.sermons.get.path, async (req, res) => {
+    const sermon = await storage.getSermon(parseInt(req.params.id));
+    if (!sermon) return res.sendStatus(404);
+    res.json(sermon);
+  });
+
+  app.post(api.sermons.create.path, async (req, res) => {
+    if (!isTeacherOrAdmin(req)) return res.sendStatus(403);
+    try {
+      const input = api.sermons.create.input.parse(req.body);
+      const sermon = await storage.createSermon({ ...input, createdBy: req.user!.id });
+      res.status(201).json(sermon);
+    } catch (err) {
+      if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });
+      res.sendStatus(500);
+    }
+  });
+
+  app.patch(api.sermons.update.path, async (req, res) => {
+    if (!isTeacherOrAdmin(req)) return res.sendStatus(403);
+    try {
+      const input = api.sermons.update.input.parse(req.body);
+      const updated = await storage.updateSermon(parseInt(req.params.id), input);
+      if (!updated) return res.sendStatus(404);
+      res.json(updated);
+    } catch (err) {
+      if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });
+      res.sendStatus(500);
+    }
+  });
+
+  app.delete(api.sermons.delete.path, async (req, res) => {
+    if (!isTeacherOrAdmin(req)) return res.sendStatus(403);
+    await storage.deleteSermon(parseInt(req.params.id));
+    res.json({ success: true });
+  });
+
+  app.get(api.sermons.notes.path, async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    const notes = await storage.listSermonNotes(parseInt(req.params.id), req.user!.id);
+    res.json(notes);
+  });
+
+  app.post(api.sermons.saveNote.path, async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    try {
+      const input = api.sermons.saveNote.input.parse({ ...req.body, sermonId: parseInt(req.params.id) });
+      const note = await storage.createSermonNote(req.user!.id, input);
+      res.status(201).json(note);
+    } catch (err) {
+      if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });
+      res.sendStatus(500);
+    }
+  });
+
+  app.delete(api.sermons.deleteNote.path, async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    await storage.deleteSermonNote(parseInt(req.params.id));
+    res.json({ success: true });
+  });
+
+  // ========== SMALL GROUPS ==========
+  app.get(api.smallGroups.list.path, async (_req, res) => {
+    const groups = await storage.listSmallGroups();
+    res.json(groups);
+  });
+
+  app.get(api.smallGroups.get.path, async (req, res) => {
+    const group = await storage.getSmallGroup(parseInt(req.params.id));
+    if (!group) return res.sendStatus(404);
+    res.json(group);
+  });
+
+  app.post(api.smallGroups.create.path, async (req, res) => {
+    if (!isTeacherOrAdmin(req)) return res.sendStatus(403);
+    try {
+      const input = api.smallGroups.create.input.parse(req.body);
+      const group = await storage.createSmallGroup(input);
+      res.status(201).json(group);
+    } catch (err) {
+      if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });
+      res.sendStatus(500);
+    }
+  });
+
+  app.patch(api.smallGroups.update.path, async (req, res) => {
+    if (!isTeacherOrAdmin(req)) return res.sendStatus(403);
+    try {
+      const input = api.smallGroups.update.input.parse(req.body);
+      const updated = await storage.updateSmallGroup(parseInt(req.params.id), input);
+      if (!updated) return res.sendStatus(404);
+      res.json(updated);
+    } catch (err) {
+      if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });
+      res.sendStatus(500);
+    }
+  });
+
+  app.delete(api.smallGroups.delete.path, async (req, res) => {
+    if (!isAdmin(req)) return res.sendStatus(403);
+    await storage.deleteSmallGroup(parseInt(req.params.id));
+    res.json({ success: true });
+  });
+
+  app.post(api.smallGroups.join.path, async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    const member = await storage.joinSmallGroup(parseInt(req.params.id), req.user!.id);
+    res.json(member);
+  });
+
+  app.delete(api.smallGroups.leave.path, async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    await storage.leaveSmallGroup(parseInt(req.params.id), req.user!.id);
+    res.json({ success: true });
+  });
+
+  app.get(api.smallGroups.members.path, async (req, res) => {
+    const members = await storage.listSmallGroupMembers(parseInt(req.params.id));
+    res.json(members);
+  });
+
+  app.get(api.smallGroups.meetings.path, async (req, res) => {
+    const meetings = await storage.listSmallGroupMeetings(parseInt(req.params.id));
+    res.json(meetings);
+  });
+
+  app.post(api.smallGroups.createMeeting.path, async (req, res) => {
+    if (!isTeacherOrAdmin(req)) return res.sendStatus(403);
+    try {
+      const input = api.smallGroups.createMeeting.input.parse({ ...req.body, groupId: parseInt(req.params.id) });
+      const meeting = await storage.createSmallGroupMeeting(input);
+      res.status(201).json(meeting);
+    } catch (err) {
+      if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });
+      res.sendStatus(500);
+    }
+  });
+
+  app.get(api.smallGroups.messages.path, async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    const msgs = await storage.listSmallGroupMessages(parseInt(req.params.id));
+    res.json(msgs);
+  });
+
+  app.post(api.smallGroups.sendMessage.path, async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    try {
+      const input = api.smallGroups.sendMessage.input.parse({ ...req.body, groupId: parseInt(req.params.id) });
+      const msg = await storage.sendSmallGroupMessage(req.user!.id, input);
+      res.status(201).json(msg);
+    } catch (err) {
+      if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });
+      res.sendStatus(500);
+    }
+  });
+
+  // ========== CALENDAR ==========
+  app.get(api.calendar.events.path, async (req, res) => {
+    const { start, end } = req.query;
+    const items = await storage.getCalendarEvents(start as string, end as string);
+    res.json(items);
   });
 
   return httpServer;

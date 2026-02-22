@@ -29,6 +29,12 @@ import MensajesPage from "@/pages/mensajes";
 import ForgotPasswordPage from "@/pages/forgot-password";
 import ResetPasswordPage from "@/pages/reset-password";
 import VerifyEmailPage from "@/pages/verify-email";
+import ReportesPage from "@/pages/reportes";
+import DiezmosPage from "@/pages/diezmos";
+import SermonesPage from "@/pages/sermones";
+import GruposPage from "@/pages/grupos";
+import CalendarioPage from "@/pages/calendario";
+import CertificadosPage from "@/pages/certificados";
 
 function Router() {
   return (
@@ -57,6 +63,12 @@ function Router() {
       <Route path="/regiones" component={RegionesPage} />
       <Route path="/iglesias" component={IglesiasPage} />
       <Route path="/mensajes" component={MensajesPage} />
+      <Route path="/reportes" component={ReportesPage} />
+      <Route path="/diezmos" component={DiezmosPage} />
+      <Route path="/sermones" component={SermonesPage} />
+      <Route path="/grupos" component={GruposPage} />
+      <Route path="/calendario" component={CalendarioPage} />
+      <Route path="/certificados" component={CertificadosPage} />
       <Route component={NotFound} />
     </Switch>
   );

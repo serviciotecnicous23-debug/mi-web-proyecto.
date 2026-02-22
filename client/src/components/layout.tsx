@@ -19,6 +19,9 @@ import {
   Heart,
   Globe,
   Mail,
+  Award,
+  BarChart3,
+  DollarSign,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -227,6 +230,12 @@ export function Navbar() {
                     Regiones
                   </Link>
                 </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link href="/certificados" className="cursor-pointer">
+                    <Award className="mr-2 h-4 w-4" />
+                    Certificados
+                  </Link>
+                </DropdownMenuItem>
                 {(user.role === "obrero" || user.role === "admin") && (
                   <DropdownMenuItem asChild>
                     <Link href="/maestro" className="cursor-pointer">
@@ -236,12 +245,26 @@ export function Navbar() {
                   </DropdownMenuItem>
                 )}
                 {user.role === "admin" && (
+                  <>
                   <DropdownMenuItem asChild>
                     <Link href="/admin" className="cursor-pointer">
                       <Shield className="mr-2 h-4 w-4" />
                       Panel Admin
                     </Link>
                   </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link href="/reportes" className="cursor-pointer">
+                      <BarChart3 className="mr-2 h-4 w-4" />
+                      Reportes
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link href="/diezmos" className="cursor-pointer">
+                      <DollarSign className="mr-2 h-4 w-4" />
+                      Diezmos
+                    </Link>
+                  </DropdownMenuItem>
+                  </>
                 )}
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
@@ -343,6 +366,25 @@ export function Navbar() {
                   <Globe className="w-4 h-4 mr-1" /> Regiones
                 </Button>
               </Link>
+              <Link href="/certificados" onClick={() => setMenuOpen(false)}>
+                <Button variant="ghost" className="w-full justify-start" size="sm">
+                  <Award className="w-4 h-4 mr-1" /> Certificados
+                </Button>
+              </Link>
+              {user.role === "admin" && (
+                <>
+                <Link href="/reportes" onClick={() => setMenuOpen(false)}>
+                  <Button variant="ghost" className="w-full justify-start" size="sm">
+                    <BarChart3 className="w-4 h-4 mr-1" /> Reportes
+                  </Button>
+                </Link>
+                <Link href="/diezmos" onClick={() => setMenuOpen(false)}>
+                  <Button variant="ghost" className="w-full justify-start" size="sm">
+                    <DollarSign className="w-4 h-4 mr-1" /> Diezmos
+                  </Button>
+                </Link>
+                </>
+              )}
               <Link href="/perfil" onClick={() => setMenuOpen(false)}>
                 <Button variant="ghost" className="w-full justify-start" size="sm" data-testid="link-mobile-perfil">
                   <User className="w-4 h-4 mr-1" /> Mi Perfil

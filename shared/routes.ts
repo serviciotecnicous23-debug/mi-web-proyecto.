@@ -23,6 +23,9 @@ import {
   insertTeamMemberSchema, updateTeamMemberSchema,
   insertPostCommentSchema, insertDirectMessageSchema,
   insertCarteleraAnnouncementSchema, updateCarteleraAnnouncementSchema,
+  insertTitheSchema,
+  insertSermonSchema, updateSermonSchema, insertSermonNoteSchema,
+  insertSmallGroupSchema, updateSmallGroupSchema, insertSmallGroupMeetingSchema, insertSmallGroupMessageSchema,
 } from "./schema";
 
 export { insertUserSchema, updateUserSchema, users };
@@ -301,6 +304,61 @@ export const api = {
     send: { method: "POST" as const, path: "/api/messages" as const, input: insertDirectMessageSchema },
     markRead: { method: "PATCH" as const, path: "/api/messages/:userId/read" as const },
     unreadCount: { method: "GET" as const, path: "/api/messages/unread-count" as const },
+  },
+  // ========== CERTIFICADOS ==========
+  certificates: {
+    get: { method: "GET" as const, path: "/api/certificates/:id" as const },
+    listByUser: { method: "GET" as const, path: "/api/certificates/user/:userId" as const },
+    myList: { method: "GET" as const, path: "/api/certificates/mine" as const },
+    generate: { method: "POST" as const, path: "/api/certificates/generate" as const, input: z.object({ enrollmentId: z.number() }) },
+    verify: { method: "GET" as const, path: "/api/certificates/verify/:code" as const },
+  },
+  // ========== DIEZMOS Y OFRENDAS ==========
+  tithes: {
+    list: { method: "GET" as const, path: "/api/tithes" as const },
+    create: { method: "POST" as const, path: "/api/tithes" as const, input: insertTitheSchema },
+    delete: { method: "DELETE" as const, path: "/api/tithes/:id" as const },
+    report: { method: "GET" as const, path: "/api/tithes/report" as const },
+  },
+  // ========== REPORTES ==========
+  reports: {
+    dashboard: { method: "GET" as const, path: "/api/reports/dashboard" as const },
+    memberGrowth: { method: "GET" as const, path: "/api/reports/member-growth" as const },
+    courseStats: { method: "GET" as const, path: "/api/reports/course-stats" as const },
+    attendanceStats: { method: "GET" as const, path: "/api/reports/attendance" as const },
+    prayerStats: { method: "GET" as const, path: "/api/reports/prayer" as const },
+    libraryStats: { method: "GET" as const, path: "/api/reports/library" as const },
+    enrollmentExport: { method: "GET" as const, path: "/api/reports/enrollments/export" as const },
+  },
+  // ========== SERMONES ==========
+  sermons: {
+    list: { method: "GET" as const, path: "/api/sermons" as const },
+    get: { method: "GET" as const, path: "/api/sermons/:id" as const },
+    create: { method: "POST" as const, path: "/api/sermons" as const, input: insertSermonSchema },
+    update: { method: "PATCH" as const, path: "/api/sermons/:id" as const, input: updateSermonSchema },
+    delete: { method: "DELETE" as const, path: "/api/sermons/:id" as const },
+    notes: { method: "GET" as const, path: "/api/sermons/:id/notes" as const },
+    saveNote: { method: "POST" as const, path: "/api/sermons/:id/notes" as const, input: insertSermonNoteSchema },
+    deleteNote: { method: "DELETE" as const, path: "/api/sermon-notes/:id" as const },
+  },
+  // ========== GRUPOS PEQUEÑOS ==========
+  smallGroups: {
+    list: { method: "GET" as const, path: "/api/small-groups" as const },
+    get: { method: "GET" as const, path: "/api/small-groups/:id" as const },
+    create: { method: "POST" as const, path: "/api/small-groups" as const, input: insertSmallGroupSchema },
+    update: { method: "PATCH" as const, path: "/api/small-groups/:id" as const, input: updateSmallGroupSchema },
+    delete: { method: "DELETE" as const, path: "/api/small-groups/:id" as const },
+    join: { method: "POST" as const, path: "/api/small-groups/:id/join" as const },
+    leave: { method: "DELETE" as const, path: "/api/small-groups/:id/leave" as const },
+    members: { method: "GET" as const, path: "/api/small-groups/:id/members" as const },
+    meetings: { method: "GET" as const, path: "/api/small-groups/:id/meetings" as const },
+    createMeeting: { method: "POST" as const, path: "/api/small-groups/:id/meetings" as const, input: insertSmallGroupMeetingSchema },
+    messages: { method: "GET" as const, path: "/api/small-groups/:id/messages" as const },
+    sendMessage: { method: "POST" as const, path: "/api/small-groups/:id/messages" as const, input: insertSmallGroupMessageSchema },
+  },
+  // ========== CALENDARIO UNIFICADO ==========
+  calendar: {
+    events: { method: "GET" as const, path: "/api/calendar/events" as const },
   },
 };
 

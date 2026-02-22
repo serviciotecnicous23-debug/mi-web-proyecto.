@@ -1104,3 +1104,217 @@ export const pushSubscriptions = pgTable("push_subscriptions", {
 });
 
 export type PushSubscription = typeof pushSubscriptions.$inferSelect;
+
+// ========== CERTIFICADOS DE CURSOS ==========
+
+export const certificates = pgTable("certificates", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull().references(() => users.id),
+  courseId: integer("course_id").notNull().references(() => courses.id),
+  enrollmentId: integer("enrollment_id").notNull().references(() => enrollments.id),
+  certificateCode: text("certificate_code").notNull().unique(),
+  issuedAt: timestamp("issued_at").defaultNow(),
+  teacherName: text("teacher_name"),
+  grade: text("grade"),
+});
+
+export type Certificate = typeof certificates.$inferSelect;
+
+// ========== DIEZMOS Y OFRENDAS ==========
+
+export const tithes = pgTable("tithes", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").references(() => users.id),
+  donorName: text("donor_name").notNull(),
+  amount: text("amount").notNull(),
+  currency: text("currency").notNull().default("USD"),
+  type: text("type").notNull().default("diezmo"),
+  method: text("method").notNull().default("efectivo"),
+  churchId: integer("church_id").references(() => ministryChurches.id),
+  regionName: text("region_name"),
+  notes: text("notes"),
+  receiptSent: boolean("receipt_sent").notNull().default(false),
+  createdAt: timestamp("created_at").defaultNow(),
+  recordedBy: integer("recorded_by").references(() => users.id),
+});
+
+export const insertTitheSchema = z.object({
+  donorName: z.string().min(1),
+  amount: z.string().min(1),
+  currency: z.string().optional(),
+  type: z.enum(["diezmo", "ofrenda", "donacion", "mision"]).optional(),
+  method: z.enum(["efectivo", "transferencia", "tarjeta", "paypal", "otro"]).optional(),
+  churchId: z.number().optional().nullable(),
+  regionName: z.string().optional().nullable(),
+  notes: z.string().optional().nullable(),
+  userId: z.number().optional().nullable(),
+});
+
+export type Tithe = typeof tithes.$inferSelect;
+export type InsertTithe = z.infer<typeof insertTitheSchema>;
+
+export const TITHE_TYPES = {
+  diezmo: "Diezmo",
+  ofrenda: "Ofrenda",
+  donacion: "Donación",
+  mision: "Misiones",
+} as const;
+
+export const PAYMENT_METHODS = {
+  efectivo: "Efectivo",
+  transferencia: "Transferencia",
+  tarjeta: "Tarjeta",
+  paypal: "PayPal",
+  otro: "Otro",
+} as const;
+
+// ========== ARCHIVO DE SERMONES / PRÉDICAS ==========
+
+export const sermons = pgTable("sermons", {
+  id: serial("id").primaryKey(),
+  title: text("title").notNull(),
+  description: text("description"),
+  preacherId: integer("preacher_id").references(() => users.id),
+  preacherName: text("preacher_name"),
+  sermonDate: timestamp("sermon_date"),
+  category: text("category").notNull().default("general"),
+  seriesName: text("series_name"),
+  videoUrl: text("video_url"),
+  audioUrl: text("audio_url"),
+  content: text("content"),
+  imageUrl: text("image_url"),
+  isPublished: boolean("is_published").notNull().default(true),
+  createdBy: integer("created_by").references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const sermonNotes = pgTable("sermon_notes", {
+  id: serial("id").primaryKey(),
+  sermonId: integer("sermon_id").notNull().references(() => sermons.id),
+  userId: integer("user_id").notNull().references(() => users.id),
+  content: text("content").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertSermonSchema = z.object({
+  title: z.string().min(1),
+  description: z.string().optional().nullable(),
+  preacherId: z.number().optional().nullable(),
+  preacherName: z.string().optional().nullable(),
+  sermonDate: z.string().optional().nullable(),
+  category: z.string().optional(),
+  seriesName: z.string().optional().nullable(),
+  videoUrl: z.string().optional().nullable(),
+  audioUrl: z.string().optional().nullable(),
+  content: z.string().optional().nullable(),
+  imageUrl: z.string().optional().nullable(),
+  isPublished: z.boolean().optional(),
+});
+export const updateSermonSchema = insertSermonSchema.partial();
+
+export const insertSermonNoteSchema = z.object({
+  sermonId: z.number(),
+  content: z.string().min(1),
+});
+
+export type Sermon = typeof sermons.$inferSelect;
+export type InsertSermon = z.infer<typeof insertSermonSchema>;
+export type UpdateSermon = z.infer<typeof updateSermonSchema>;
+export type SermonNote = typeof sermonNotes.$inferSelect;
+export type InsertSermonNote = z.infer<typeof insertSermonNoteSchema>;
+
+export const SERMON_CATEGORIES = {
+  general: "General",
+  evangelismo: "Evangelismo",
+  adoracion: "Adoración",
+  doctrina: "Doctrina",
+  familia: "Familia",
+  liderazgo: "Liderazgo",
+  profetico: "Profético",
+  avivamiento: "Avivamiento",
+} as const;
+
+// ========== GRUPOS PEQUEÑOS / CÉLULAS ==========
+
+export const smallGroups = pgTable("small_groups", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  description: text("description"),
+  leaderId: integer("leader_id").notNull().references(() => users.id),
+  meetingDay: integer("meeting_day"),
+  meetingTime: text("meeting_time"),
+  meetingLocation: text("meeting_location"),
+  meetingUrl: text("meeting_url"),
+  maxMembers: integer("max_members"),
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const smallGroupMembers = pgTable("small_group_members", {
+  id: serial("id").primaryKey(),
+  groupId: integer("group_id").notNull().references(() => smallGroups.id),
+  userId: integer("user_id").notNull().references(() => users.id),
+  role: text("role").notNull().default("miembro"),
+  joinedAt: timestamp("joined_at").defaultNow(),
+});
+
+export const smallGroupMeetings = pgTable("small_group_meetings", {
+  id: serial("id").primaryKey(),
+  groupId: integer("group_id").notNull().references(() => smallGroups.id),
+  title: text("title").notNull(),
+  meetingDate: timestamp("meeting_date").notNull(),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const smallGroupAttendance = pgTable("small_group_attendance", {
+  id: serial("id").primaryKey(),
+  meetingId: integer("meeting_id").notNull().references(() => smallGroupMeetings.id),
+  userId: integer("user_id").notNull().references(() => users.id),
+  status: text("status").notNull().default("presente"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const smallGroupMessages = pgTable("small_group_messages", {
+  id: serial("id").primaryKey(),
+  groupId: integer("group_id").notNull().references(() => smallGroups.id),
+  userId: integer("user_id").notNull().references(() => users.id),
+  content: text("content").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertSmallGroupSchema = z.object({
+  name: z.string().min(1),
+  description: z.string().optional().nullable(),
+  leaderId: z.number(),
+  meetingDay: z.number().min(0).max(6).optional().nullable(),
+  meetingTime: z.string().optional().nullable(),
+  meetingLocation: z.string().optional().nullable(),
+  meetingUrl: z.string().optional().nullable(),
+  maxMembers: z.number().optional().nullable(),
+  isActive: z.boolean().optional(),
+});
+export const updateSmallGroupSchema = insertSmallGroupSchema.partial();
+
+export const insertSmallGroupMeetingSchema = z.object({
+  groupId: z.number(),
+  title: z.string().min(1),
+  meetingDate: z.string(),
+  notes: z.string().optional().nullable(),
+});
+
+export const insertSmallGroupMessageSchema = z.object({
+  groupId: z.number(),
+  content: z.string().min(1),
+});
+
+export type SmallGroup = typeof smallGroups.$inferSelect;
+export type InsertSmallGroup = z.infer<typeof insertSmallGroupSchema>;
+export type UpdateSmallGroup = z.infer<typeof updateSmallGroupSchema>;
+export type SmallGroupMember = typeof smallGroupMembers.$inferSelect;
+export type SmallGroupMeeting = typeof smallGroupMeetings.$inferSelect;
+export type InsertSmallGroupMeeting = z.infer<typeof insertSmallGroupMeetingSchema>;
+export type SmallGroupAttendance = typeof smallGroupAttendance.$inferSelect;
+export type SmallGroupMessage = typeof smallGroupMessages.$inferSelect;
+export type InsertSmallGroupMessage = z.infer<typeof insertSmallGroupMessageSchema>;

@@ -46,6 +46,14 @@ import {
   carteleraAnnouncements, type CarteleraAnnouncement, type InsertCarteleraAnnouncement, type UpdateCarteleraAnnouncement,
   passwordResetTokens, type PasswordResetToken,
   pushSubscriptions,
+  // New modules
+  certificates, type Certificate,
+  tithes, type Tithe, type InsertTithe,
+  sermons, sermonNotes, type Sermon, type InsertSermon, type UpdateSermon, type SermonNote, type InsertSermonNote,
+  smallGroups, smallGroupMembers, smallGroupMeetings, smallGroupAttendance, smallGroupMessages,
+  type SmallGroup, type InsertSmallGroup, type UpdateSmallGroup,
+  type SmallGroupMember, type SmallGroupMeeting, type InsertSmallGroupMeeting,
+  type SmallGroupAttendance, type SmallGroupMessage, type InsertSmallGroupMessage,
 } from "@shared/schema";
 import { eq, desc, asc, and, ilike, or, sql, inArray, ne, lt } from "drizzle-orm";
 
@@ -301,6 +309,54 @@ export interface IStorage {
   getPushSubscriptionsByUser(userId: number): Promise<Array<{ id: number; endpoint: string; p256dh: string; auth: string }>>;
   getAllPushSubscriptions(): Promise<Array<{ id: number; userId: number; endpoint: string; p256dh: string; auth: string }>>;
   deletePushSubscriptionsByIds(ids: number[]): Promise<void>;
+
+  // Certificates
+  createCertificate(userId: number, courseId: number, enrollmentId: number, code: string, teacherName?: string, grade?: string): Promise<Certificate>;
+  getCertificate(id: number): Promise<Certificate | undefined>;
+  getCertificateByCode(code: string): Promise<Certificate | undefined>;
+  listCertificatesByUser(userId: number): Promise<(Certificate & { course: { title: string } })[]>;
+
+  // Tithes
+  createTithe(data: InsertTithe & { recordedBy: number }): Promise<Tithe>;
+  listTithes(filters?: { churchId?: number; regionName?: string; month?: string }): Promise<Tithe[]>;
+  deleteTithe(id: number): Promise<void>;
+  getTitheReport(month?: string, year?: string): Promise<any>;
+
+  // Sermons
+  createSermon(data: InsertSermon & { createdBy: number }): Promise<Sermon>;
+  getSermon(id: number): Promise<Sermon | undefined>;
+  listSermons(filters?: { category?: string; preacherId?: number; series?: string; search?: string }): Promise<Sermon[]>;
+  updateSermon(id: number, data: UpdateSermon): Promise<Sermon | undefined>;
+  deleteSermon(id: number): Promise<void>;
+  createSermonNote(userId: number, data: InsertSermonNote): Promise<SermonNote>;
+  listSermonNotes(sermonId: number, userId: number): Promise<SermonNote[]>;
+  deleteSermonNote(id: number): Promise<void>;
+
+  // Small Groups
+  createSmallGroup(data: InsertSmallGroup): Promise<SmallGroup>;
+  getSmallGroup(id: number): Promise<SmallGroup | undefined>;
+  listSmallGroups(): Promise<(SmallGroup & { leader: { username: string; displayName: string | null }; memberCount: number })[]>;
+  updateSmallGroup(id: number, data: UpdateSmallGroup): Promise<SmallGroup | undefined>;
+  deleteSmallGroup(id: number): Promise<void>;
+  joinSmallGroup(groupId: number, userId: number): Promise<SmallGroupMember>;
+  leaveSmallGroup(groupId: number, userId: number): Promise<void>;
+  listSmallGroupMembers(groupId: number): Promise<(SmallGroupMember & { user: { id: number; username: string; displayName: string | null; avatarUrl: string | null } })[]>;
+  createSmallGroupMeeting(data: InsertSmallGroupMeeting): Promise<SmallGroupMeeting>;
+  listSmallGroupMeetings(groupId: number): Promise<SmallGroupMeeting[]>;
+  sendSmallGroupMessage(userId: number, data: InsertSmallGroupMessage): Promise<SmallGroupMessage>;
+  listSmallGroupMessages(groupId: number): Promise<(SmallGroupMessage & { user: { id: number; username: string; displayName: string | null; avatarUrl: string | null } })[]>;
+  getUserSmallGroups(userId: number): Promise<number[]>;
+
+  // Reports
+  getReportDashboard(): Promise<any>;
+  getMemberGrowthReport(): Promise<any>;
+  getCourseStatsReport(): Promise<any>;
+  getAttendanceReport(): Promise<any>;
+  getPrayerStatsReport(): Promise<any>;
+  getLibraryStatsReport(): Promise<any>;
+
+  // Calendar
+  getCalendarEvents(start?: string, end?: string): Promise<any[]>;
 }
 export class DatabaseStorage implements IStorage {
   async getUser(id: number): Promise<User | undefined> {
@@ -1971,6 +2027,390 @@ export class DatabaseStorage implements IStorage {
   async deletePushSubscriptionsByIds(ids: number[]): Promise<void> {
     if (ids.length === 0) return;
     await db.delete(pushSubscriptions).where(inArray(pushSubscriptions.id, ids));
+  }
+
+  // ========== CERTIFICATES ==========
+
+  async createCertificate(userId: number, courseId: number, enrollmentId: number, code: string, teacherName?: string, grade?: string): Promise<Certificate> {
+    const [cert] = await db.insert(certificates).values({ userId, courseId, enrollmentId, certificateCode: code, teacherName, grade }).returning();
+    return cert;
+  }
+
+  async getCertificate(id: number): Promise<Certificate | undefined> {
+    const [cert] = await db.select().from(certificates).where(eq(certificates.id, id));
+    return cert;
+  }
+
+  async getCertificateByCode(code: string): Promise<Certificate | undefined> {
+    const [cert] = await db.select().from(certificates).where(eq(certificates.certificateCode, code));
+    return cert;
+  }
+
+  async listCertificatesByUser(userId: number): Promise<(Certificate & { course: { title: string } })[]> {
+    const rows = await db.select({
+      id: certificates.id,
+      userId: certificates.userId,
+      courseId: certificates.courseId,
+      enrollmentId: certificates.enrollmentId,
+      certificateCode: certificates.certificateCode,
+      issuedAt: certificates.issuedAt,
+      teacherName: certificates.teacherName,
+      grade: certificates.grade,
+      courseTitle: courses.title,
+    }).from(certificates).innerJoin(courses, eq(certificates.courseId, courses.id)).where(eq(certificates.userId, userId)).orderBy(desc(certificates.issuedAt));
+    return rows.map(r => ({
+      id: r.id, userId: r.userId, courseId: r.courseId, enrollmentId: r.enrollmentId,
+      certificateCode: r.certificateCode, issuedAt: r.issuedAt, teacherName: r.teacherName, grade: r.grade,
+      course: { title: r.courseTitle },
+    }));
+  }
+
+  // ========== TITHES ==========
+
+  async createTithe(data: InsertTithe & { recordedBy: number }): Promise<Tithe> {
+    const [t] = await db.insert(tithes).values(data).returning();
+    return t;
+  }
+
+  async listTithes(filters?: { churchId?: number; regionName?: string; month?: string }): Promise<Tithe[]> {
+    let query = db.select().from(tithes).orderBy(desc(tithes.createdAt));
+    // filters are applied via SQL conditions
+    const conditions: any[] = [];
+    if (filters?.churchId) conditions.push(eq(tithes.churchId, filters.churchId));
+    if (filters?.regionName) conditions.push(eq(tithes.regionName, filters.regionName));
+    if (filters?.month) {
+      conditions.push(sql`to_char(${tithes.createdAt}, 'YYYY-MM') = ${filters.month}`);
+    }
+    if (conditions.length > 0) {
+      return db.select().from(tithes).where(and(...conditions)).orderBy(desc(tithes.createdAt));
+    }
+    return query;
+  }
+
+  async deleteTithe(id: number): Promise<void> {
+    await db.delete(tithes).where(eq(tithes.id, id));
+  }
+
+  async getTitheReport(month?: string, year?: string): Promise<any> {
+    const conditions: any[] = [];
+    if (month && year) {
+      conditions.push(sql`to_char(${tithes.createdAt}, 'YYYY-MM') = ${year + '-' + month.padStart(2, '0')}`);
+    } else if (year) {
+      conditions.push(sql`to_char(${tithes.createdAt}, 'YYYY') = ${year}`);
+    }
+    const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+    const rows = whereClause 
+      ? await db.select().from(tithes).where(whereClause).orderBy(desc(tithes.createdAt))
+      : await db.select().from(tithes).orderBy(desc(tithes.createdAt));
+    
+    const totalByType: Record<string, number> = {};
+    const totalByMethod: Record<string, number> = {};
+    const totalByRegion: Record<string, number> = {};
+    let grandTotal = 0;
+    for (const r of rows) {
+      const amt = parseFloat(r.amount) || 0;
+      grandTotal += amt;
+      totalByType[r.type] = (totalByType[r.type] || 0) + amt;
+      totalByMethod[r.method] = (totalByMethod[r.method] || 0) + amt;
+      if (r.regionName) totalByRegion[r.regionName] = (totalByRegion[r.regionName] || 0) + amt;
+    }
+    return { total: grandTotal, count: rows.length, byType: totalByType, byMethod: totalByMethod, byRegion: totalByRegion, rows };
+  }
+
+  // ========== SERMONS ==========
+
+  async createSermon(data: InsertSermon & { createdBy: number }): Promise<Sermon> {
+    const values: any = { ...data };
+    if (data.sermonDate) values.sermonDate = new Date(data.sermonDate);
+    const [s] = await db.insert(sermons).values(values).returning();
+    return s;
+  }
+
+  async getSermon(id: number): Promise<Sermon | undefined> {
+    const [s] = await db.select().from(sermons).where(eq(sermons.id, id));
+    return s;
+  }
+
+  async listSermons(filters?: { category?: string; preacherId?: number; series?: string; search?: string }): Promise<Sermon[]> {
+    const conditions: any[] = [eq(sermons.isPublished, true)];
+    if (filters?.category) conditions.push(eq(sermons.category, filters.category));
+    if (filters?.preacherId) conditions.push(eq(sermons.preacherId, filters.preacherId));
+    if (filters?.series) conditions.push(eq(sermons.seriesName, filters.series));
+    if (filters?.search) conditions.push(or(ilike(sermons.title, `%${filters.search}%`), ilike(sermons.description, `%${filters.search}%`)));
+    return db.select().from(sermons).where(and(...conditions)).orderBy(desc(sermons.sermonDate));
+  }
+
+  async updateSermon(id: number, data: UpdateSermon): Promise<Sermon | undefined> {
+    const values: any = { ...data };
+    if (data.sermonDate) values.sermonDate = new Date(data.sermonDate);
+    const [s] = await db.update(sermons).set(values).where(eq(sermons.id, id)).returning();
+    return s;
+  }
+
+  async deleteSermon(id: number): Promise<void> {
+    await db.delete(sermonNotes).where(eq(sermonNotes.sermonId, id));
+    await db.delete(sermons).where(eq(sermons.id, id));
+  }
+
+  async createSermonNote(userId: number, data: InsertSermonNote): Promise<SermonNote> {
+    const [n] = await db.insert(sermonNotes).values({ ...data, userId }).returning();
+    return n;
+  }
+
+  async listSermonNotes(sermonId: number, userId: number): Promise<SermonNote[]> {
+    return db.select().from(sermonNotes).where(and(eq(sermonNotes.sermonId, sermonId), eq(sermonNotes.userId, userId))).orderBy(desc(sermonNotes.createdAt));
+  }
+
+  async deleteSermonNote(id: number): Promise<void> {
+    await db.delete(sermonNotes).where(eq(sermonNotes.id, id));
+  }
+
+  // ========== SMALL GROUPS ==========
+
+  async createSmallGroup(data: InsertSmallGroup): Promise<SmallGroup> {
+    const [g] = await db.insert(smallGroups).values(data).returning();
+    // Add leader as member
+    await db.insert(smallGroupMembers).values({ groupId: g.id, userId: data.leaderId, role: "lider" });
+    return g;
+  }
+
+  async getSmallGroup(id: number): Promise<SmallGroup | undefined> {
+    const [g] = await db.select().from(smallGroups).where(eq(smallGroups.id, id));
+    return g;
+  }
+
+  async listSmallGroups(): Promise<(SmallGroup & { leader: { username: string; displayName: string | null }; memberCount: number })[]> {
+    const rows = await db.select({
+      id: smallGroups.id,
+      name: smallGroups.name,
+      description: smallGroups.description,
+      leaderId: smallGroups.leaderId,
+      meetingDay: smallGroups.meetingDay,
+      meetingTime: smallGroups.meetingTime,
+      meetingLocation: smallGroups.meetingLocation,
+      meetingUrl: smallGroups.meetingUrl,
+      maxMembers: smallGroups.maxMembers,
+      isActive: smallGroups.isActive,
+      createdAt: smallGroups.createdAt,
+      leaderUsername: users.username,
+      leaderDisplayName: users.displayName,
+      memberCount: sql<number>`(SELECT COUNT(*) FROM small_group_members WHERE group_id = ${smallGroups.id})`,
+    }).from(smallGroups).innerJoin(users, eq(smallGroups.leaderId, users.id)).where(eq(smallGroups.isActive, true)).orderBy(asc(smallGroups.name));
+    return rows.map(r => ({
+      id: r.id, name: r.name, description: r.description, leaderId: r.leaderId,
+      meetingDay: r.meetingDay, meetingTime: r.meetingTime, meetingLocation: r.meetingLocation,
+      meetingUrl: r.meetingUrl, maxMembers: r.maxMembers, isActive: r.isActive, createdAt: r.createdAt,
+      leader: { username: r.leaderUsername, displayName: r.leaderDisplayName },
+      memberCount: Number(r.memberCount),
+    }));
+  }
+
+  async updateSmallGroup(id: number, data: UpdateSmallGroup): Promise<SmallGroup | undefined> {
+    const [g] = await db.update(smallGroups).set(data).where(eq(smallGroups.id, id)).returning();
+    return g;
+  }
+
+  async deleteSmallGroup(id: number): Promise<void> {
+    await db.delete(smallGroupMessages).where(eq(smallGroupMessages.groupId, id));
+    // delete attendance for meetings of this group
+    const meetings = await db.select({ id: smallGroupMeetings.id }).from(smallGroupMeetings).where(eq(smallGroupMeetings.groupId, id));
+    for (const m of meetings) {
+      await db.delete(smallGroupAttendance).where(eq(smallGroupAttendance.meetingId, m.id));
+    }
+    await db.delete(smallGroupMeetings).where(eq(smallGroupMeetings.groupId, id));
+    await db.delete(smallGroupMembers).where(eq(smallGroupMembers.groupId, id));
+    await db.delete(smallGroups).where(eq(smallGroups.id, id));
+  }
+
+  async joinSmallGroup(groupId: number, userId: number): Promise<SmallGroupMember> {
+    // Check if already a member
+    const [existing] = await db.select().from(smallGroupMembers).where(and(eq(smallGroupMembers.groupId, groupId), eq(smallGroupMembers.userId, userId)));
+    if (existing) return existing;
+    const [m] = await db.insert(smallGroupMembers).values({ groupId, userId, role: "miembro" }).returning();
+    return m;
+  }
+
+  async leaveSmallGroup(groupId: number, userId: number): Promise<void> {
+    await db.delete(smallGroupMembers).where(and(eq(smallGroupMembers.groupId, groupId), eq(smallGroupMembers.userId, userId)));
+  }
+
+  async listSmallGroupMembers(groupId: number): Promise<(SmallGroupMember & { user: { id: number; username: string; displayName: string | null; avatarUrl: string | null } })[]> {
+    const rows = await db.select({
+      id: smallGroupMembers.id,
+      groupId: smallGroupMembers.groupId,
+      userId: smallGroupMembers.userId,
+      role: smallGroupMembers.role,
+      joinedAt: smallGroupMembers.joinedAt,
+      username: users.username,
+      displayName: users.displayName,
+      avatarUrl: users.avatarUrl,
+    }).from(smallGroupMembers).innerJoin(users, eq(smallGroupMembers.userId, users.id)).where(eq(smallGroupMembers.groupId, groupId));
+    return rows.map(r => ({
+      id: r.id, groupId: r.groupId, userId: r.userId, role: r.role, joinedAt: r.joinedAt,
+      user: { id: r.userId, username: r.username, displayName: r.displayName, avatarUrl: r.avatarUrl },
+    }));
+  }
+
+  async createSmallGroupMeeting(data: InsertSmallGroupMeeting): Promise<SmallGroupMeeting> {
+    const [m] = await db.insert(smallGroupMeetings).values({ ...data, meetingDate: new Date(data.meetingDate) }).returning();
+    return m;
+  }
+
+  async listSmallGroupMeetings(groupId: number): Promise<SmallGroupMeeting[]> {
+    return db.select().from(smallGroupMeetings).where(eq(smallGroupMeetings.groupId, groupId)).orderBy(desc(smallGroupMeetings.meetingDate));
+  }
+
+  async sendSmallGroupMessage(userId: number, data: InsertSmallGroupMessage): Promise<SmallGroupMessage> {
+    const [m] = await db.insert(smallGroupMessages).values({ ...data, userId }).returning();
+    return m;
+  }
+
+  async listSmallGroupMessages(groupId: number): Promise<(SmallGroupMessage & { user: { id: number; username: string; displayName: string | null; avatarUrl: string | null } })[]> {
+    const rows = await db.select({
+      id: smallGroupMessages.id,
+      groupId: smallGroupMessages.groupId,
+      userId: smallGroupMessages.userId,
+      content: smallGroupMessages.content,
+      createdAt: smallGroupMessages.createdAt,
+      username: users.username,
+      displayName: users.displayName,
+      avatarUrl: users.avatarUrl,
+    }).from(smallGroupMessages).innerJoin(users, eq(smallGroupMessages.userId, users.id)).where(eq(smallGroupMessages.groupId, groupId)).orderBy(asc(smallGroupMessages.createdAt));
+    return rows.map(r => ({
+      id: r.id, groupId: r.groupId, userId: r.userId, content: r.content, createdAt: r.createdAt,
+      user: { id: r.userId, username: r.username, displayName: r.displayName, avatarUrl: r.avatarUrl },
+    }));
+  }
+
+  async getUserSmallGroups(userId: number): Promise<number[]> {
+    const rows = await db.select({ groupId: smallGroupMembers.groupId }).from(smallGroupMembers).where(eq(smallGroupMembers.userId, userId));
+    return rows.map(r => r.groupId);
+  }
+
+  // ========== REPORTS ==========
+
+  async getReportDashboard(): Promise<any> {
+    const [userCount] = await db.select({ count: sql<number>`count(*)` }).from(users);
+    const [activeUsers] = await db.select({ count: sql<number>`count(*)` }).from(users).where(eq(users.isActive, true));
+    const [courseCount] = await db.select({ count: sql<number>`count(*)` }).from(courses);
+    const [activeCourses] = await db.select({ count: sql<number>`count(*)` }).from(courses).where(eq(courses.isActive, true));
+    const [enrollmentCount] = await db.select({ count: sql<number>`count(*)` }).from(enrollments);
+    const [completedEnrollments] = await db.select({ count: sql<number>`count(*)` }).from(enrollments).where(eq(enrollments.status, "completado"));
+    const [eventCount] = await db.select({ count: sql<number>`count(*)` }).from(events);
+    const [prayerCount] = await db.select({ count: sql<number>`count(*)` }).from(prayerActivities);
+    const [sermonCount] = await db.select({ count: sql<number>`count(*)` }).from(sermons);
+    const [groupCount] = await db.select({ count: sql<number>`count(*)` }).from(smallGroups);
+    return {
+      totalUsers: Number(userCount.count),
+      activeUsers: Number(activeUsers.count),
+      totalCourses: Number(courseCount.count),
+      activeCourses: Number(activeCourses.count),
+      totalEnrollments: Number(enrollmentCount.count),
+      completedEnrollments: Number(completedEnrollments.count),
+      totalEvents: Number(eventCount.count),
+      totalPrayerActivities: Number(prayerCount.count),
+      totalSermons: Number(sermonCount.count),
+      totalSmallGroups: Number(groupCount.count),
+    };
+  }
+
+  async getMemberGrowthReport(): Promise<any> {
+    const rows = await db.select({
+      month: sql<string>`to_char(${users.createdAt}, 'YYYY-MM')`,
+      count: sql<number>`count(*)`,
+    }).from(users).groupBy(sql`to_char(${users.createdAt}, 'YYYY-MM')`).orderBy(sql`to_char(${users.createdAt}, 'YYYY-MM')`);
+    // Also by country
+    const byCountry = await db.select({
+      country: users.country,
+      count: sql<number>`count(*)`,
+    }).from(users).where(sql`${users.country} IS NOT NULL`).groupBy(users.country).orderBy(desc(sql`count(*)`));
+    return { monthly: rows, byCountry };
+  }
+
+  async getCourseStatsReport(): Promise<any> {
+    const courseRows = await db.select({
+      id: courses.id,
+      title: courses.title,
+      category: courses.category,
+      enrolled: sql<number>`(SELECT count(*) FROM enrollments WHERE course_id = ${courses.id} AND status = 'aprobado')`,
+      completed: sql<number>`(SELECT count(*) FROM enrollments WHERE course_id = ${courses.id} AND status = 'completado')`,
+      pending: sql<number>`(SELECT count(*) FROM enrollments WHERE course_id = ${courses.id} AND status = 'solicitado')`,
+    }).from(courses).orderBy(desc(sql`(SELECT count(*) FROM enrollments WHERE course_id = ${courses.id})`));
+    return courseRows;
+  }
+
+  async getAttendanceReport(): Promise<any> {
+    const rows = await db.select({
+      sessionId: sessionAttendance.sessionId,
+      status: sessionAttendance.status,
+      count: sql<number>`count(*)`,
+    }).from(sessionAttendance).groupBy(sessionAttendance.sessionId, sessionAttendance.status);
+    return rows;
+  }
+
+  async getPrayerStatsReport(): Promise<any> {
+    const activities = await db.select({
+      month: sql<string>`to_char(${prayerActivities.createdAt}, 'YYYY-MM')`,
+      count: sql<number>`count(*)`,
+    }).from(prayerActivities).groupBy(sql`to_char(${prayerActivities.createdAt}, 'YYYY-MM')`).orderBy(sql`to_char(${prayerActivities.createdAt}, 'YYYY-MM')`);
+    const attendees = await db.select({
+      month: sql<string>`to_char(${prayerAttendees.createdAt}, 'YYYY-MM')`,
+      count: sql<number>`count(*)`,
+    }).from(prayerAttendees).groupBy(sql`to_char(${prayerAttendees.createdAt}, 'YYYY-MM')`).orderBy(sql`to_char(${prayerAttendees.createdAt}, 'YYYY-MM')`);
+    return { activities, attendees };
+  }
+
+  async getLibraryStatsReport(): Promise<any> {
+    const byCategory = await db.select({
+      category: libraryResources.category,
+      count: sql<number>`count(*)`,
+    }).from(libraryResources).groupBy(libraryResources.category);
+    const topLiked = await db.select({
+      resourceId: libraryResourceLikes.resourceId,
+      count: sql<number>`count(*)`,
+    }).from(libraryResourceLikes).groupBy(libraryResourceLikes.resourceId).orderBy(desc(sql`count(*)`)).limit(10);
+    // Get reading plan completion
+    const planStats = await db.select({
+      total: sql<number>`count(*)`,
+      completed: sql<number>`count(*) FILTER (WHERE ${readingPlanItems.isCompleted} = true)`,
+    }).from(readingPlanItems);
+    return { byCategory, topLiked, planStats: planStats[0] };
+  }
+
+  // ========== CALENDAR ==========
+
+  async getCalendarEvents(start?: string, end?: string): Promise<any[]> {
+    const calendarItems: any[] = [];
+    // Events
+    const allEvents = await db.select().from(events).where(eq(events.isPublished, true)).orderBy(asc(events.eventDate));
+    for (const e of allEvents) {
+      calendarItems.push({ type: "evento", id: e.id, title: e.title, date: e.eventDate, endDate: e.eventEndDate, location: e.location, link: "/eventos" });
+    }
+    // Course sessions
+    const sessions = await db.select({
+      id: courseSessions.id,
+      title: courseSessions.title,
+      sessionDate: courseSessions.sessionDate,
+      courseId: courseSessions.courseId,
+      courseTitle: courses.title,
+    }).from(courseSessions).innerJoin(courses, eq(courseSessions.courseId, courses.id)).orderBy(asc(courseSessions.sessionDate));
+    for (const s of sessions) {
+      calendarItems.push({ type: "sesion", id: s.id, title: `${s.courseTitle}: ${s.title}`, date: s.sessionDate, link: `/aula/${s.courseId}` });
+    }
+    // Prayer activities
+    const prayers = await db.select().from(prayerActivities).where(eq(prayerActivities.isActive, true)).orderBy(asc(prayerActivities.scheduledDate));
+    for (const p of prayers) {
+      if (p.scheduledDate) {
+        calendarItems.push({ type: "oracion", id: p.id, title: p.title, date: p.scheduledDate, link: "/oracion" });
+      }
+    }
+    // Sort by date
+    calendarItems.sort((a, b) => {
+      const da = a.date ? new Date(a.date).getTime() : 0;
+      const db2 = b.date ? new Date(b.date).getTime() : 0;
+      return da - db2;
+    });
+    return calendarItems;
   }
 }
 
