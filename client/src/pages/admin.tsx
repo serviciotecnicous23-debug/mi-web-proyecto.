@@ -310,14 +310,17 @@ function AdminCourseEnrollments({ courseId, updateEnrollment }: { courseId: numb
               </>
             )}
             {e.status === "aprobado" && (
-              <Button size="sm" variant="ghost" onClick={() => updateEnrollment.mutate({ id: e.id, courseId, updates: { status: "completado" } })} data-testid={`button-admin-complete-enrollment-${e.id}`}>
-                <CheckCircle2 className="w-4 h-4" /> Completar
+              <Button size="sm" className="bg-green-600 hover:bg-green-700 text-white" onClick={() => updateEnrollment.mutate({ id: e.id, courseId, updates: { status: "completado" } })} data-testid={`button-admin-complete-enrollment-${e.id}`}>
+                <CheckCircle2 className="w-4 h-4 mr-1" /> Completar y Certificar
               </Button>
             )}
             {e.status === "completado" && (
-              <Button size="sm" variant="ghost" onClick={() => updateEnrollment.mutate({ id: e.id, courseId, updates: { status: "aprobado" } })} data-testid={`button-admin-revert-enrollment-${e.id}`}>
-                <XCircle className="w-4 h-4 mr-1" /> Revertir
-              </Button>
+              <>
+                <Badge variant="secondary" className="bg-green-100 text-green-700 text-xs">Certificado Generado</Badge>
+                <Button size="sm" variant="ghost" onClick={() => updateEnrollment.mutate({ id: e.id, courseId, updates: { status: "aprobado" } })} data-testid={`button-admin-revert-enrollment-${e.id}`}>
+                  <XCircle className="w-4 h-4 mr-1" /> Revertir
+                </Button>
+              </>
             )}
           </div>
         </div>

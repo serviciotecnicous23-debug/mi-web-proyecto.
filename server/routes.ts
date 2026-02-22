@@ -2776,7 +2776,14 @@ ${urls}
   app.get(api.certificates.myList.path, async (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
     const certs = await storage.listCertificatesByUser(req.user!.id);
-    res.json(certs);
+    // Enrich with student name for display
+    const enriched = certs.map(c => ({
+      ...c,
+      courseName: c.course?.title || "Curso",
+      studentName: req.user!.displayName || req.user!.username,
+      verificationCode: c.certificateCode,
+    }));
+    res.json(enriched);
   });
 
   app.get(api.certificates.listByUser.path, async (req, res) => {
@@ -2789,10 +2796,17 @@ ${urls}
   app.get(api.certificates.get.path, async (req, res) => {
     const cert = await storage.getCertificate(parseInt(req.params.id));
     if (!cert) return res.sendStatus(404);
-    // Get related data for rendering
     const user = await storage.getUser(cert.userId);
     const course = await storage.getCourse(cert.courseId);
-    res.json({ ...cert, user: { displayName: user?.displayName, username: user?.username }, course: { title: course?.title, category: course?.category } });
+    res.json({
+      ...cert,
+      verificationCode: cert.certificateCode,
+      studentName: user?.displayName || user?.username || "Estudiante",
+      courseName: course?.title || "Curso",
+      courseCategory: course?.category,
+      user: { displayName: user?.displayName, username: user?.username },
+      course: { title: course?.title, category: course?.category },
+    });
   });
 
   app.get(api.certificates.verify.path, async (req, res) => {
@@ -2800,7 +2814,20 @@ ${urls}
     if (!cert) return res.status(404).json({ valid: false, message: "Certificado no encontrado" });
     const user = await storage.getUser(cert.userId);
     const course = await storage.getCourse(cert.courseId);
-    res.json({ valid: true, certificate: { ...cert, user: { displayName: user?.displayName }, course: { title: course?.title } } });
+    res.json({
+      valid: true,
+      certificate: {
+        ...cert,
+        verificationCode: cert.certificateCode,
+        studentName: user?.displayName || user?.username || "Estudiante",
+        courseName: course?.title || "Curso",
+      },
+      // Legacy flat fields for verify UI
+      studentName: user?.displayName || user?.username || "Estudiante",
+      courseName: course?.title || "Curso",
+      grade: cert.grade,
+      issuedAt: cert.issuedAt,
+    });
   });
 
   app.post(api.certificates.generate.path, async (req, res) => {

@@ -1,22 +1,158 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Layout } from "@/components/layout";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Award, Download, CheckCircle, Clock, Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
-import { useState, useRef } from "react";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Award, Download, CheckCircle, Clock, Search, Pencil, FileText, X } from "lucide-react";
+import { useState, useRef, useCallback } from "react";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { useAuth } from "@/hooks/use-auth";
 
+// ========== CERTIFICATE VISUAL COMPONENT ==========
+function CertificateView({
+  cert,
+  overrides,
+}: {
+  cert: any;
+  overrides?: Record<string, string>;
+}) {
+  const studentName = overrides?.studentName || cert.studentName || "Estudiante";
+  const courseName = overrides?.courseName || cert.courseName || "Curso";
+  const teacherName = overrides?.teacherName || cert.teacherName || "";
+  const grade = overrides?.grade ?? cert.grade;
+  const customMessage = overrides?.customMessage || "";
+  const issuedDate = cert.issuedAt
+    ? format(new Date(cert.issuedAt), "dd 'de' MMMM 'de' yyyy", { locale: es })
+    : format(new Date(), "dd 'de' MMMM 'de' yyyy", { locale: es });
+  const code = cert.verificationCode || cert.certificateCode || "";
+
+  return (
+    <div
+      id="certificate-content"
+      style={{
+        width: "800px",
+        minHeight: "566px",
+        background: "linear-gradient(135deg, #fffbeb 0%, #fff 50%, #fef3c7 100%)",
+        border: "3px solid #b45309",
+        borderRadius: "8px",
+        padding: "0",
+        fontFamily: "'Georgia', 'Times New Roman', serif",
+        position: "relative",
+        overflow: "hidden",
+        boxSizing: "border-box",
+      }}
+    >
+      {/* Decorative borders */}
+      <div style={{ position: "absolute", top: "8px", left: "8px", right: "8px", bottom: "8px", border: "2px solid #d97706", borderRadius: "4px", pointerEvents: "none" }} />
+      <div style={{ position: "absolute", top: "16px", left: "16px", right: "16px", bottom: "16px", border: "1px solid #f59e0b", borderRadius: "2px", pointerEvents: "none" }} />
+
+      <div style={{ position: "relative", zIndex: 1, padding: "40px 50px", textAlign: "center" }}>
+        {/* Logo */}
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "12px", marginBottom: "8px" }}>
+          <div style={{
+            width: "48px", height: "48px", background: "linear-gradient(135deg, #dc2626, #991b1b)",
+            borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center",
+            boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
+          }}>
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M12 3q1 4 4 6.5t3 5.5a1 1 0 0 1-14 0 5 5 0 0 1 1-3 1 1 0 0 0 5 0c0-2-1.5-3-1.5-5q0-2 2.5-4" />
+            </svg>
+          </div>
+        </div>
+
+        <h1 style={{ fontSize: "1.6em", color: "#92400e", margin: "0 0 2px", fontWeight: "bold", letterSpacing: "2px", textTransform: "uppercase" }}>
+          Avivando el Fuego
+        </h1>
+        <p style={{ fontSize: "0.85em", color: "#a16207", margin: "0 0 6px", letterSpacing: "1px" }}>
+          Ministerio Evangelístico Internacional
+        </p>
+
+        <div style={{ width: "200px", height: "1px", background: "linear-gradient(to right, transparent, #d97706, transparent)", margin: "12px auto" }} />
+
+        <h2 style={{ fontSize: "1.8em", color: "#78350f", margin: "8px 0", fontWeight: "normal", letterSpacing: "3px", textTransform: "uppercase" }}>
+          Certificado
+        </h2>
+        <p style={{ fontSize: "0.9em", color: "#92400e", margin: "2px 0 16px", fontStyle: "italic" }}>
+          de Finalización
+        </p>
+
+        <p style={{ fontSize: "0.95em", color: "#78350f", margin: "0" }}>Se certifica que</p>
+
+        <div style={{ margin: "10px 0", padding: "8px 0", borderBottom: "2px solid #d97706" }}>
+          <p style={{ fontSize: "2em", color: "#1e3a5f", fontStyle: "italic", margin: "0", fontWeight: "bold" }}>
+            {studentName}
+          </p>
+        </div>
+
+        <p style={{ fontSize: "0.95em", color: "#78350f", margin: "12px 0 4px" }}>
+          ha completado satisfactoriamente el curso
+        </p>
+
+        <p style={{ fontSize: "1.5em", color: "#b45309", fontWeight: "bold", margin: "6px 0 12px" }}>
+          «{courseName}»
+        </p>
+
+        {customMessage && (
+          <p style={{ fontSize: "0.85em", color: "#78350f", margin: "0 40px 10px", fontStyle: "italic", lineHeight: "1.4" }}>
+            {customMessage}
+          </p>
+        )}
+
+        {grade && (
+          <p style={{ fontSize: "0.95em", color: "#78350f", margin: "4px 0" }}>
+            Calificación obtenida: <strong style={{ color: "#b45309", fontSize: "1.1em" }}>{grade}</strong>
+          </p>
+        )}
+
+        <p style={{ fontSize: "0.85em", color: "#92400e", margin: "8px 0 16px" }}>
+          Otorgado el {issuedDate}
+        </p>
+
+        {/* Signatures */}
+        <div style={{ display: "flex", justifyContent: "center", gap: "80px", marginTop: "20px" }}>
+          {teacherName && (
+            <div style={{ textAlign: "center" }}>
+              <div style={{ width: "180px", borderTop: "1px solid #92400e", margin: "0 auto", paddingTop: "6px" }}>
+                <p style={{ margin: "0", fontWeight: "bold", color: "#1e3a5f", fontSize: "0.95em" }}>{teacherName}</p>
+                <p style={{ margin: "2px 0 0", fontSize: "0.75em", color: "#92400e" }}>Instructor</p>
+              </div>
+            </div>
+          )}
+          <div style={{ textAlign: "center" }}>
+            <div style={{ width: "180px", borderTop: "1px solid #92400e", margin: "0 auto", paddingTop: "6px" }}>
+              <p style={{ margin: "0", fontWeight: "bold", color: "#1e3a5f", fontSize: "0.95em" }}>Avivando el Fuego</p>
+              <p style={{ margin: "2px 0 0", fontSize: "0.75em", color: "#92400e" }}>Ministerio</p>
+            </div>
+          </div>
+        </div>
+
+        {code && (
+          <div style={{ marginTop: "16px", padding: "6px 16px", background: "rgba(180,83,9,0.08)", borderRadius: "4px", display: "inline-block" }}>
+            <p style={{ fontSize: "0.7em", color: "#92400e", margin: "0" }}>
+              Código de verificación: <strong>{code}</strong>
+            </p>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ========== MAIN PAGE ==========
 export default function CertificadosPage() {
   const { user } = useAuth();
   const [selectedCert, setSelectedCert] = useState<any | null>(null);
   const [verifyCode, setVerifyCode] = useState("");
   const [verifyResult, setVerifyResult] = useState<any>(null);
   const [verifying, setVerifying] = useState(false);
-  const certRef = useRef<HTMLDivElement>(null);
+  const [editDialog, setEditDialog] = useState(false);
+  const [editOverrides, setEditOverrides] = useState<Record<string, string>>({});
+  const [generatingPdf, setGeneratingPdf] = useState(false);
 
   const { data: certificates = [], isLoading } = useQuery<any[]>({
     queryKey: ["/api/certificates/mine"],
@@ -40,26 +176,56 @@ export default function CertificadosPage() {
     setVerifying(false);
   };
 
+  const downloadPdf = useCallback(async () => {
+    const element = document.getElementById("certificate-content");
+    if (!element) return;
+    setGeneratingPdf(true);
+    try {
+      const html2canvas = (await import("html2canvas")).default;
+      const { jsPDF } = await import("jspdf");
+      const canvas = await html2canvas(element, {
+        scale: 2, useCORS: true, backgroundColor: "#fffbeb", logging: false,
+      });
+      const imgData = canvas.toDataURL("image/png");
+      const pdf = new jsPDF({
+        orientation: "landscape",
+        unit: "px",
+        format: [canvas.width / 2, canvas.height / 2],
+      });
+      pdf.addImage(imgData, "PNG", 0, 0, canvas.width / 2, canvas.height / 2);
+      const certName = selectedCert?.courseName || "certificado";
+      pdf.save(`certificado-${certName.replace(/\s+/g, "-").toLowerCase()}.pdf`);
+    } catch (err) {
+      console.error("PDF generation error:", err);
+      handlePrint();
+    }
+    setGeneratingPdf(false);
+  }, [selectedCert]);
+
   const handlePrint = () => {
-    if (!certRef.current) return;
+    const element = document.getElementById("certificate-content");
+    if (!element) return;
     const w = window.open("", "_blank");
     if (!w) return;
     w.document.write(`<!DOCTYPE html><html><head><title>Certificado</title><style>
-      body { margin: 0; display: flex; justify-content: center; align-items: center; min-height: 100vh; background: #fff; font-family: 'Georgia', serif; }
-      .cert { border: 8px double #c2841b; padding: 60px; max-width: 800px; text-align: center; }
-      .cert h1 { color: #c2841b; font-size: 2.5em; margin: 0 0 10px; }
-      .cert h2 { color: #333; font-size: 1.4em; margin: 10px 0; }
-      .cert .name { font-size: 2em; color: #1a365d; margin: 20px 0; font-style: italic; }
-      .cert .course { font-size: 1.5em; color: #c2841b; margin: 10px 0; }
-      .cert .details { margin: 20px 0; color: #555; }
-      .cert .code { font-size: 0.8em; color: #999; margin-top: 30px; }
-      .cert .signature { margin-top: 40px; border-top: 1px solid #999; display: inline-block; padding-top: 10px; min-width: 200px; }
-      @media print { body { margin: 0; } }
-    </style></head><body><div class="cert">`);
-    w.document.write(certRef.current.innerHTML);
-    w.document.write(`</div></body></html>`);
+      body { margin: 0; display: flex; justify-content: center; align-items: center; min-height: 100vh; background: #fff; }
+      @media print { body { margin: 0; } @page { size: landscape; margin: 0; } }
+    </style></head><body>`);
+    w.document.write(element.outerHTML);
+    w.document.write(`</body></html>`);
     w.document.close();
     setTimeout(() => w.print(), 500);
+  };
+
+  const openEditor = (cert: any) => {
+    setEditOverrides({
+      studentName: cert.studentName || "",
+      courseName: cert.courseName || "",
+      teacherName: cert.teacherName || "",
+      grade: cert.grade || "",
+      customMessage: "",
+    });
+    setEditDialog(true);
   };
 
   if (!user) {
@@ -72,91 +238,95 @@ export default function CertificadosPage() {
     );
   }
 
+  const isAdmin = user.role === "admin";
+
   return (
     <Layout>
       <div className="container mx-auto p-4 md:p-6 space-y-6">
         <div>
-          <h1 className="text-3xl font-bold text-orange-600 flex items-center gap-2"><Award className="h-8 w-8" /> Mis Certificados</h1>
+          <h1 className="text-3xl font-bold text-orange-600 flex items-center gap-2">
+            <Award className="h-8 w-8" /> Mis Certificados
+          </h1>
           <p className="text-muted-foreground">Certificados obtenidos por cursos completados</p>
         </div>
 
-        {/* Certificate detail modal-like view */}
+        {/* Selected Certificate Preview + PDF */}
         {selectedCert && (
           <Card className="border-orange-300 border-2">
-            <CardHeader className="flex flex-row justify-between items-start">
+            <CardHeader className="flex flex-row flex-wrap justify-between items-start gap-3">
               <div>
-                <CardTitle>Certificado</CardTitle>
-                <CardDescription>Código: {selectedCert.verificationCode}</CardDescription>
+                <CardTitle className="flex items-center gap-2">
+                  <Award className="h-5 w-5 text-orange-600" /> {selectedCert.courseName}
+                </CardTitle>
+                <CardDescription>Código: {selectedCert.verificationCode || selectedCert.certificateCode}</CardDescription>
               </div>
-              <div className="flex gap-2">
-                <Button variant="outline" onClick={handlePrint}><Download className="h-4 w-4 mr-1" /> Imprimir</Button>
-                <Button variant="ghost" onClick={() => setSelectedCert(null)}>Cerrar</Button>
+              <div className="flex flex-wrap gap-2">
+                <Button onClick={downloadPdf} disabled={generatingPdf} className="bg-orange-600 hover:bg-orange-700">
+                  <Download className="h-4 w-4 mr-1" />
+                  {generatingPdf ? "Generando..." : "Descargar PDF"}
+                </Button>
+                <Button variant="outline" onClick={handlePrint}>
+                  <FileText className="h-4 w-4 mr-1" /> Imprimir
+                </Button>
+                {isAdmin && (
+                  <Button variant="outline" onClick={() => openEditor(selectedCert)}>
+                    <Pencil className="h-4 w-4 mr-1" /> Personalizar
+                  </Button>
+                )}
+                <Button variant="ghost" size="icon" onClick={() => { setSelectedCert(null); setEditOverrides({}); }}>
+                  <X className="h-4 w-4" />
+                </Button>
               </div>
             </CardHeader>
             <CardContent>
-              <div ref={certRef} className="text-center py-8">
-                <h1 style={{ color: "#c2841b", fontSize: "2em", fontFamily: "Georgia, serif" }}>Ministerio de Educación Cristiana</h1>
-                <h2 style={{ color: "#555", fontFamily: "Georgia, serif" }}>Certificado de Finalización</h2>
-                <p style={{ margin: "30px 0 10px", color: "#555" }}>Se certifica que</p>
-                <p className="name" style={{ fontSize: "1.8em", color: "#1a365d", fontStyle: "italic", fontFamily: "Georgia, serif" }}>
-                  {selectedCert.studentName || user?.name || "Estudiante"}
-                </p>
-                <p style={{ color: "#555", margin: "10px 0" }}>ha completado satisfactoriamente el curso</p>
-                <p className="course" style={{ fontSize: "1.4em", color: "#c2841b", fontWeight: "bold", fontFamily: "Georgia, serif" }}>
-                  {selectedCert.courseName || "Curso"}
-                </p>
-                {selectedCert.grade !== null && selectedCert.grade !== undefined && (
-                  <p style={{ color: "#555", margin: "10px 0" }}>Con calificación: <strong>{selectedCert.grade}/100</strong></p>
-                )}
-                <p style={{ color: "#555", margin: "10px 0" }}>
-                  Fecha: {selectedCert.issuedAt ? format(new Date(selectedCert.issuedAt), "dd 'de' MMMM 'de' yyyy", { locale: es }) : "—"}
-                </p>
-                {selectedCert.teacherName && (
-                  <div className="signature" style={{ marginTop: "40px", borderTop: "1px solid #999", display: "inline-block", paddingTop: "10px", minWidth: "200px" }}>
-                    <p style={{ color: "#333" }}>{selectedCert.teacherName}</p>
-                    <p style={{ color: "#999", fontSize: "0.8em" }}>Instructor</p>
-                  </div>
-                )}
-                <p className="code" style={{ fontSize: "0.75em", color: "#999", marginTop: "30px" }}>
-                  Código de Verificación: {selectedCert.verificationCode}
-                </p>
+              <div className="overflow-x-auto flex justify-center py-4">
+                <CertificateView
+                  cert={selectedCert}
+                  overrides={editOverrides.studentName ? editOverrides : undefined}
+                />
               </div>
             </CardContent>
           </Card>
         )}
 
-        {/* Certificates list */}
+        {/* Certificates Grid */}
         {isLoading ? (
           <div className="text-center py-10"><Clock className="h-8 w-8 animate-spin text-muted-foreground mx-auto" /></div>
         ) : certificates.length === 0 ? (
           <Card>
             <CardContent className="text-center py-10">
               <Award className="h-12 w-12 text-muted-foreground mx-auto mb-3" />
-              <p className="text-muted-foreground">Aún no tienes certificados.</p>
-              <p className="text-sm text-muted-foreground">Completa un curso para obtener tu certificado.</p>
+              <p className="text-muted-foreground font-medium">Aún no tienes certificados.</p>
+              <p className="text-sm text-muted-foreground mt-1">
+                Cuando un maestro o administrador marque tu curso como <Badge variant="secondary" className="mx-1">Completado</Badge> tu certificado aparecerá aquí automáticamente.
+              </p>
             </CardContent>
           </Card>
         ) : (
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {certificates.map((cert: any) => (
-              <Card key={cert.id} className="hover:shadow-md transition-shadow cursor-pointer" onClick={() => setSelectedCert(cert)}>
+              <Card
+                key={cert.id}
+                className="hover:shadow-lg transition-all cursor-pointer border-l-4 border-l-orange-400 hover:border-l-orange-600"
+                onClick={() => { setSelectedCert(cert); setEditOverrides({}); }}
+              >
                 <CardContent className="pt-6">
                   <div className="flex items-center gap-3 mb-3">
-                    <div className="bg-orange-100 dark:bg-orange-900/30 rounded-full p-2">
+                    <div className="bg-orange-100 dark:bg-orange-900/30 rounded-full p-2.5 shrink-0">
                       <Award className="h-6 w-6 text-orange-600" />
                     </div>
-                    <div>
-                      <h3 className="font-semibold">{cert.courseName || "Curso"}</h3>
-                      <p className="text-sm text-muted-foreground">{cert.teacherName && `Instructor: ${cert.teacherName}`}</p>
+                    <div className="min-w-0">
+                      <h3 className="font-semibold truncate">{cert.courseName || cert.course?.title || "Curso"}</h3>
+                      {cert.teacherName && (
+                        <p className="text-sm text-muted-foreground truncate">Instructor: {cert.teacherName}</p>
+                      )}
                     </div>
                   </div>
                   <div className="flex justify-between items-center">
                     <span className="text-xs text-muted-foreground">
                       {cert.issuedAt ? format(new Date(cert.issuedAt), "dd MMM yyyy", { locale: es }) : ""}
                     </span>
-                    {cert.grade !== null && cert.grade !== undefined && (
-                      <Badge variant="secondary">{cert.grade}/100</Badge>
-                    )}
+                    {cert.grade && <Badge variant="secondary">Nota: {cert.grade}</Badge>}
                   </div>
                   <div className="flex items-center gap-1 mt-2 text-xs text-green-600">
                     <CheckCircle className="h-3 w-3" /> Verificado
@@ -167,19 +337,19 @@ export default function CertificadosPage() {
           </div>
         )}
 
-        {/* Verification Section */}
+        {/* Verification */}
         <Card>
           <CardHeader>
             <CardTitle className="text-base flex items-center gap-2"><Search className="h-4 w-4" /> Verificar un Certificado</CardTitle>
-            <CardDescription>Ingresa el código de verificación para comprobar la autenticidad de un certificado</CardDescription>
+            <CardDescription>Ingresa el código de verificación para comprobar la autenticidad</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="flex gap-2 max-w-md">
               <Input
-                placeholder="Código de verificación"
+                placeholder="Ej: CERT-ABC123..."
                 value={verifyCode}
-                onChange={e => setVerifyCode(e.target.value)}
-                onKeyDown={e => e.key === "Enter" && handleVerify()}
+                onChange={(e) => setVerifyCode(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && handleVerify()}
               />
               <Button onClick={handleVerify} disabled={verifying}>
                 {verifying ? "Verificando..." : "Verificar"}
@@ -195,16 +365,54 @@ export default function CertificadosPage() {
                       <CheckCircle className="h-5 w-5" />
                       <span className="font-semibold">Certificado Válido</span>
                     </div>
-                    <p className="text-sm"><strong>Estudiante:</strong> {verifyResult.studentName}</p>
-                    <p className="text-sm"><strong>Curso:</strong> {verifyResult.courseName}</p>
-                    {verifyResult.grade !== null && <p className="text-sm"><strong>Calificación:</strong> {verifyResult.grade}/100</p>}
-                    <p className="text-sm"><strong>Fecha:</strong> {verifyResult.issuedAt ? format(new Date(verifyResult.issuedAt), "dd/MM/yyyy") : "—"}</p>
+                    <p className="text-sm"><strong>Estudiante:</strong> {verifyResult.studentName || verifyResult.certificate?.studentName}</p>
+                    <p className="text-sm"><strong>Curso:</strong> {verifyResult.courseName || verifyResult.certificate?.courseName}</p>
+                    {(verifyResult.grade || verifyResult.certificate?.grade) && (
+                      <p className="text-sm"><strong>Calificación:</strong> {verifyResult.grade || verifyResult.certificate?.grade}</p>
+                    )}
+                    <p className="text-sm"><strong>Fecha:</strong> {(verifyResult.issuedAt || verifyResult.certificate?.issuedAt)
+                      ? format(new Date(verifyResult.issuedAt || verifyResult.certificate?.issuedAt), "dd/MM/yyyy") : "—"}</p>
                   </div>
                 )}
               </div>
             )}
           </CardContent>
         </Card>
+
+        {/* Editor Dialog (Admin) */}
+        <Dialog open={editDialog} onOpenChange={setEditDialog}>
+          <DialogContent className="max-w-lg">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2"><Pencil className="h-5 w-5" /> Personalizar Certificado</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label>Nombre del Estudiante</Label>
+                <Input value={editOverrides.studentName || ""} onChange={(e) => setEditOverrides((p) => ({ ...p, studentName: e.target.value }))} placeholder="Nombre completo" />
+              </div>
+              <div className="space-y-2">
+                <Label>Nombre del Curso</Label>
+                <Input value={editOverrides.courseName || ""} onChange={(e) => setEditOverrides((p) => ({ ...p, courseName: e.target.value }))} placeholder="Nombre del curso" />
+              </div>
+              <div className="space-y-2">
+                <Label>Nombre del Instructor</Label>
+                <Input value={editOverrides.teacherName || ""} onChange={(e) => setEditOverrides((p) => ({ ...p, teacherName: e.target.value }))} placeholder="Nombre del instructor" />
+              </div>
+              <div className="space-y-2">
+                <Label>Calificación</Label>
+                <Input value={editOverrides.grade || ""} onChange={(e) => setEditOverrides((p) => ({ ...p, grade: e.target.value }))} placeholder="Ej: 95" />
+              </div>
+              <div className="space-y-2">
+                <Label>Mensaje Personalizado (opcional)</Label>
+                <Textarea value={editOverrides.customMessage || ""} onChange={(e) => setEditOverrides((p) => ({ ...p, customMessage: e.target.value }))} placeholder="Ej: Por su destacada participación..." rows={3} />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="ghost" onClick={() => setEditDialog(false)}>Cancelar</Button>
+              <Button className="bg-orange-600 hover:bg-orange-700" onClick={() => setEditDialog(false)}>Aplicar Cambios</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     </Layout>
   );
