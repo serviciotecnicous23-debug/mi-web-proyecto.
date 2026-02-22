@@ -62,19 +62,27 @@ import { ThemeToggle } from "@/components/ThemeProvider";
 import { GlobalSearch } from "@/components/GlobalSearch";
 import { ScrollToTop, BackToTop } from "@/components/ScrollToTop";
 
-// Desktop nav links (compact)
-const desktopNavLinks = [
+// Desktop nav links — PUBLIC (visitors / not logged in)
+const publicDesktopNavLinks = [
   { href: "/", label: "Inicio" },
   { href: "/eventos", label: "Eventos" },
-  { href: "/capacitaciones", label: "Capacitaciones" },
-  { href: "/biblioteca", label: "Biblioteca" },
-  { href: "/sermones", label: "Sermones" },
-  { href: "/en-vivo", label: "En Vivo" },
-  { href: "/contacto", label: "Contacto" },
 ];
 
-// Mobile nav organized in collapsible groups
-const mobileNavGroups = [
+// Desktop nav bar — MEMBERS (logged in)
+const memberDesktopNavLinks = [
+  { href: "/capacitaciones", label: "Capacitaciones" },
+  { href: "/biblioteca", label: "Biblioteca" },
+  { href: "/regiones", label: "Regiones" },
+  { href: "/comunidad", label: "Comunidad" },
+  { href: "/oracion", label: "Oracion" },
+  { href: "/eventos", label: "Eventos" },
+  { href: "/en-vivo", label: "En Vivo" },
+  { href: "/perfil?tab=amigos", label: "Amigos" },
+  { href: "/mensajes", label: "Mensajes" },
+];
+
+// Mobile nav — PUBLIC (visitors)
+const publicMobileNavGroups = [
   {
     title: "Inicio",
     icon: Home,
@@ -82,14 +90,33 @@ const mobileNavGroups = [
     alwaysOpen: true,
   },
   {
-    title: "Ministerio",
-    icon: Globe,
+    title: "Eventos",
+    icon: Calendar,
     links: [
+      { href: "/eventos", label: "Eventos", icon: Calendar },
+      { href: "/calendario", label: "Calendario", icon: Calendar },
+    ],
+    alwaysOpen: true,
+  },
+  {
+    title: "Mas",
+    icon: MapPin,
+    links: [
+      { href: "/contacto", label: "Contacto", icon: MapPin },
       { href: "/historia", label: "Historia", icon: BookOpen },
       { href: "/equipo", label: "Equipo", icon: Users },
-      { href: "/regiones", label: "Regiones", icon: Globe },
-      { href: "/iglesias", label: "Iglesias", icon: Church },
     ],
+    alwaysOpen: true,
+  },
+];
+
+// Mobile nav — MEMBERS (logged in)
+const memberMobileNavGroups = [
+  {
+    title: "Inicio",
+    icon: Home,
+    links: [{ href: "/", label: "Inicio", icon: Flame }],
+    alwaysOpen: true,
   },
   {
     title: "Formacion",
@@ -110,6 +137,16 @@ const mobileNavGroups = [
       { href: "/eventos", label: "Eventos", icon: Calendar },
       { href: "/grupos", label: "Grupos", icon: Users },
       { href: "/calendario", label: "Calendario", icon: Calendar },
+    ],
+  },
+  {
+    title: "Ministerio",
+    icon: Globe,
+    links: [
+      { href: "/regiones", label: "Regiones", icon: Globe },
+      { href: "/iglesias", label: "Iglesias", icon: Church },
+      { href: "/historia", label: "Historia", icon: BookOpen },
+      { href: "/equipo", label: "Equipo", icon: Users },
     ],
   },
   {
@@ -136,7 +173,7 @@ function MobileNavGroup({
   location,
   onNavigate,
 }: {
-  group: (typeof mobileNavGroups)[number];
+  group: (typeof memberMobileNavGroups)[number];
   location: string;
   onNavigate: () => void;
 }) {
@@ -346,9 +383,9 @@ export function Navbar() {
           <span className="font-bold text-lg hidden sm:inline">Avivando el Fuego</span>
         </Link>
 
-        {/* Desktop navigation */}
+        {/* Desktop navigation — public or member */}
         <div className="hidden lg:flex items-center gap-1">
-          {desktopNavLinks.map((l) => (
+          {(user ? memberDesktopNavLinks : publicDesktopNavLinks).map((l) => (
             <Link key={l.href} href={l.href}>
               <Button
                 variant={location === l.href || (l.href !== "/" && location.startsWith(l.href)) ? "secondary" : "ghost"}
@@ -552,9 +589,9 @@ export function Navbar() {
               </div>
             )}
 
-            {/* Grouped navigation */}
+            {/* Grouped navigation — dynamic by auth state */}
             <div className="space-y-1">
-              {mobileNavGroups.map((group) => (
+              {(user ? memberMobileNavGroups : publicMobileNavGroups).map((group) => (
                 <MobileNavGroup
                   key={group.title}
                   group={group}

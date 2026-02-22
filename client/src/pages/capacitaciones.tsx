@@ -37,14 +37,12 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { CardGridSkeleton } from "@/components/SkeletonScreens";
 import { COURSE_CATEGORIES, ENROLLMENT_STATUSES, CARTELERA_CATEGORIES, DAYS_OF_WEEK, MEETING_PLATFORMS } from "@shared/schema";
 import type { Course } from "@shared/schema";
+import { useLocation } from "wouter";
 
 export default function Capacitaciones() {
   const { user } = useAuth();
-  const isAdmin = user?.role === "admin";
-  const isTeacher = user?.role === "obrero";
-  const canManage = isAdmin || isTeacher;
+  const [, navigate] = useLocation();
   const [activeTab, setActiveTab] = useState("cartelera");
-  // Badge de nuevos anuncios (simple, por sesión)
   const [lastSeen, setLastSeen] = useState(() => {
     if (typeof window !== "undefined") {
       return localStorage.getItem("cartelera_last_seen") || "";
@@ -52,6 +50,27 @@ export default function Capacitaciones() {
     return "";
   });
   const { data: carteleraAnns } = useCarteleraAnnouncements();
+
+  // Auth guard — only logged-in members can access Capacitaciones
+  useEffect(() => {
+    if (!user) {
+      navigate("/login");
+    }
+  }, [user, navigate]);
+
+  if (!user) {
+    return (
+      <Layout>
+        <div className="flex items-center justify-center min-h-[60vh]">
+          <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+        </div>
+      </Layout>
+    );
+  }
+
+  const isAdmin = user.role === "admin";
+  const isTeacher = user.role === "obrero";
+  const canManage = isAdmin || isTeacher;
   const unseen = carteleraAnns?.some((a: any) => !lastSeen || new Date(a.createdAt) > new Date(lastSeen));
 
   const handleTabChange = (tab: string) => {

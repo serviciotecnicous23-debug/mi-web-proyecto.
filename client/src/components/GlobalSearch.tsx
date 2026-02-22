@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useLocation } from "wouter";
+import { useAuth } from "@/hooks/use-auth";
 import {
   CommandDialog,
   CommandEmpty,
@@ -28,22 +29,27 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 
 // Static navigation items for instant results
-const NAV_ITEMS = [
+const PUBLIC_NAV_ITEMS = [
   { label: "Inicio", href: "/", icon: Flame, category: "Paginas" },
+  { label: "Eventos", href: "/eventos", icon: Calendar, category: "Paginas" },
   { label: "Historia", href: "/historia", icon: BookOpen, category: "Ministerio" },
   { label: "Equipo", href: "/equipo", icon: Users, category: "Ministerio" },
   { label: "Regiones", href: "/regiones", icon: Globe, category: "Ministerio" },
   { label: "Iglesias", href: "/iglesias", icon: Church, category: "Ministerio" },
+  { label: "Calendario", href: "/calendario", icon: Calendar, category: "Paginas" },
+  { label: "Contacto", href: "/contacto", icon: MapPin, category: "Paginas" },
+];
+
+// Additional items visible only to logged-in members
+const MEMBER_NAV_ITEMS = [
   { label: "Capacitaciones", href: "/capacitaciones", icon: GraduationCap, category: "Formacion" },
   { label: "Biblioteca", href: "/biblioteca", icon: Library, category: "Formacion" },
   { label: "En Vivo", href: "/en-vivo", icon: Video, category: "Formacion" },
   { label: "Sermones", href: "/sermones", icon: FileText, category: "Formacion" },
   { label: "Comunidad", href: "/comunidad", icon: MessageSquare, category: "Comunidad" },
   { label: "Oracion", href: "/oracion", icon: Heart, category: "Comunidad" },
-  { label: "Eventos", href: "/eventos", icon: Calendar, category: "Comunidad" },
   { label: "Grupos", href: "/grupos", icon: Users, category: "Comunidad" },
-  { label: "Calendario", href: "/calendario", icon: Calendar, category: "Paginas" },
-  { label: "Contacto", href: "/contacto", icon: MapPin, category: "Paginas" },
+  { label: "Mensajes", href: "/mensajes", icon: MessageSquare, category: "Comunidad" },
 ];
 
 interface SearchResult {
@@ -68,7 +74,13 @@ export function GlobalSearch() {
   const [results, setResults] = useState<SearchResult[]>([]);
   const [loading, setLoading] = useState(false);
   const [, navigate] = useLocation();
+  const { user } = useAuth();
   const debounceRef = useRef<ReturnType<typeof setTimeout>>();
+
+  // Build nav items based on auth state
+  const NAV_ITEMS = user
+    ? [...PUBLIC_NAV_ITEMS, ...MEMBER_NAV_ITEMS]
+    : PUBLIC_NAV_ITEMS;
 
   // ⌘K / Ctrl+K shortcut
   useEffect(() => {
@@ -130,7 +142,7 @@ export function GlobalSearch() {
       acc[item.category].push(item);
       return acc;
     },
-    {} as Record<string, typeof NAV_ITEMS>
+    {} as Record<string, typeof PUBLIC_NAV_ITEMS>
   );
 
   return (
