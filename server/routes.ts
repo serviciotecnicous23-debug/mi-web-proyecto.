@@ -3062,6 +3062,57 @@ ${urls}
     res.json(report);
   });
 
+  // Public donation endpoint — no auth required
+  app.post(api.tithes.publicDonate.path, async (req, res) => {
+    try {
+      const input = api.tithes.publicDonate.input.parse(req.body);
+      const tithe = await storage.createTithe({
+        donorName: input.donorName,
+        amount: input.amount,
+        currency: input.currency || "USD",
+        type: "donacion",
+        method: input.method || "transferencia",
+        notes: input.notes || (input.email ? `Email: ${input.email}` : null),
+        userId: req.user?.id || null,
+        recordedBy: null as any,
+      });
+      res.status(201).json({ success: true, id: tithe.id });
+    } catch (err) {
+      if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });
+      console.error("Public donation error:", err);
+      res.sendStatus(500);
+    }
+  });
+
+  // Budget summary for admin
+  app.get(api.tithes.budgetSummary.path, async (req, res) => {
+    if (!isAdmin(req)) return res.sendStatus(403);
+    try {
+      const year = (req.query.year as string) || new Date().getFullYear().toString();
+      const report = await storage.getTitheReport(undefined, year);
+      // Calculate monthly breakdown
+      const monthlyData: Record<string, number> = {};
+      if (report.rows) {
+        for (const r of report.rows) {
+          const month = new Date(r.createdAt).toISOString().slice(0, 7);
+          monthlyData[month] = (monthlyData[month] || 0) + (parseFloat(r.amount) || 0);
+        }
+      }
+      const monthly = Object.entries(monthlyData)
+        .map(([month, total]) => ({ month, total }))
+        .sort((a, b) => a.month.localeCompare(b.month));
+      
+      res.json({
+        ...report,
+        monthly,
+        avgMonthly: monthly.length > 0 ? report.total / monthly.length : 0,
+      });
+    } catch (err) {
+      console.error("Budget summary error:", err);
+      res.sendStatus(500);
+    }
+  });
+
   // ========== REPORTS ==========
   app.get(api.reports.dashboard.path, async (req, res) => {
     if (!isAdmin(req)) return res.sendStatus(403);

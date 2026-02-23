@@ -31,7 +31,7 @@ import ForgotPasswordPage from "@/pages/forgot-password";
 import ResetPasswordPage from "@/pages/reset-password";
 import VerifyEmailPage from "@/pages/verify-email";
 import ReportesPage from "@/pages/reportes";
-import DiezmosPage from "@/pages/diezmos";
+import FinanzasPage from "@/pages/finanzas";
 import SermonesPage from "@/pages/sermones";
 import GruposPage from "@/pages/grupos";
 import CalendarioPage from "@/pages/calendario";
@@ -65,7 +65,7 @@ function Router() {
       <Route path="/iglesias" component={IglesiasPage} />
       <Route path="/mensajes" component={MensajesPage} />
       <Route path="/reportes" component={ReportesPage} />
-      <Route path="/diezmos" component={DiezmosPage} />
+      <Route path="/finanzas" component={FinanzasPage} />
       <Route path="/sermones" component={SermonesPage} />
       <Route path="/grupos" component={GruposPage} />
       <Route path="/calendario" component={CalendarioPage} />

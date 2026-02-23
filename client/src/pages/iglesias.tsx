@@ -590,34 +590,35 @@ export default function IglesiasPage() {
         </div>
 
         {/* Posts Section */}
-        {user?.isActive && (
-          <Card className="mt-4">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-base flex items-center gap-2">
-                <Send className="w-4 h-4" />
-                Publicaciones
-              </CardTitle>
-              <CardDescription>Comparte noticias y testimonios de estas iglesias.</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              {/* New post form */}
-              <div className="space-y-2">
-                <Select
-                  value={selectedChurchId?.toString() || ""}
-                  onValueChange={(v) => setSelectedChurchId(parseInt(v))}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecciona una iglesia..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {churchList.map((c) => (
-                      <SelectItem key={c.id} value={c.id.toString()}>{c.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <div className="flex gap-2">
-                  <Textarea
-                    placeholder="Escribe algo sobre esta iglesia..."
+        {/* Posts Section — visible to everyone, posting requires auth */}
+        <Card className="mt-4">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base flex items-center gap-2">
+              <Send className="w-4 h-4" />
+              Publicaciones
+            </CardTitle>
+            <CardDescription>Noticias y testimonios de estas iglesias.</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {/* New post form — only for active authenticated users */}
+            {user?.isActive && (
+            <div className="space-y-2">
+              <Select
+                value={selectedChurchId?.toString() || ""}
+                onValueChange={(v) => setSelectedChurchId(parseInt(v))}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecciona una iglesia..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {churchList.map((c) => (
+                    <SelectItem key={c.id} value={c.id.toString()}>{c.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <div className="flex gap-2">
+                <Textarea
+                  placeholder="Escribe algo sobre esta iglesia..."
                     value={postContent}
                     onChange={(e) => setPostContent(e.target.value)}
                     rows={2}
@@ -675,8 +676,9 @@ export default function IglesiasPage() {
                   </div>
                 )}
               </div>
+            )}
 
-              {/* Posts list */}
+              {/* Posts list — visible to everyone */}
               {posts
                 .filter((p) => churchList.some((c) => c.id === p.churchId))
                 .map((post) => (
@@ -732,7 +734,6 @@ export default function IglesiasPage() {
                 ))}
             </CardContent>
           </Card>
-        )}
       </div>
     );
   };

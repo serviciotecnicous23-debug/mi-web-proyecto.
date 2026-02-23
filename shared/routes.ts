@@ -313,12 +313,21 @@ export const api = {
     generate: { method: "POST" as const, path: "/api/certificates/generate" as const, input: z.object({ enrollmentId: z.number() }) },
     verify: { method: "GET" as const, path: "/api/certificates/verify/:code" as const },
   },
-  // ========== DIEZMOS Y OFRENDAS ==========
+  // ========== FINANZAS (antes Diezmos y Ofrendas) ==========
   tithes: {
     list: { method: "GET" as const, path: "/api/tithes" as const },
     create: { method: "POST" as const, path: "/api/tithes" as const, input: insertTitheSchema },
     delete: { method: "DELETE" as const, path: "/api/tithes/:id" as const },
     report: { method: "GET" as const, path: "/api/tithes/report" as const },
+    publicDonate: { method: "POST" as const, path: "/api/donations/public" as const, input: z.object({
+      donorName: z.string().min(1),
+      amount: z.string().min(1),
+      currency: z.string().optional(),
+      method: z.enum(["transferencia", "paypal", "otro"]).optional(),
+      notes: z.string().optional().nullable(),
+      email: z.string().email().optional().nullable(),
+    })},
+    budgetSummary: { method: "GET" as const, path: "/api/finance/budget-summary" as const },
   },
   // ========== REPORTES ==========
   reports: {

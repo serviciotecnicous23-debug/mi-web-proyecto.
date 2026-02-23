@@ -517,9 +517,9 @@ export function Navbar() {
                           </Link>
                         </DropdownMenuItem>
                         <DropdownMenuItem asChild>
-                          <Link href="/diezmos" className="cursor-pointer">
+                          <Link href="/finanzas" className="cursor-pointer">
                             <DollarSign className="mr-2 h-4 w-4" aria-hidden="true" />
-                            Diezmos
+                            Finanzas
                           </Link>
                         </DropdownMenuItem>
                       </>
@@ -679,9 +679,9 @@ export function Navbar() {
                         <BarChart3 className="w-4 h-4" aria-hidden="true" /> Reportes
                       </Button>
                     </Link>
-                    <Link href="/diezmos" onClick={closeMenu}>
+                    <Link href="/finanzas" onClick={closeMenu}>
                       <Button variant="ghost" className="w-full justify-start gap-3" size="sm">
-                        <DollarSign className="w-4 h-4" aria-hidden="true" /> Diezmos
+                        <DollarSign className="w-4 h-4" aria-hidden="true" /> Finanzas
                       </Button>
                     </Link>
                   </div>
