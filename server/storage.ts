@@ -2436,6 +2436,309 @@ export class DatabaseStorage implements IStorage {
     });
     return calendarItems;
   }
+
+  // ========== FRIENDS SYSTEM ==========
+  async listFriends(userId: number): Promise<any[]> {
+    const rows = await db
+      .select()
+      .from(friendships)
+      .where(
+        and(
+          or(
+            eq(friendships.requesterId, userId),
+            eq(friendships.addresseeId, userId)
+          ),
+          eq(friendships.status, "accepted")
+        )
+      );
+    // Enrich with user data
+    const result: any[] = [];
+    for (const f of rows) {
+      const friendId = f.requesterId === userId ? f.addresseeId : f.requesterId;
+      const friend = await this.getUser(friendId);
+      if (friend) {
+        result.push({
+          id: f.id,
+          status: f.status,
+          createdAt: f.createdAt,
+          friend: {
+            id: friend.id,
+            username: friend.username,
+            displayName: friend.displayName,
+            avatarUrl: friend.avatarUrl,
+          },
+        });
+      }
+    }
+    return result;
+  }
+
+  async listFriendRequests(userId: number): Promise<any[]> {
+    const rows = await db
+      .select()
+      .from(friendships)
+      .where(
+        and(
+          eq(friendships.addresseeId, userId),
+          eq(friendships.status, "pending")
+        )
+      )
+      .orderBy(desc(friendships.createdAt));
+    const result: any[] = [];
+    for (const f of rows) {
+      const requester = await this.getUser(f.requesterId);
+      if (requester) {
+        result.push({
+          id: f.id,
+          status: f.status,
+          createdAt: f.createdAt,
+          requester: {
+            id: requester.id,
+            username: requester.username,
+            displayName: requester.displayName,
+            avatarUrl: requester.avatarUrl,
+          },
+        });
+      }
+    }
+    return result;
+  }
+
+  async searchUsersForFriends(userId: number, query: string): Promise<any[]> {
+    if (!query || query.trim().length === 0) return [];
+    const q = `%${query.trim()}%`;
+    const foundUsers = await db
+      .select({
+        id: users.id,
+        username: users.username,
+        displayName: users.displayName,
+        avatarUrl: users.avatarUrl,
+      })
+      .from(users)
+      .where(
+        and(
+          ne(users.id, userId),
+          eq(users.isActive, true),
+          or(
+            ilike(users.username, q),
+            ilike(users.displayName, q)
+          )
+        )
+      )
+      .limit(20);
+
+    // Check existing friendship status for each result
+    const result: any[] = [];
+    for (const u of foundUsers) {
+      const existing = await db
+        .select()
+        .from(friendships)
+        .where(
+          or(
+            and(eq(friendships.requesterId, userId), eq(friendships.addresseeId, u.id)),
+            and(eq(friendships.requesterId, u.id), eq(friendships.addresseeId, userId))
+          )
+        )
+        .limit(1);
+      result.push({
+        ...u,
+        friendshipStatus: existing.length > 0 ? existing[0].status : null,
+        friendshipId: existing.length > 0 ? existing[0].id : null,
+      });
+    }
+    return result;
+  }
+
+  async sendFriendRequest(requesterId: number, addresseeId: number): Promise<any> {
+    // Check if friendship already exists
+    const existing = await db
+      .select()
+      .from(friendships)
+      .where(
+        or(
+          and(eq(friendships.requesterId, requesterId), eq(friendships.addresseeId, addresseeId)),
+          and(eq(friendships.requesterId, addresseeId), eq(friendships.addresseeId, requesterId))
+        )
+      )
+      .limit(1);
+    if (existing.length > 0) {
+      if (existing[0].status === "accepted") throw new Error("Ya son amigos");
+      if (existing[0].status === "pending") throw new Error("Ya existe una solicitud pendiente");
+      // If rejected, update to pending again
+      const [updated] = await db
+        .update(friendships)
+        .set({ status: "pending", requesterId, addresseeId })
+        .where(eq(friendships.id, existing[0].id))
+        .returning();
+      return updated;
+    }
+    const [created] = await db
+      .insert(friendships)
+      .values({ requesterId, addresseeId, status: "pending" })
+      .returning();
+    return created;
+  }
+
+  async acceptFriendRequest(friendshipId: number, userId: number): Promise<any> {
+    const [f] = await db
+      .select()
+      .from(friendships)
+      .where(eq(friendships.id, friendshipId))
+      .limit(1);
+    if (!f) throw new Error("Solicitud no encontrada");
+    if (f.addresseeId !== userId) throw new Error("No tienes permiso para aceptar esta solicitud");
+    if (f.status !== "pending") throw new Error("Esta solicitud ya fue procesada");
+    const [updated] = await db
+      .update(friendships)
+      .set({ status: "accepted" })
+      .where(eq(friendships.id, friendshipId))
+      .returning();
+    return updated;
+  }
+
+  async rejectFriendRequest(friendshipId: number, userId: number): Promise<any> {
+    const [f] = await db
+      .select()
+      .from(friendships)
+      .where(eq(friendships.id, friendshipId))
+      .limit(1);
+    if (!f) throw new Error("Solicitud no encontrada");
+    if (f.addresseeId !== userId) throw new Error("No tienes permiso para rechazar esta solicitud");
+    const [updated] = await db
+      .update(friendships)
+      .set({ status: "rejected" })
+      .where(eq(friendships.id, friendshipId))
+      .returning();
+    return updated;
+  }
+
+  async removeFriend(friendshipId: number, userId: number): Promise<void> {
+    const [f] = await db
+      .select()
+      .from(friendships)
+      .where(eq(friendships.id, friendshipId))
+      .limit(1);
+    if (!f) throw new Error("Amistad no encontrada");
+    if (f.requesterId !== userId && f.addresseeId !== userId) {
+      throw new Error("No tienes permiso para eliminar esta amistad");
+    }
+    await db.delete(friendships).where(eq(friendships.id, friendshipId));
+  }
+
+  // ========== DIRECT MESSAGES ==========
+  async sendDirectMessage(senderId: number, data: InsertDirectMessage): Promise<DirectMessage> {
+    const [msg] = await db
+      .insert(directMessages)
+      .values({
+        senderId,
+        receiverId: data.receiverId,
+        content: data.content,
+        isRead: false,
+      })
+      .returning();
+    return msg;
+  }
+
+  async listConversations(userId: number): Promise<any[]> {
+    // Get all DMs involving this user
+    const allMessages = await db
+      .select()
+      .from(directMessages)
+      .where(
+        or(
+          eq(directMessages.senderId, userId),
+          eq(directMessages.receiverId, userId)
+        )
+      )
+      .orderBy(desc(directMessages.createdAt));
+
+    // Group by other user
+    const conversationMap = new Map<number, { lastMessage: typeof allMessages[0]; unreadCount: number }>();
+    for (const msg of allMessages) {
+      const otherUserId = msg.senderId === userId ? msg.receiverId : msg.senderId;
+      if (!conversationMap.has(otherUserId)) {
+        conversationMap.set(otherUserId, { lastMessage: msg, unreadCount: 0 });
+      }
+      if (msg.receiverId === userId && !msg.isRead) {
+        const entry = conversationMap.get(otherUserId)!;
+        entry.unreadCount++;
+      }
+    }
+
+    const result: any[] = [];
+    for (const [otherUserId, data] of conversationMap) {
+      const otherUser = await this.getUser(otherUserId);
+      if (otherUser) {
+        result.push({
+          user: {
+            id: otherUser.id,
+            username: otherUser.username,
+            displayName: otherUser.displayName,
+            avatarUrl: otherUser.avatarUrl,
+          },
+          lastMessage: {
+            id: data.lastMessage.id,
+            content: data.lastMessage.content,
+            senderId: data.lastMessage.senderId,
+            createdAt: data.lastMessage.createdAt,
+            isRead: data.lastMessage.isRead,
+          },
+          unreadCount: data.unreadCount,
+        });
+      }
+    }
+    return result;
+  }
+
+  async listDirectMessages(userId: number, otherUserId: number): Promise<(DirectMessage & { sender: { id: number; username: string; displayName: string | null; avatarUrl: string | null } })[]> {
+    const msgs = await db
+      .select()
+      .from(directMessages)
+      .where(
+        or(
+          and(eq(directMessages.senderId, userId), eq(directMessages.receiverId, otherUserId)),
+          and(eq(directMessages.senderId, otherUserId), eq(directMessages.receiverId, userId))
+        )
+      )
+      .orderBy(asc(directMessages.createdAt));
+    const result: any[] = [];
+    for (const msg of msgs) {
+      const sender = await this.getUser(msg.senderId);
+      result.push({
+        ...msg,
+        sender: sender
+          ? { id: sender.id, username: sender.username, displayName: sender.displayName, avatarUrl: sender.avatarUrl }
+          : { id: msg.senderId, username: "Desconocido", displayName: null, avatarUrl: null },
+      });
+    }
+    return result;
+  }
+
+  async markDirectMessagesRead(userId: number, senderId: number): Promise<void> {
+    await db
+      .update(directMessages)
+      .set({ isRead: true })
+      .where(
+        and(
+          eq(directMessages.senderId, senderId),
+          eq(directMessages.receiverId, userId),
+          eq(directMessages.isRead, false)
+        )
+      );
+  }
+
+  async getUnreadDirectMessageCount(userId: number): Promise<number> {
+    const result = await db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(directMessages)
+      .where(
+        and(
+          eq(directMessages.receiverId, userId),
+          eq(directMessages.isRead, false)
+        )
+      );
+    return result[0]?.count || 0;
+  }
 }
 
 // Auto-check enrollment schedules and update status
