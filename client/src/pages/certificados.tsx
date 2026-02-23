@@ -183,16 +183,37 @@ export default function CertificadosPage() {
     try {
       const html2canvas = (await import("html2canvas")).default;
       const { jsPDF } = await import("jspdf");
+
+      // Force the element to its natural fixed size for consistent capture
+      const origStyle = element.getAttribute("style") || "";
+      element.style.width = "800px";
+      element.style.minHeight = "566px";
+      element.style.maxHeight = "none";
+      element.style.overflow = "visible";
+      element.style.transform = "none";
+
       const canvas = await html2canvas(element, {
         scale: 2, useCORS: true, backgroundColor: "#fffbeb", logging: false,
+        width: 800,
+        height: element.scrollHeight,
+        windowWidth: 900,
       });
+
+      // Restore original style
+      element.setAttribute("style", origStyle);
+
       const imgData = canvas.toDataURL("image/png");
+
+      // Use mm units with a standard landscape A4-like ratio to avoid multi-page issues
+      const pdfWidth = 297; // mm (A4 landscape width)
+      const pdfHeight = (canvas.height / canvas.width) * pdfWidth;
+
       const pdf = new jsPDF({
         orientation: "landscape",
-        unit: "px",
-        format: [canvas.width / 2, canvas.height / 2],
+        unit: "mm",
+        format: [pdfWidth, pdfHeight],
       });
-      pdf.addImage(imgData, "PNG", 0, 0, canvas.width / 2, canvas.height / 2);
+      pdf.addImage(imgData, "PNG", 0, 0, pdfWidth, pdfHeight);
       const certName = selectedCert?.courseName || "certificado";
       pdf.save(`certificado-${certName.replace(/\s+/g, "-").toLowerCase()}.pdf`);
     } catch (err) {

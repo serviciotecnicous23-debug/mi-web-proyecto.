@@ -439,10 +439,18 @@ function CourseManager({ courseId, onBack }: { courseId: number; onBack: () => v
                         try {
                           const html2canvas = (await import("html2canvas")).default;
                           const { jsPDF } = await import("jspdf");
-                          const canvas = await html2canvas(el, { scale: 2, useCORS: true, backgroundColor: "#fffbeb", logging: false });
+                          const origStyle = el.getAttribute("style") || "";
+                          el.style.width = "700px";
+                          el.style.minHeight = "495px";
+                          el.style.overflow = "visible";
+                          el.style.transform = "none";
+                          const canvas = await html2canvas(el, { scale: 2, useCORS: true, backgroundColor: "#fffbeb", logging: false, width: 700, height: el.scrollHeight, windowWidth: 800 });
+                          el.setAttribute("style", origStyle);
                           const imgData = canvas.toDataURL("image/png");
-                          const pdf = new jsPDF({ orientation: "landscape", unit: "px", format: [canvas.width / 2, canvas.height / 2] });
-                          pdf.addImage(imgData, "PNG", 0, 0, canvas.width / 2, canvas.height / 2);
+                          const pdfW = 297;
+                          const pdfH = (canvas.height / canvas.width) * pdfW;
+                          const pdf = new jsPDF({ orientation: "landscape", unit: "mm", format: [pdfW, pdfH] });
+                          pdf.addImage(imgData, "PNG", 0, 0, pdfW, pdfH);
                           pdf.save(`certificado-${(certPreview?.studentName || "estudiante").replace(/\s+/g, "-").toLowerCase()}.pdf`);
                         } catch (err) { console.error("PDF error:", err); }
                       }}>

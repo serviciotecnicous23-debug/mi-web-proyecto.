@@ -1155,8 +1155,7 @@ ${urls}
 
   // ========== MEMBER POSTS ==========
   app.get(api.posts.list.path, async (req, res) => {
-    if (!req.isAuthenticated()) return res.sendStatus(401);
-    if (!req.user!.isActive) return res.sendStatus(403);
+    // Public read access — anyone can view community posts
     const posts = await storage.listMemberPosts();
     res.json(posts);
   });
@@ -1903,7 +1902,8 @@ ${urls}
       })
     );
     const attendanceRecords = await storage.listAttendanceByUser(id);
-    res.json({ user: safeUser, enrollments: enrichedEnrollments, posts: userPosts, attendance: attendanceRecords });
+    const userCertificates = await storage.listCertificatesByUser(id);
+    res.json({ user: safeUser, enrollments: enrichedEnrollments, posts: userPosts, attendance: attendanceRecords, certificates: userCertificates });
   });
 
   app.delete(api.admin.deleteUser.path, async (req, res) => {
@@ -2636,7 +2636,7 @@ ${urls}
 
   // ========== POST COMMENTS ==========
   app.get(api.postComments.list.path, async (req, res) => {
-    if (!req.isAuthenticated()) return res.sendStatus(401);
+    // Public read access — anyone can view comments
     const postId = parseInt(req.params.postId);
     const comments = await storage.listPostComments(postId);
     res.json(comments);

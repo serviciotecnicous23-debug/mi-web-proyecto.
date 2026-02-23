@@ -360,10 +360,18 @@ function AdminCourseEnrollments({ courseId, updateEnrollment }: { courseId: numb
     try {
       const html2canvas = (await import("html2canvas")).default;
       const { jsPDF } = await import("jspdf");
-      const canvas = await html2canvas(el, { scale: 2, useCORS: true, backgroundColor: "#fffbeb", logging: false });
+      const origStyle = el.getAttribute("style") || "";
+      el.style.width = "700px";
+      el.style.minHeight = "495px";
+      el.style.overflow = "visible";
+      el.style.transform = "none";
+      const canvas = await html2canvas(el, { scale: 2, useCORS: true, backgroundColor: "#fffbeb", logging: false, width: 700, height: el.scrollHeight, windowWidth: 800 });
+      el.setAttribute("style", origStyle);
       const imgData = canvas.toDataURL("image/png");
-      const pdf = new jsPDF({ orientation: "landscape", unit: "px", format: [canvas.width / 2, canvas.height / 2] });
-      pdf.addImage(imgData, "PNG", 0, 0, canvas.width / 2, canvas.height / 2);
+      const pdfW = 297;
+      const pdfH = (canvas.height / canvas.width) * pdfW;
+      const pdf = new jsPDF({ orientation: "landscape", unit: "mm", format: [pdfW, pdfH] });
+      pdf.addImage(imgData, "PNG", 0, 0, pdfW, pdfH);
       pdf.save(`certificado-${(certPreview?.studentName || "estudiante").replace(/\s+/g, "-").toLowerCase()}.pdf`);
     } catch (err) {
       console.error("PDF error:", err);
@@ -533,7 +541,9 @@ export default function AdminDashboard() {
   const filteredUsers = users?.filter(
     (u: any) =>
       u.username.toLowerCase().includes(search.toLowerCase()) ||
-      (u.displayName && u.displayName.toLowerCase().includes(search.toLowerCase()))
+      (u.displayName && u.displayName.toLowerCase().includes(search.toLowerCase())) ||
+      (u.email && u.email.toLowerCase().includes(search.toLowerCase())) ||
+      (u.phone && u.phone.includes(search))
   );
 
   function openNewEventDialog() {
@@ -1050,6 +1060,7 @@ export default function AdminDashboard() {
                     <TableHeader>
                       <TableRow>
                         <TableHead>Usuario</TableHead>
+                        <TableHead>Email / Telefono</TableHead>
                         <TableHead>Rol</TableHead>
                         <TableHead>Cargo / Pais</TableHead>
                         <TableHead>Estado</TableHead>
@@ -1062,14 +1073,27 @@ export default function AdminDashboard() {
                           <TableCell>
                             <div className="flex items-center gap-3">
                               <Avatar className="h-9 w-9">
+                                {u.avatarUrl && <AvatarImage src={u.avatarUrl} alt={u.displayName || u.username} />}
                                 <AvatarFallback className="bg-primary/5 text-primary text-xs">
-                                  {u.username.slice(0, 2).toUpperCase()}
+                                  {(u.displayName || u.username).slice(0, 2).toUpperCase()}
                                 </AvatarFallback>
                               </Avatar>
                               <div className="flex flex-col">
                                 <span className="font-semibold">{u.displayName || u.username}</span>
                                 <span className="text-xs text-muted-foreground">@{u.username}</span>
                               </div>
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex flex-col gap-0.5">
+                              {u.email ? (
+                                <span className="text-xs text-muted-foreground truncate max-w-[180px]" title={u.email}>{u.email}</span>
+                              ) : (
+                                <span className="text-xs text-muted-foreground">-</span>
+                              )}
+                              {u.phone && (
+                                <span className="text-xs text-muted-foreground">{u.phone}</span>
+                              )}
                             </div>
                           </TableCell>
                           <TableCell>
@@ -1161,7 +1185,7 @@ export default function AdminDashboard() {
                         </TableRow>
                       ))}
                       {filteredUsers?.length === 0 && (
-                        <TableRow><TableCell colSpan={5} className="h-24 text-center">No se encontraron usuarios.</TableCell></TableRow>
+                        <TableRow><TableCell colSpan={6} className="h-24 text-center">No se encontraron usuarios.</TableCell></TableRow>
                       )}
                     </TableBody>
                   </Table>
@@ -1219,66 +1243,166 @@ export default function AdminDashboard() {
             </Card>
 
             <Dialog open={!!selectedUserId} onOpenChange={(open) => { if (!open) setSelectedUserId(null); }}>
-              <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+              <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
                 {isLoadingDetail ? (
                   <div className="flex justify-center py-12"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground" /></div>
                 ) : userDetail ? (
                   <>
                     <DialogHeader>
                       <DialogTitle className="flex items-center gap-3" data-testid="text-user-detail-name">
-                        <Avatar className="h-10 w-10">
+                        <Avatar className="h-14 w-14 border-2 border-primary/20">
                           {userDetail.user.avatarUrl && <AvatarImage src={userDetail.user.avatarUrl} alt={userDetail.user.displayName || userDetail.user.username} />}
-                          <AvatarFallback className="bg-primary/10 text-primary text-sm">
+                          <AvatarFallback className="bg-primary/10 text-primary text-lg">
                             {(userDetail.user.displayName || userDetail.user.username).slice(0, 2).toUpperCase()}
                           </AvatarFallback>
                         </Avatar>
                         <div>
-                          <span>{userDetail.user.displayName || userDetail.user.username}</span>
-                          <p className="text-sm text-muted-foreground font-normal">@{userDetail.user.username}</p>
+                          <span className="text-xl">{userDetail.user.displayName || userDetail.user.username}</span>
+                          <p className="text-sm text-muted-foreground font-normal">@{userDetail.user.username} · ID: {userDetail.user.id}</p>
+                          <div className="flex items-center gap-2 mt-1">
+                            <Badge variant="secondary" data-testid="badge-user-role">
+                              {ROLES[userDetail.user.role as keyof typeof ROLES] || userDetail.user.role}
+                            </Badge>
+                            <Badge variant={userDetail.user.isActive ? "outline" : "destructive"} data-testid="badge-user-status">
+                              {userDetail.user.isActive ? "Activo" : "Pendiente"}
+                            </Badge>
+                            {userDetail.user.emailVerified ? (
+                              <Badge variant="outline" className="text-green-600 border-green-300">Email Verificado</Badge>
+                            ) : (
+                              <Badge variant="outline" className="text-amber-600 border-amber-300">Email No Verificado</Badge>
+                            )}
+                          </div>
                         </div>
                       </DialogTitle>
                       <DialogDescription>Informacion completa del usuario en el sistema</DialogDescription>
                     </DialogHeader>
 
                     <div className="space-y-4">
+                      {/* Datos del Perfil */}
                       <Card>
                         <CardHeader className="pb-2">
                           <CardTitle className="text-sm flex items-center gap-2"><Users className="h-4 w-4" /> Datos del Perfil</CardTitle>
                         </CardHeader>
                         <CardContent>
                           <div className="grid grid-cols-2 gap-3 text-sm">
-                            <div>
-                              <span className="text-muted-foreground">Rol:</span>
-                              <Badge variant="secondary" className="ml-2" data-testid="badge-user-role">
-                                {ROLES[userDetail.user.role as keyof typeof ROLES] || userDetail.user.role}
-                              </Badge>
-                            </div>
-                            <div>
-                              <span className="text-muted-foreground">Estado:</span>
-                              <Badge variant={userDetail.user.isActive ? "outline" : "destructive"} className="ml-2" data-testid="badge-user-status">
-                                {userDetail.user.isActive ? "Activo" : "Pendiente"}
-                              </Badge>
-                            </div>
                             <div data-testid="text-user-country">
-                              <span className="text-muted-foreground">Pais:</span>{" "}
-                              <span>{userDetail.user.country || "No especificado"}</span>
+                              <span className="text-muted-foreground block text-xs mb-0.5">Pais</span>
+                              <span className="font-medium">{userDetail.user.country || "No especificado"}</span>
                             </div>
                             <div data-testid="text-user-cargo">
-                              <span className="text-muted-foreground">Cargo:</span>{" "}
-                              <span>{userDetail.user.cargo || "Sin cargo"}</span>
+                              <span className="text-muted-foreground block text-xs mb-0.5">Cargo</span>
+                              <span className="font-medium">{userDetail.user.cargo || "Sin cargo"}</span>
+                            </div>
+                            <div>
+                              <span className="text-muted-foreground block text-xs mb-0.5">Email</span>
+                              <span className="font-medium">{userDetail.user.email || "No registrado"}</span>
+                            </div>
+                            <div>
+                              <span className="text-muted-foreground block text-xs mb-0.5">Telefono</span>
+                              <span className="font-medium">{userDetail.user.phone || "No registrado"}</span>
                             </div>
                             <div className="col-span-2" data-testid="text-user-bio">
-                              <span className="text-muted-foreground">Biografia:</span>{" "}
-                              <span>{userDetail.user.bio || "Sin biografia"}</span>
+                              <span className="text-muted-foreground block text-xs mb-0.5">Biografia</span>
+                              <span className="font-medium">{userDetail.user.bio || "Sin biografia"}</span>
                             </div>
                             <div data-testid="text-user-registered">
-                              <span className="text-muted-foreground">Registrado:</span>{" "}
-                              <span>{userDetail.user.createdAt ? new Date(userDetail.user.createdAt).toLocaleDateString("es") : "N/A"}</span>
+                              <span className="text-muted-foreground block text-xs mb-0.5">Fecha de Registro</span>
+                              <span className="font-medium">{userDetail.user.createdAt ? new Date(userDetail.user.createdAt).toLocaleDateString("es", { day: "numeric", month: "long", year: "numeric" }) : "N/A"}</span>
+                            </div>
+                            <div>
+                              <span className="text-muted-foreground block text-xs mb-0.5">Nombre de Usuario</span>
+                              <span className="font-medium font-mono text-xs">@{userDetail.user.username}</span>
                             </div>
                           </div>
                         </CardContent>
                       </Card>
 
+                      {/* Redes Sociales */}
+                      {(userDetail.user.facebook || userDetail.user.instagram || userDetail.user.youtube || userDetail.user.tiktok || userDetail.user.twitter || userDetail.user.website) && (
+                        <Card>
+                          <CardHeader className="pb-2">
+                            <CardTitle className="text-sm flex items-center gap-2"><Eye className="h-4 w-4" /> Redes Sociales</CardTitle>
+                          </CardHeader>
+                          <CardContent>
+                            <div className="grid grid-cols-2 gap-2 text-sm">
+                              {userDetail.user.facebook && (
+                                <div className="flex items-center gap-2">
+                                  <span className="text-muted-foreground text-xs">Facebook:</span>
+                                  <a href={userDetail.user.facebook.startsWith("http") ? userDetail.user.facebook : `https://${userDetail.user.facebook}`} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline text-xs truncate">{userDetail.user.facebook}</a>
+                                </div>
+                              )}
+                              {userDetail.user.instagram && (
+                                <div className="flex items-center gap-2">
+                                  <span className="text-muted-foreground text-xs">Instagram:</span>
+                                  <a href={userDetail.user.instagram.startsWith("http") ? userDetail.user.instagram : `https://instagram.com/${userDetail.user.instagram}`} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline text-xs truncate">{userDetail.user.instagram}</a>
+                                </div>
+                              )}
+                              {userDetail.user.youtube && (
+                                <div className="flex items-center gap-2">
+                                  <span className="text-muted-foreground text-xs">YouTube:</span>
+                                  <a href={userDetail.user.youtube.startsWith("http") ? userDetail.user.youtube : `https://${userDetail.user.youtube}`} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline text-xs truncate">{userDetail.user.youtube}</a>
+                                </div>
+                              )}
+                              {userDetail.user.tiktok && (
+                                <div className="flex items-center gap-2">
+                                  <span className="text-muted-foreground text-xs">TikTok:</span>
+                                  <a href={userDetail.user.tiktok.startsWith("http") ? userDetail.user.tiktok : `https://tiktok.com/@${userDetail.user.tiktok}`} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline text-xs truncate">{userDetail.user.tiktok}</a>
+                                </div>
+                              )}
+                              {userDetail.user.twitter && (
+                                <div className="flex items-center gap-2">
+                                  <span className="text-muted-foreground text-xs">Twitter/X:</span>
+                                  <a href={userDetail.user.twitter.startsWith("http") ? userDetail.user.twitter : `https://x.com/${userDetail.user.twitter}`} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline text-xs truncate">{userDetail.user.twitter}</a>
+                                </div>
+                              )}
+                              {userDetail.user.website && (
+                                <div className="flex items-center gap-2">
+                                  <span className="text-muted-foreground text-xs">Sitio Web:</span>
+                                  <a href={userDetail.user.website.startsWith("http") ? userDetail.user.website : `https://${userDetail.user.website}`} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline text-xs truncate">{userDetail.user.website}</a>
+                                </div>
+                              )}
+                            </div>
+                          </CardContent>
+                        </Card>
+                      )}
+
+                      {/* Credenciales del Sistema */}
+                      <Card>
+                        <CardHeader className="pb-2">
+                          <CardTitle className="text-sm flex items-center gap-2"><Shield className="h-4 w-4" /> Credenciales del Sistema</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="grid grid-cols-2 gap-3 text-sm">
+                            <div>
+                              <span className="text-muted-foreground block text-xs mb-0.5">Usuario de Acceso</span>
+                              <span className="font-mono text-xs bg-muted px-2 py-1 rounded">{userDetail.user.username}</span>
+                            </div>
+                            <div>
+                              <span className="text-muted-foreground block text-xs mb-0.5">Contrasena</span>
+                              <span className="font-mono text-xs bg-muted px-2 py-1 rounded text-muted-foreground">••••••••</span>
+                              <p className="text-[10px] text-muted-foreground mt-1">La contrasena esta cifrada y no se puede visualizar por seguridad.</p>
+                            </div>
+                            <div>
+                              <span className="text-muted-foreground block text-xs mb-0.5">Verificacion de Email</span>
+                              {userDetail.user.emailVerified ? (
+                                <Badge variant="outline" className="text-green-600 border-green-300 text-xs"><CheckCircle2 className="h-3 w-3 mr-1" />Verificado</Badge>
+                              ) : (
+                                <Badge variant="outline" className="text-amber-600 border-amber-300 text-xs"><Clock className="h-3 w-3 mr-1" />Pendiente</Badge>
+                              )}
+                            </div>
+                            <div>
+                              <span className="text-muted-foreground block text-xs mb-0.5">Estado de Cuenta</span>
+                              {userDetail.user.isActive ? (
+                                <Badge variant="outline" className="text-green-600 border-green-300 text-xs"><CheckCircle2 className="h-3 w-3 mr-1" />Activa</Badge>
+                              ) : (
+                                <Badge variant="outline" className="text-red-600 border-red-300 text-xs"><XCircle className="h-3 w-3 mr-1" />Inactiva</Badge>
+                              )}
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+
+                      {/* Inscripciones */}
                       <Card>
                         <CardHeader className="pb-2">
                           <CardTitle className="text-sm flex items-center gap-2"><GraduationCap className="h-4 w-4" /> Inscripciones en Cursos ({userDetail.enrollments?.length || 0})</CardTitle>
@@ -1306,6 +1430,38 @@ export default function AdminDashboard() {
                         </CardContent>
                       </Card>
 
+                      {/* Certificados */}
+                      <Card>
+                        <CardHeader className="pb-2">
+                          <CardTitle className="text-sm flex items-center gap-2"><Download className="h-4 w-4" /> Certificados ({userDetail.certificates?.length || 0})</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          {userDetail.certificates?.length > 0 ? (
+                            <div className="space-y-2">
+                              {userDetail.certificates.map((c: any) => (
+                                <div key={c.id} className="flex items-center justify-between text-sm border-b pb-2 last:border-0">
+                                  <div>
+                                    <span className="font-medium">{c.course?.title || "Curso"}</span>
+                                    <p className="text-xs text-muted-foreground">
+                                      Codigo: {c.certificateCode}
+                                    </p>
+                                  </div>
+                                  <div className="text-right">
+                                    {c.grade && <Badge variant="secondary" className="text-xs">Nota: {c.grade}</Badge>}
+                                    <p className="text-[10px] text-muted-foreground mt-0.5">
+                                      {c.issuedAt ? new Date(c.issuedAt).toLocaleDateString("es") : ""}
+                                    </p>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <p className="text-sm text-muted-foreground">No tiene certificados.</p>
+                          )}
+                        </CardContent>
+                      </Card>
+
+                      {/* Publicaciones */}
                       <Card>
                         <CardHeader className="pb-2">
                           <CardTitle className="text-sm flex items-center gap-2"><MessageSquare className="h-4 w-4" /> Publicaciones en Comunidad ({userDetail.posts?.length || 0})</CardTitle>
@@ -1331,6 +1487,7 @@ export default function AdminDashboard() {
                         </CardContent>
                       </Card>
 
+                      {/* Asistencia */}
                       <Card>
                         <CardHeader className="pb-2">
                           <CardTitle className="text-sm flex items-center gap-2"><Calendar className="h-4 w-4" /> Asistencia ({userDetail.attendance?.length || 0} registros)</CardTitle>

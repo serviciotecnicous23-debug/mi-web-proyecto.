@@ -101,13 +101,7 @@ export default function Comunidad() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
-  useEffect(() => {
-    if (!isLoading && !user) {
-      setLocation("/login");
-    }
-  }, [user, isLoading, setLocation]);
-
-  if (isLoading || !user) {
+  if (isLoading) {
     return (
       <Layout>
         <div className="flex-1 flex items-center justify-center py-20">
@@ -182,6 +176,7 @@ export default function Comunidad() {
 
         <Card className="mb-8">
           <CardContent className="pt-6">
+            {user ? (
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="flex items-start gap-3">
                 <Avatar className="h-10 w-10 mt-1">
@@ -246,6 +241,15 @@ export default function Comunidad() {
                 </Button>
               </div>
             </form>
+            ) : (
+              <div className="text-center py-4">
+                <p className="text-muted-foreground mb-3">Inicia sesion para publicar mensajes y comentarios.</p>
+                <div className="flex justify-center gap-2">
+                  <Button variant="outline" size="sm" onClick={() => setLocation("/login")}>Iniciar Sesion</Button>
+                  <Button size="sm" onClick={() => setLocation("/registro")}>Registrarse</Button>
+                </div>
+              </div>
+            )}
           </CardContent>
         </Card>
 
@@ -305,11 +309,16 @@ export default function Comunidad() {
                           {expandedComments.has(post.id) ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
                         </button>
                       </div>
-                      {expandedComments.has(post.id) && (
+                      {expandedComments.has(post.id) && user && (
                         <PostComments postId={post.id} user={user} />
                       )}
+                      {expandedComments.has(post.id) && !user && (
+                        <div className="mt-3 pt-3 border-t">
+                          <p className="text-xs text-muted-foreground text-center py-2">Inicia sesion para ver y escribir comentarios.</p>
+                        </div>
+                      )}
                     </div>
-                    {(post.userId === user.id || user.role === "admin") && (
+                    {user && (post.userId === user.id || user.role === "admin") && (
                       <Button
                         variant="ghost"
                         size="icon"

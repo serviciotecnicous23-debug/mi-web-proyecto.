@@ -66,6 +66,9 @@ import { ScrollToTop, BackToTop } from "@/components/ScrollToTop";
 const publicDesktopNavLinks = [
   { href: "/", label: "Inicio" },
   { href: "/eventos", label: "Eventos" },
+  { href: "/regiones", label: "Regiones" },
+  { href: "/iglesias", label: "Iglesias" },
+  { href: "/comunidad", label: "Comunidad" },
 ];
 
 // Desktop nav bar — MEMBERS (logged in)
@@ -95,6 +98,16 @@ const publicMobileNavGroups = [
     links: [
       { href: "/eventos", label: "Eventos", icon: Calendar },
       { href: "/calendario", label: "Calendario", icon: Calendar },
+    ],
+    alwaysOpen: true,
+  },
+  {
+    title: "Ministerio",
+    icon: Globe,
+    links: [
+      { href: "/regiones", label: "Regiones", icon: Globe },
+      { href: "/iglesias", label: "Iglesias", icon: Church },
+      { href: "/comunidad", label: "Comunidad", icon: Heart },
     ],
     alwaysOpen: true,
   },
