@@ -69,6 +69,7 @@ const publicDesktopNavLinks = [
   { href: "/regiones", label: "Regiones" },
   { href: "/iglesias", label: "Iglesias" },
   { href: "/comunidad", label: "Comunidad" },
+  { href: "/en-vivo", label: "En Vivo" },
 ];
 
 // Desktop nav bar — MEMBERS (logged in)
@@ -108,6 +109,14 @@ const publicMobileNavGroups = [
       { href: "/regiones", label: "Regiones", icon: Globe },
       { href: "/iglesias", label: "Iglesias", icon: Church },
       { href: "/comunidad", label: "Comunidad", icon: Heart },
+    ],
+    alwaysOpen: true,
+  },
+  {
+    title: "Medios",
+    icon: Video,
+    links: [
+      { href: "/en-vivo", label: "En Vivo", icon: Video },
     ],
     alwaysOpen: true,
   },

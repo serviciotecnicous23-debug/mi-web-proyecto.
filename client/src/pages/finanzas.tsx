@@ -32,7 +32,7 @@ const TITHE_TYPES: Record<string, string> = { diezmo: "Diezmo", ofrenda: "Ofrend
 const PAYMENT_METHODS: Record<string, string> = { efectivo: "Efectivo", transferencia: "Transferencia", tarjeta: "Tarjeta", paypal: "PayPal", otro: "Otro" };
 
 // ===== PUBLIC DONATION SECTION =====
-function PublicDonationSection() {
+export function PublicDonationSection() {
   const { toast } = useToast();
   const [donateOpen, setDonateOpen] = useState(false);
   const [paymentSuccess, setPaymentSuccess] = useState(false);

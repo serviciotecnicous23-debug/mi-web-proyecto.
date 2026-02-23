@@ -3,7 +3,8 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Link } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
-import { Flame, Radio, Users, BookOpen, Heart, Globe } from "lucide-react";
+import { Flame, Radio, Users, BookOpen, Heart, Globe, HandCoins, Video, Signal } from "lucide-react";
+import { PublicDonationSection } from "@/pages/finanzas";
 
 const stats = [
   { label: "Anos de Servicio", value: "7+" },
@@ -94,6 +95,53 @@ export default function Home() {
               </Card>
             ))}
           </div>
+        </div>
+      </section>
+
+      {/* En Vivo Section */}
+      <section className="py-16 border-t">
+        <div className="max-w-4xl mx-auto px-4">
+          <div className="text-center mb-8">
+            <p className="text-sm text-primary font-medium mb-2">Transmisiones</p>
+            <h2 className="text-3xl font-bold">En Vivo</h2>
+            <p className="text-muted-foreground mt-2 max-w-xl mx-auto">
+              Conéctate a nuestras transmisiones en vivo. Cultos, enseñanzas y más.
+            </p>
+          </div>
+          <Card className="p-6 bg-gradient-to-br from-red-50/50 to-orange-50/30 dark:from-red-950/20 dark:to-orange-950/10 border-red-200/50">
+            <div className="flex flex-col md:flex-row items-center gap-6">
+              <div className="flex items-center gap-3">
+                <div className="relative">
+                  <Signal className="h-10 w-10 text-red-500" />
+                  <span className="absolute -top-1 -right-1 h-3 w-3 bg-red-500 rounded-full animate-pulse" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-lg">Transmisiones del Ministerio</h3>
+                  <p className="text-sm text-muted-foreground">Radio, YouTube, Facebook y más</p>
+                </div>
+              </div>
+              <div className="flex-1" />
+              <Link href="/en-vivo">
+                <Button size="lg" className="gap-2 bg-red-600 hover:bg-red-700">
+                  <Video className="h-4 w-4" /> Ver En Vivo
+                </Button>
+              </Link>
+            </div>
+          </Card>
+        </div>
+      </section>
+
+      {/* Donation Section */}
+      <section className="py-16 bg-card border-t">
+        <div className="max-w-4xl mx-auto px-4">
+          <div className="text-center mb-8">
+            <p className="text-sm text-primary font-medium mb-2">Apoyo</p>
+            <h2 className="text-3xl font-bold">Apoya el Ministerio</h2>
+            <p className="text-muted-foreground mt-2 max-w-xl mx-auto">
+              Tu generosidad hace posible que el fuego del evangelio siga llegando a más personas.
+            </p>
+          </div>
+          <PublicDonationSection />
         </div>
       </section>
 
