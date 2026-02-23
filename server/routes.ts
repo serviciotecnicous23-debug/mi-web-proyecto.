@@ -3113,6 +3113,122 @@ ${urls}
     }
   });
 
+  // ========== STRIPE INTEGRATION ==========
+  const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
+  const stripeWebhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
+  let stripe: any = null;
+
+  if (stripeSecretKey) {
+    try {
+      const Stripe = (await import("stripe")).default;
+      stripe = new Stripe(stripeSecretKey);
+      console.log("[stripe] Payment processing initialized");
+    } catch (err) {
+      console.warn("[stripe] Could not initialize Stripe:", err);
+    }
+  } else {
+    console.log("[stripe] STRIPE_SECRET_KEY not set — Stripe payments disabled");
+  }
+
+  // Config endpoint — tells client if Stripe is available
+  app.get(api.tithes.stripeConfig.path, (_req, res) => {
+    const publishableKey = process.env.STRIPE_PUBLISHABLE_KEY || null;
+    res.json({
+      enabled: !!stripe && !!publishableKey,
+      publishableKey,
+    });
+  });
+
+  // Create Stripe Checkout session
+  app.post(api.tithes.stripeCheckout.path, async (req, res) => {
+    if (!stripe) return res.status(503).json({ message: "Pagos con tarjeta no disponibles en este momento" });
+    try {
+      const input = api.tithes.stripeCheckout.input.parse(req.body);
+      const currency = (input.currency || "usd").toLowerCase();
+      const amountInCents = Math.round(input.amount * 100);
+
+      // Determine the base URL for redirects
+      const protocol = req.headers["x-forwarded-proto"] || req.protocol;
+      const host = req.headers["x-forwarded-host"] || req.headers.host;
+      const baseUrl = `${protocol}://${host}`;
+
+      const session = await stripe.checkout.sessions.create({
+        payment_method_types: ["card"],
+        mode: "payment",
+        customer_email: input.email,
+        line_items: [{
+          price_data: {
+            currency,
+            product_data: {
+              name: "Donación al Ministerio",
+              description: `Donación de ${input.donorName}`,
+            },
+            unit_amount: amountInCents,
+          },
+          quantity: 1,
+        }],
+        metadata: {
+          donorName: input.donorName,
+          email: input.email,
+          type: "donacion",
+        },
+        success_url: `${baseUrl}/finanzas?payment=success&session_id={CHECKOUT_SESSION_ID}`,
+        cancel_url: `${baseUrl}/finanzas?payment=cancelled`,
+      });
+
+      res.json({ url: session.url, sessionId: session.id });
+    } catch (err: any) {
+      console.error("[stripe] Checkout session error:", err);
+      res.status(500).json({ message: err.message || "Error al crear la sesión de pago" });
+    }
+  });
+
+  // Stripe Webhook — confirms successful payments and records them
+  app.post(api.tithes.stripeWebhook.path, async (req, res) => {
+    if (!stripe) return res.sendStatus(503);
+    const sig = req.headers["stripe-signature"] as string;
+    let event: any;
+
+    try {
+      if (stripeWebhookSecret) {
+        event = stripe.webhooks.constructEvent(req.rawBody, sig, stripeWebhookSecret);
+      } else {
+        // If no webhook secret, trust the event (dev only)
+        event = req.body;
+      }
+    } catch (err: any) {
+      console.error("[stripe] Webhook signature verification failed:", err.message);
+      return res.status(400).send(`Webhook Error: ${err.message}`);
+    }
+
+    if (event.type === "checkout.session.completed") {
+      const session = event.data.object;
+      try {
+        const donorName = session.metadata?.donorName || session.customer_email || "Donante Anónimo";
+        const email = session.metadata?.email || session.customer_email || "";
+        const amount = (session.amount_total / 100).toFixed(2);
+        const currency = (session.currency || "usd").toUpperCase();
+
+        await storage.createTithe({
+          donorName,
+          amount,
+          currency,
+          type: "donacion",
+          method: "tarjeta",
+          notes: `Stripe Payment ID: ${session.payment_intent}${email ? ` | Email: ${email}` : ""}`,
+          userId: null,
+          recordedBy: null as any,
+        });
+
+        console.log(`[stripe] Donation recorded: ${donorName} - ${currency} ${amount}`);
+      } catch (err) {
+        console.error("[stripe] Error recording donation from webhook:", err);
+      }
+    }
+
+    res.json({ received: true });
+  });
+
   // ========== REPORTS ==========
   app.get(api.reports.dashboard.path, async (req, res) => {
     if (!isAdmin(req)) return res.sendStatus(403);

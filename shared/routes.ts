@@ -328,6 +328,14 @@ export const api = {
       email: z.string().email().optional().nullable(),
     })},
     budgetSummary: { method: "GET" as const, path: "/api/finance/budget-summary" as const },
+    stripeCheckout: { method: "POST" as const, path: "/api/donations/stripe-checkout" as const, input: z.object({
+      donorName: z.string().min(1),
+      email: z.string().email(),
+      amount: z.number().min(1),
+      currency: z.string().optional(),
+    })},
+    stripeWebhook: { method: "POST" as const, path: "/api/stripe/webhook" as const },
+    stripeConfig: { method: "GET" as const, path: "/api/stripe/config" as const },
   },
   // ========== REPORTES ==========
   reports: {
