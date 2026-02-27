@@ -31,7 +31,7 @@ export default function Home() {
       <section className="relative overflow-hidden py-24 md:py-36">
         <div className="absolute inset-0 fire-gradient opacity-10 dark:opacity-20" />
         <div className="relative max-w-4xl mx-auto px-4 text-center">
-          <img src="/icons/logo-transparent.png" alt="Avivando el Fuego" className="mx-auto mb-6 h-28 md:h-40 w-auto object-contain drop-shadow-[0_0_25px_rgba(254,146,24,0.4)]" />
+          <img src="/icons/logo-transparent.png?v4" alt="Avivando el Fuego" className="mx-auto mb-6 h-28 md:h-40 w-auto object-contain drop-shadow-[0_0_25px_rgba(254,146,24,0.4)]" />
           <p className="text-sm text-muted-foreground mb-4" data-testid="text-subtitle">
             Desde 2017 - Ciudad Bolivar, Venezuela
           </p>

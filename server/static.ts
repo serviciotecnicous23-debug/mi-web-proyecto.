@@ -23,6 +23,14 @@ export function serveStatic(app: Express) {
     etag: true,
   }));
 
+  // Service Worker MUST never be cached — browser needs to always check for updates
+  app.use("/sw.js", (_req, res) => {
+    res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+    res.setHeader("Pragma", "no-cache");
+    res.setHeader("Expires", "0");
+    res.sendFile(path.join(distPath, "sw.js"));
+  });
+
   // Other static files
   app.use(express.static(distPath, {
     maxAge: "1h",         // Short cache for index.html, manifest, etc.

@@ -1,60 +1,86 @@
 /// <reference lib="webworker" />
 
-const CACHE_NAME = "avivando-v1";
+// IMPORTANT: Bump this version on every deploy to force cache invalidation
+const CACHE_NAME = "avivando-v4";
 const STATIC_ASSETS = [
-  "/",
   "/manifest.json",
 ];
 
-// Install: cache critical assets
+// Install: cache critical assets and activate immediately
 self.addEventListener("install", (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => cache.addAll(STATIC_ASSETS))
   );
+  // Force the new SW to activate immediately, replacing old one
   self.skipWaiting();
 });
 
-// Activate: clean old caches
+// Activate: delete ALL old caches to ensure fresh content
 self.addEventListener("activate", (event) => {
   event.waitUntil(
     caches.keys().then((keys) =>
       Promise.all(keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k)))
-    )
+    ).then(() => {
+      // Take control of all clients immediately
+      return self.clients.claim();
+    })
   );
-  self.clients.claim();
 });
 
-// Fetch: network-first for API, cache-first for static assets
+// Fetch: network-first for everything, cache as fallback only
 self.addEventListener("fetch", (event) => {
   const url = new URL(event.request.url);
 
-  // Never cache API requests or uploads
-  if (url.pathname.startsWith("/api/") || url.pathname.startsWith("/uploads/")) {
-    event.respondWith(fetch(event.request));
+  // Never cache API requests, uploads, or icon files
+  if (url.pathname.startsWith("/api/") || url.pathname.startsWith("/uploads/") || url.pathname.startsWith("/icons/")) {
+    event.respondWith(fetch(event.request).catch(() => caches.match(event.request)));
     return;
   }
 
-  // For navigation requests, try network first, fallback to cached index.html
+  // For navigation requests (HTML pages), ALWAYS network-first
   if (event.request.mode === "navigate") {
     event.respondWith(
-      fetch(event.request).catch(() => caches.match("/"))
+      fetch(event.request)
+        .then((response) => {
+          // Cache the latest index.html for offline fallback
+          const clone = response.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put("/", clone));
+          return response;
+        })
+        .catch(() => caches.match("/"))
     );
     return;
   }
 
-  // For static assets: cache-first strategy
+  // For Vite hashed assets (/assets/xxx-HASH.js), cache-first is safe
+  // because hashed filenames change on every build
+  if (url.pathname.startsWith("/assets/")) {
+    event.respondWith(
+      caches.match(event.request).then((cached) => {
+        if (cached) return cached;
+        return fetch(event.request).then((response) => {
+          if (response.ok && event.request.method === "GET") {
+            const clone = response.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
+          }
+          return response;
+        });
+      })
+    );
+    return;
+  }
+
+  // For all other resources: network-first with cache fallback
   event.respondWith(
-    caches.match(event.request).then((cached) => {
-      if (cached) return cached;
-      return fetch(event.request).then((response) => {
-        // Cache successful GET responses for static assets
+    fetch(event.request)
+      .then((response) => {
         if (response.ok && event.request.method === "GET") {
           const clone = response.clone();
           caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
         }
         return response;
-      });
-    })
+      })
+      .catch(() => caches.match(event.request))
   );
 });
 

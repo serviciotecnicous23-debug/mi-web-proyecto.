@@ -31,8 +31,26 @@ if ("serviceWorker" in navigator && window.location.protocol !== "file:") {
     navigator.serviceWorker.register("/sw.js").then(
       (registration) => {
         console.log("SW registered:", registration.scope);
-        // Check for updates periodically
-        setInterval(() => registration.update(), 60 * 60 * 1000); // Every hour
+
+        // When a new SW is found, force it to activate and reload
+        registration.addEventListener("updatefound", () => {
+          const newWorker = registration.installing;
+          if (newWorker) {
+            newWorker.addEventListener("statechange", () => {
+              if (newWorker.state === "activated" && navigator.serviceWorker.controller) {
+                // New version activated — reload to get fresh content
+                console.log("New SW activated, reloading for fresh content...");
+                window.location.reload();
+              }
+            });
+          }
+        });
+
+        // Check for SW updates frequently (every 5 minutes)
+        setInterval(() => registration.update(), 5 * 60 * 1000);
+
+        // Also check for updates immediately
+        registration.update();
       },
       (error) => {
         console.log("SW registration failed:", error);
