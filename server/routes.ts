@@ -1557,6 +1557,76 @@ ${urls}
     res.sendStatus(200);
   });
 
+  // ========== SALA EN VIVO (LIVE CLASSROOM) ==========
+  // Get live classroom status for a course
+  app.get(api.liveClassroom.get.path, async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    const courseId = parseInt(req.params.courseId);
+    const content = await storage.getSiteContent(`live_classroom_${courseId}`);
+    const defaultState = { isLive: false, roomName: "", startedBy: null, startedByName: "", startedAt: null, title: "" };
+    try {
+      const state = content?.content ? JSON.parse(content.content) : defaultState;
+      res.json(state);
+    } catch {
+      res.json(defaultState);
+    }
+  });
+
+  // Start a live classroom for a course (teacher/admin only)
+  app.post(api.liveClassroom.start.path, async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    const courseId = parseInt(req.params.courseId);
+    const course = await storage.getCourse(courseId);
+    if (!course) return res.sendStatus(404);
+    if (!isAdmin(req) && !(isTeacherOrAdmin(req) && course.teacherId === req.user?.id)) {
+      return res.sendStatus(403);
+    }
+    const { title } = req.body || {};
+    // Generate a unique, URL-safe room name
+    const sanitized = (course.title || "clase").replace(/[^a-zA-Z0-9]/g, "-").replace(/-+/g, "-").slice(0, 30).toLowerCase();
+    const roomName = `smartedu-${sanitized}-${courseId}-${Date.now()}`;
+    const userName = req.user?.displayName || req.user?.username || "Maestro";
+    const state = {
+      isLive: true,
+      roomName,
+      startedBy: req.user!.id,
+      startedByName: userName,
+      startedAt: new Date().toISOString(),
+      title: title || `Clase en Vivo - ${course.title}`,
+    };
+    await storage.upsertSiteContent(`live_classroom_${courseId}`, { content: JSON.stringify(state) }, req.user!.id);
+    // Notify enrolled students
+    const enrollments = await storage.listEnrollmentsByCourse(courseId);
+    const enrolledUserIds = enrollments
+      .filter((e: any) => e.status === "aprobado" || e.status === "completado")
+      .map((e: any) => e.user?.id || e.userId)
+      .filter((id: number) => id !== req.user!.id);
+    for (const userId of enrolledUserIds) {
+      await storage.createNotification({
+        userId,
+        type: "clase_en_vivo",
+        title: "Clase en Vivo Iniciada",
+        content: `${userName} ha iniciado una clase en vivo: ${state.title}`,
+        link: `/aula/${courseId}`,
+      });
+    }
+    res.json(state);
+  });
+
+  // Stop a live classroom for a course (teacher/admin only)
+  app.post(api.liveClassroom.stop.path, async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    const courseId = parseInt(req.params.courseId);
+    const course = await storage.getCourse(courseId);
+    if (!course) return res.sendStatus(404);
+    if (!isAdmin(req) && !(isTeacherOrAdmin(req) && course.teacherId === req.user?.id)) {
+      return res.sendStatus(403);
+    }
+    const state = { isLive: false, roomName: "", startedBy: null, startedByName: "", startedAt: null, title: "" };
+    await storage.upsertSiteContent(`live_classroom_${courseId}`, { content: JSON.stringify(state) }, req.user!.id);
+    res.json(state);
+  });
+
   // ========== COURSE SESSIONS ==========
   app.get(api.courseSessions.list.path, async (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);

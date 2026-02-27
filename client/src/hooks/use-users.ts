@@ -1745,3 +1745,58 @@ export function useCarteleraStats() {
     refetchInterval: 30000,
   });
 }
+
+// ========== SALA EN VIVO (LIVE CLASSROOM) ==========
+export function useLiveClassroom(courseId: number) {
+  return useQuery({
+    queryKey: [api.liveClassroom.get.path, courseId],
+    queryFn: async () => {
+      const url = buildUrl(api.liveClassroom.get.path, { courseId });
+      const res = await authFetch(url);
+      if (!res.ok) return { isLive: false, roomName: "", startedBy: null, startedByName: "", startedAt: null, title: "" };
+      return res.json();
+    },
+    enabled: !!courseId,
+    refetchInterval: 10000, // Poll every 10s to detect when class starts/stops
+  });
+}
+
+export function useStartLiveClassroom() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  return useMutation({
+    mutationFn: async ({ courseId, title }: { courseId: number; title?: string }) => {
+      const url = buildUrl(api.liveClassroom.start.path, { courseId });
+      const res = await authFetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title }),
+      });
+      if (!res.ok) throw new Error("Error al iniciar sala en vivo");
+      return res.json();
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: [api.liveClassroom.get.path, variables.courseId] });
+      toast({ title: "Sala en Vivo Iniciada", description: "Los estudiantes pueden unirse ahora" });
+    },
+    onError: (error) => { toast({ title: "Error", description: error.message, variant: "destructive" }); },
+  });
+}
+
+export function useStopLiveClassroom() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  return useMutation({
+    mutationFn: async ({ courseId }: { courseId: number }) => {
+      const url = buildUrl(api.liveClassroom.stop.path, { courseId });
+      const res = await authFetch(url, { method: "POST" });
+      if (!res.ok) throw new Error("Error al detener sala en vivo");
+      return res.json();
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: [api.liveClassroom.get.path, variables.courseId] });
+      toast({ title: "Sala en Vivo Finalizada" });
+    },
+    onError: (error) => { toast({ title: "Error", description: error.message, variant: "destructive" }); },
+  });
+}

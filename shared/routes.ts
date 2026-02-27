@@ -373,6 +373,12 @@ export const api = {
     messages: { method: "GET" as const, path: "/api/small-groups/:id/messages" as const },
     sendMessage: { method: "POST" as const, path: "/api/small-groups/:id/messages" as const, input: insertSmallGroupMessageSchema },
   },
+  // ========== SALA EN VIVO (AULA) ==========
+  liveClassroom: {
+    get: { method: "GET" as const, path: "/api/courses/:courseId/live-classroom" as const },
+    start: { method: "POST" as const, path: "/api/courses/:courseId/live-classroom/start" as const },
+    stop: { method: "POST" as const, path: "/api/courses/:courseId/live-classroom/stop" as const },
+  },
   // ========== CALENDARIO UNIFICADO ==========
   calendar: {
     events: { method: "GET" as const, path: "/api/calendar/events" as const },

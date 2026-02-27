@@ -39,6 +39,7 @@ import {
   ENROLLMENT_STATUSES,
 } from "@shared/schema";
 import type { CourseMaterial, CourseSession, CourseScheduleEntry, CourseAnnouncement } from "@shared/schema";
+import LiveClassroom from "@/components/LiveClassroom";
 
 const materialIcons: Record<string, any> = {
   documento: FileText,
@@ -269,6 +270,17 @@ export default function AulaVirtual({ params }: { params: { id: string } }) {
             </CardContent>
           </Card>
         )}
+
+        {/* Live Classroom Section */}
+        <div className="mb-6">
+          <LiveClassroom
+            courseId={courseId}
+            courseTitle={course.title}
+            canManage={canManage}
+            userName={user?.displayName || user?.username || "Estudiante"}
+            userEmail={user?.email || ""}
+          />
+        </div>
 
         {/* Main Tabs */}
         <Tabs defaultValue="sessions" className="space-y-4">

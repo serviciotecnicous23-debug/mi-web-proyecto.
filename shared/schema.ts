@@ -467,6 +467,7 @@ export const DAYS_OF_WEEK = {
 } as const;
 
 export const MEETING_PLATFORMS = {
+  jitsi: "Jitsi Meet (Sala en Vivo)",
   zoom: "Zoom",
   google_meet: "Google Meet",
   teams: "Microsoft Teams",
