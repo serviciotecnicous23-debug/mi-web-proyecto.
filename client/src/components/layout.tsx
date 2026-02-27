@@ -401,7 +401,7 @@ export function Navbar() {
     <nav className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 sticky top-0 z-50" role="navigation" aria-label="Navegacion principal">
       <div className="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between gap-4">
         <Link href="/" className="flex items-center gap-2" data-testid="link-home-logo" aria-label="Ir al inicio - Avivando el Fuego">
-          <Flame className="w-7 h-7 text-primary" aria-hidden="true" />
+          <img src="/icons/icon-192.png" alt="Logo" className="w-8 h-8 rounded-md" aria-hidden="true" />
           <span className="font-bold text-lg hidden sm:inline">Avivando el Fuego</span>
         </Link>
 
@@ -586,7 +586,7 @@ export function Navbar() {
         >
           <SheetHeader className="p-4 pb-2 border-b">
             <SheetTitle className="flex items-center gap-2 text-left">
-              <Flame className="w-6 h-6 text-primary" aria-hidden="true" />
+              <img src="/icons/icon-192.png" alt="Logo" className="w-7 h-7 rounded-md" aria-hidden="true" />
               Avivando el Fuego
             </SheetTitle>
             <SheetDescription className="text-left text-xs">
@@ -739,7 +739,7 @@ export function Footer() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
           <div>
             <div className="flex items-center gap-2 mb-3">
-              <Flame className="w-6 h-6 text-primary" />
+              <img src="/icons/icon-192.png" alt="Logo" className="w-7 h-7 rounded-md" />
               <span className="font-bold text-lg">Avivando el Fuego</span>
             </div>
             <p className="text-sm text-muted-foreground">

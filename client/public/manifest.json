@@ -4,8 +4,8 @@
   "description": "Ministerio Internacional Avivando el Fuego - Plataforma de comunidad, capacitacion y recursos",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#1a1a2e",
-  "theme_color": "#e67e22",
+  "background_color": "#0f011a",
+  "theme_color": "#fb923c",
   "orientation": "portrait-primary",
   "icons": [
     {

@@ -1,29 +1,29 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
   <defs>
     <radialGradient id="bg" cx="50%" cy="50%" r="50%">
-      <stop offset="0%" stop-color="#c0392b"/>
-      <stop offset="100%" stop-color="#8b1a1a"/>
+      <stop offset="0%" stop-color="#1a0125"/>
+      <stop offset="100%" stop-color="#0f011a"/>
     </radialGradient>
     <linearGradient id="flame1" x1="50%" y1="100%" x2="50%" y2="0%">
-      <stop offset="0%" stop-color="#e67e22"/>
-      <stop offset="40%" stop-color="#f39c12"/>
-      <stop offset="70%" stop-color="#f1c40f"/>
-      <stop offset="100%" stop-color="#fff3cd"/>
+      <stop offset="0%" stop-color="#fe3221"/>
+      <stop offset="40%" stop-color="#fe6b1a"/>
+      <stop offset="70%" stop-color="#fe9218"/>
+      <stop offset="100%" stop-color="#fec822"/>
     </linearGradient>
     <linearGradient id="flame2" x1="50%" y1="100%" x2="50%" y2="0%">
       <stop offset="0%" stop-color="#d35400"/>
-      <stop offset="50%" stop-color="#e74c3c"/>
-      <stop offset="100%" stop-color="#f39c12"/>
+      <stop offset="50%" stop-color="#fe3221"/>
+      <stop offset="100%" stop-color="#fe9218"/>
     </linearGradient>
     <linearGradient id="flame3" x1="50%" y1="100%" x2="50%" y2="0%">
-      <stop offset="0%" stop-color="#f39c12"/>
-      <stop offset="100%" stop-color="#fffde7"/>
+      <stop offset="0%" stop-color="#fe9218"/>
+      <stop offset="100%" stop-color="#fec822"/>
     </linearGradient>
   </defs>
   <!-- Background circle -->
   <circle cx="256" cy="256" r="256" fill="url(#bg)"/>
   <!-- Outer flame glow -->
-  <ellipse cx="256" cy="300" rx="100" ry="60" fill="#e67e22" opacity="0.15"/>
+  <ellipse cx="256" cy="300" rx="100" ry="60" fill="#fe6b1a" opacity="0.15"/>
   <!-- Main outer flame -->
   <path d="M256 60
     C256 60, 340 140, 355 200
@@ -65,5 +65,5 @@
     C256 408, 252 405, 246 395
     C238 380, 230 360, 232 335
     C234 310, 256 280, 256 280Z"
-    fill="#fffde7" opacity="0.9"/>
+    fill="#fec822" opacity="0.9"/>
 </svg>
