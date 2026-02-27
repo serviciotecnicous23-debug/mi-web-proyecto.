@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/dialog";
 import { Loader2, Calendar, MapPin, Clock, Plus, Pencil, Trash2, Users, CheckCircle, HelpCircle, XCircle, ExternalLink, Video, Bell, BellOff, Link2 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
+import { LiveStreamEmbed, isEmbeddableUrl } from "@/components/LiveStreamEmbed";
 import type { Event } from "@shared/schema";
 
 function formatDate(dateStr: string) {
@@ -409,6 +410,8 @@ function EventFormDialog({
               <option value="">Selecciona una plataforma</option>
               <option value="zoom">Zoom</option>
               <option value="google_meet">Google Meet</option>
+              <option value="youtube">YouTube Live</option>
+              <option value="facebook">Facebook Live</option>
               <option value="teams">Microsoft Teams</option>
               <option value="presencial">Presencial</option>
               <option value="otro">Otro</option>
@@ -526,6 +529,8 @@ function EventDetailDialog({
   const platformLabels: Record<string, string> = {
     zoom: "Zoom",
     google_meet: "Google Meet",
+    youtube: "YouTube Live",
+    facebook: "Facebook Live",
     teams: "Microsoft Teams",
     presencial: "Presencial",
     otro: "Enlace",
@@ -560,29 +565,38 @@ function EventDetailDialog({
 
           {/* Meeting Link */}
           {meetingUrl && (
-            <div className="bg-primary/5 dark:bg-primary/10 rounded-lg p-4 space-y-2">
-              <div className="flex items-center gap-2 text-sm font-medium">
-                <Video className="h-4 w-4 text-primary" />
-                <span>{platformLabels[meetingPlatform] || "Enlace de Reunion"}</span>
+            <div className="space-y-3">
+              <div className="bg-primary/5 dark:bg-primary/10 rounded-lg p-4 space-y-2">
+                <div className="flex items-center gap-2 text-sm font-medium">
+                  <Video className="h-4 w-4 text-primary" />
+                  <span>{platformLabels[meetingPlatform] || "Enlace de Reunion"}</span>
+                </div>
+                <a
+                  href={meetingUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2 text-sm text-primary hover:underline break-all"
+                >
+                  <Link2 className="h-3.5 w-3.5 flex-shrink-0" />
+                  {meetingUrl}
+                  <ExternalLink className="h-3 w-3 flex-shrink-0" />
+                </a>
+                <Button
+                  size="sm"
+                  className="w-full mt-2 gap-2"
+                  onClick={() => window.open(meetingUrl, "_blank")}
+                >
+                  <Video className="h-4 w-4" />
+                  Unirse a la Reunion
+                </Button>
               </div>
-              <a
-                href={meetingUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-2 text-sm text-primary hover:underline break-all"
-              >
-                <Link2 className="h-3.5 w-3.5 flex-shrink-0" />
-                {meetingUrl}
-                <ExternalLink className="h-3 w-3 flex-shrink-0" />
-              </a>
-              <Button
-                size="sm"
-                className="w-full mt-2 gap-2"
-                onClick={() => window.open(meetingUrl, "_blank")}
-              >
-                <Video className="h-4 w-4" />
-                Unirse a la Reunion
-              </Button>
+              {isEmbeddableUrl(meetingUrl, meetingPlatform) && (
+                <LiveStreamEmbed
+                  url={meetingUrl}
+                  platformHint={meetingPlatform}
+                  title={event.title}
+                />
+              )}
             </div>
           )}
 
@@ -740,6 +754,18 @@ function EventCard({
                 </Button>
               )}
             </div>
+
+            {/* Live Stream Embed for upcoming events with embeddable meeting URLs */}
+            {meetingUrl && !isPastEvent && isEmbeddableUrl(meetingUrl, (event as any).meetingPlatform) && (
+              <div className="mt-3">
+                <LiveStreamEmbed
+                  url={meetingUrl}
+                  platformHint={(event as any).meetingPlatform}
+                  title={event.title}
+                  compact
+                />
+              </div>
+            )}
           </div>
         </div>
       </CardContent>

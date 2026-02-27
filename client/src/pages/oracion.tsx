@@ -16,6 +16,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Loader2, Plus, Trash2, Pencil, ExternalLink, Video, Calendar, Users, CheckCircle, HelpCircle, XCircle, Bell, Clock, Link2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { LiveStreamEmbed, isEmbeddableUrl } from "@/components/LiveStreamEmbed";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { usePrayerAttendees, useMyPrayerAttendance, useAttendPrayer, useCancelPrayerAttendance } from "@/hooks/use-users";
 
@@ -403,13 +404,23 @@ function PrayerActivityCard({ activity, user, deleteMutation, getPlatformLabel, 
           <CardContent className="space-y-3">
             {activity.description && <p className="text-sm text-muted-foreground whitespace-pre-wrap line-clamp-2">{activity.description}</p>}
             {activity.meetingUrl && (
-              <a href={activity.meetingUrl} target="_blank" rel="noopener noreferrer">
-                <Button variant="outline" size="sm" data-testid={`button-join-prayer-${activity.id}`}>
-                  <Video className="w-4 h-4 mr-1" />
-                  Unirse a {getPlatformLabel(activity.meetingPlatform)}
-                  <ExternalLink className="w-3 h-3 ml-1" />
-                </Button>
-              </a>
+              <div className="space-y-3">
+                <a href={activity.meetingUrl} target="_blank" rel="noopener noreferrer">
+                  <Button variant="outline" size="sm" data-testid={`button-join-prayer-${activity.id}`}>
+                    <Video className="w-4 h-4 mr-1" />
+                    Unirse a {getPlatformLabel(activity.meetingPlatform)}
+                    <ExternalLink className="w-3 h-3 ml-1" />
+                  </Button>
+                </a>
+                {isEmbeddableUrl(activity.meetingUrl, activity.meetingPlatform) && (
+                  <LiveStreamEmbed
+                    url={activity.meetingUrl}
+                    platformHint={activity.meetingPlatform}
+                    title={activity.title}
+                    compact
+                  />
+                )}
+              </div>
             )}
           </CardContent>
         )}
@@ -521,29 +532,38 @@ function PrayerActivityCard({ activity, user, deleteMutation, getPlatformLabel, 
 
             {/* Meeting Link */}
             {activity.meetingUrl && (
-              <div className="bg-primary/5 dark:bg-primary/10 rounded-lg p-4 space-y-2">
-                <div className="flex items-center gap-2 text-sm font-medium">
-                  <Video className="h-4 w-4 text-primary" />
-                  <span>{platformLabels[activity.meetingPlatform || ""] || "Enlace de Reunión"}</span>
+              <div className="space-y-3">
+                <div className="bg-primary/5 dark:bg-primary/10 rounded-lg p-4 space-y-2">
+                  <div className="flex items-center gap-2 text-sm font-medium">
+                    <Video className="h-4 w-4 text-primary" />
+                    <span>{platformLabels[activity.meetingPlatform || ""] || "Enlace de Reunión"}</span>
+                  </div>
+                  <a
+                    href={activity.meetingUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-2 text-sm text-primary hover:underline break-all"
+                  >
+                    <Link2 className="h-3.5 w-3.5 flex-shrink-0" />
+                    {activity.meetingUrl}
+                    <ExternalLink className="h-3 w-3 flex-shrink-0" />
+                  </a>
+                  <Button
+                    size="sm"
+                    className="w-full mt-2 gap-2"
+                    onClick={() => window.open(activity.meetingUrl!, "_blank")}
+                  >
+                    <Video className="h-4 w-4" />
+                    Unirse a la Reunión
+                  </Button>
                 </div>
-                <a
-                  href={activity.meetingUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-2 text-sm text-primary hover:underline break-all"
-                >
-                  <Link2 className="h-3.5 w-3.5 flex-shrink-0" />
-                  {activity.meetingUrl}
-                  <ExternalLink className="h-3 w-3 flex-shrink-0" />
-                </a>
-                <Button
-                  size="sm"
-                  className="w-full mt-2 gap-2"
-                  onClick={() => window.open(activity.meetingUrl!, "_blank")}
-                >
-                  <Video className="h-4 w-4" />
-                  Unirse a la Reunión
-                </Button>
+                {isEmbeddableUrl(activity.meetingUrl, activity.meetingPlatform) && (
+                  <LiveStreamEmbed
+                    url={activity.meetingUrl}
+                    platformHint={activity.meetingPlatform}
+                    title={activity.title}
+                  />
+                )}
               </div>
             )}
 
