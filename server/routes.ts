@@ -79,6 +79,27 @@ const avatarUpload = multer({
   },
 });
 
+// Configurar multer para firmas de certificados
+const signaturesDir = path.join(process.cwd(), "uploads", "signatures");
+if (!fs.existsSync(signaturesDir)) {
+  fs.mkdirSync(signaturesDir, { recursive: true });
+}
+const signatureStorage = multer.diskStorage({
+  destination: (_req, _file, cb) => cb(null, signaturesDir),
+  filename: (req, _file, cb) => {
+    const ext = path.extname(_file.originalname).toLowerCase() || ".png";
+    cb(null, `signature-${Date.now()}${ext}`);
+  },
+});
+const signatureUpload = multer({
+  storage: signatureStorage,
+  limits: { fileSize: 2 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    if (file.mimetype.startsWith("image/")) cb(null, true);
+    else cb(new Error("Solo se permiten imagenes"));
+  },
+});
+
 // Configurar multer para imágenes de regiones
 const regionImgDir = path.join(process.cwd(), "uploads", "regions");
 if (!fs.existsSync(regionImgDir)) {
@@ -2899,11 +2920,11 @@ ${urls}
   app.get(api.certificates.myList.path, async (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
     const certs = await storage.listCertificatesByUser(req.user!.id);
-    // Enrich with student name for display
+    // Enrich with student name for display — use overrides if admin set them
     const enriched = certs.map(c => ({
       ...c,
-      courseName: c.course?.title || "Curso",
-      studentName: req.user!.displayName || req.user!.username,
+      courseName: c.courseNameOverride || c.course?.title || "Curso",
+      studentName: c.studentNameOverride || req.user!.displayName || req.user!.username,
       verificationCode: c.certificateCode,
     }));
     res.json(enriched);
@@ -2926,10 +2947,13 @@ ${urls}
     res.json({
       ...cert,
       verificationCode: cert.certificateCode,
-      studentName: certUser?.displayName || certUser?.username || "Estudiante",
-      courseName: course?.title || "Curso",
+      studentName: cert.studentNameOverride || certUser?.displayName || certUser?.username || "Estudiante",
+      courseName: cert.courseNameOverride || course?.title || "Curso",
       teacherName: cert.teacherName,
       courseCategory: course?.category,
+      customMessage: cert.customMessage,
+      signatureUrl: cert.signatureUrl,
+      issuedDateOverride: cert.issuedDateOverride,
     });
   });
 
@@ -3023,6 +3047,47 @@ ${urls}
       console.error("Backfill error:", err);
       res.status(500).json({ message: "Error en la generacion retroactiva" });
     }
+  });
+
+  // Update certificate (admin only) — edit names, dates, grades, messages, signatures
+  app.put("/api/certificates/:id", async (req, res) => {
+    if (!isAdmin(req)) return res.sendStatus(403);
+    try {
+      const certId = parseInt(req.params.id);
+      const { studentNameOverride, courseNameOverride, teacherName, grade, customMessage, signatureUrl, issuedDateOverride } = req.body;
+      const updates: any = {};
+      if (studentNameOverride !== undefined) updates.studentNameOverride = studentNameOverride || null;
+      if (courseNameOverride !== undefined) updates.courseNameOverride = courseNameOverride || null;
+      if (teacherName !== undefined) updates.teacherName = teacherName || null;
+      if (grade !== undefined) updates.grade = grade || null;
+      if (customMessage !== undefined) updates.customMessage = customMessage || null;
+      if (signatureUrl !== undefined) updates.signatureUrl = signatureUrl || null;
+      if (issuedDateOverride !== undefined) updates.issuedDateOverride = issuedDateOverride || null;
+
+      const cert = await storage.updateCertificate(certId, updates);
+      if (!cert) return res.status(404).json({ message: "Certificado no encontrado" });
+
+      const certUser = await storage.getUser(cert.userId);
+      const course = await storage.getCourse(cert.courseId);
+      res.json({
+        ...cert,
+        verificationCode: cert.certificateCode,
+        studentName: cert.studentNameOverride || certUser?.displayName || certUser?.username || "Estudiante",
+        courseName: cert.courseNameOverride || course?.title || "Curso",
+        teacherName: cert.teacherName,
+      });
+    } catch (err) {
+      console.error("Certificate update error:", err);
+      res.status(500).json({ message: "Error al actualizar certificado" });
+    }
+  });
+
+  // Upload signature image for certificates (admin only)
+  app.post("/api/upload/signature", uploadLimiter as RequestHandler, signatureUpload.single("signature") as RequestHandler, async (req: Request, res: Response) => {
+    if (!isAdmin(req)) return res.sendStatus(403);
+    if (!req.file) return res.status(400).json({ message: "No se proporcionó archivo" });
+    const url = `/uploads/signatures/${req.file.filename}`;
+    res.json({ url });
   });
 
   // ========== TITHES ==========

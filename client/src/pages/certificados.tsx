@@ -4,11 +4,8 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { Label } from "@/components/ui/label";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Award, Download, CheckCircle, Clock, Search, Pencil, FileText, X } from "lucide-react";
-import { useState, useRef, useCallback } from "react";
+import { Award, Download, CheckCircle, Clock, Search, FileText, X } from "lucide-react";
+import { useState, useCallback } from "react";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { useAuth } from "@/hooks/use-auth";
@@ -16,19 +13,20 @@ import { useAuth } from "@/hooks/use-auth";
 // ========== CERTIFICATE VISUAL COMPONENT ==========
 function CertificateView({
   cert,
-  overrides,
 }: {
   cert: any;
-  overrides?: Record<string, string>;
 }) {
-  const studentName = overrides?.studentName || cert.studentName || "Estudiante";
-  const courseName = overrides?.courseName || cert.courseName || "Curso";
-  const teacherName = overrides?.teacherName || cert.teacherName || "";
-  const grade = overrides?.grade ?? cert.grade;
-  const customMessage = overrides?.customMessage || "";
-  const issuedDate = cert.issuedAt
-    ? format(new Date(cert.issuedAt), "dd 'de' MMMM 'de' yyyy", { locale: es })
-    : format(new Date(), "dd 'de' MMMM 'de' yyyy", { locale: es });
+  const studentName = cert.studentName || "Estudiante";
+  const courseName = cert.courseName || "Curso";
+  const teacherName = cert.teacherName || "";
+  const grade = cert.grade;
+  const customMessage = cert.customMessage || "";
+  const signatureUrl = cert.signatureUrl || "";
+  const issuedDate = cert.issuedDateOverride
+    ? cert.issuedDateOverride
+    : cert.issuedAt
+      ? format(new Date(cert.issuedAt), "dd 'de' MMMM 'de' yyyy", { locale: es })
+      : format(new Date(), "dd 'de' MMMM 'de' yyyy", { locale: es });
   const code = cert.verificationCode || cert.certificateCode || "";
 
   return (
@@ -125,6 +123,14 @@ function CertificateView({
         <div style={{ display: "flex", justifyContent: "center", gap: "80px", marginTop: "20px", alignItems: "flex-end" }}>
           {teacherName && (
             <div style={{ textAlign: "center" }}>
+              {signatureUrl && (
+                <img
+                  src={signatureUrl}
+                  alt="Firma"
+                  crossOrigin="anonymous"
+                  style={{ width: "120px", height: "50px", objectFit: "contain", margin: "0 auto 4px" }}
+                />
+              )}
               <div style={{ width: "180px", borderTop: "2px solid #b4530966", margin: "0 auto", paddingTop: "6px" }}>
                 <p style={{ margin: "0", fontWeight: "bold", color: "#1e3a5f", fontSize: "0.95em" }}>{teacherName}</p>
                 <p style={{ margin: "2px 0 0", fontSize: "0.75em", color: "#92400e" }}>Instructor</p>
@@ -164,8 +170,6 @@ export default function CertificadosPage() {
   const [verifyCode, setVerifyCode] = useState("");
   const [verifyResult, setVerifyResult] = useState<any>(null);
   const [verifying, setVerifying] = useState(false);
-  const [editDialog, setEditDialog] = useState(false);
-  const [editOverrides, setEditOverrides] = useState<Record<string, string>>({});
   const [generatingPdf, setGeneratingPdf] = useState(false);
 
   const { data: certificates = [], isLoading } = useQuery<any[]>({
@@ -252,17 +256,6 @@ export default function CertificadosPage() {
     setTimeout(() => w.print(), 500);
   };
 
-  const openEditor = (cert: any) => {
-    setEditOverrides({
-      studentName: cert.studentName || "",
-      courseName: cert.courseName || "",
-      teacherName: cert.teacherName || "",
-      grade: cert.grade || "",
-      customMessage: "",
-    });
-    setEditDialog(true);
-  };
-
   if (!user) {
     return (
       <Layout>
@@ -272,8 +265,6 @@ export default function CertificadosPage() {
       </Layout>
     );
   }
-
-  const isAdmin = user.role === "admin";
 
   return (
     <Layout>
@@ -303,22 +294,14 @@ export default function CertificadosPage() {
                 <Button variant="outline" onClick={handlePrint}>
                   <FileText className="h-4 w-4 mr-1" /> Imprimir
                 </Button>
-                {isAdmin && (
-                  <Button variant="outline" onClick={() => openEditor(selectedCert)}>
-                    <Pencil className="h-4 w-4 mr-1" /> Personalizar
-                  </Button>
-                )}
-                <Button variant="ghost" size="icon" onClick={() => { setSelectedCert(null); setEditOverrides({}); }}>
+                <Button variant="ghost" size="icon" onClick={() => setSelectedCert(null)}>
                   <X className="h-4 w-4" />
                 </Button>
               </div>
             </CardHeader>
             <CardContent>
               <div className="overflow-x-auto flex justify-center py-4">
-                <CertificateView
-                  cert={selectedCert}
-                  overrides={editOverrides.studentName ? editOverrides : undefined}
-                />
+                <CertificateView cert={selectedCert} />
               </div>
             </CardContent>
           </Card>
@@ -343,7 +326,7 @@ export default function CertificadosPage() {
               <Card
                 key={cert.id}
                 className="hover:shadow-lg transition-all cursor-pointer border-l-4 border-l-orange-400 hover:border-l-orange-600"
-                onClick={() => { setSelectedCert(cert); setEditOverrides({}); }}
+                onClick={() => setSelectedCert(cert)}
               >
                 <CardContent className="pt-6">
                   <div className="flex items-center gap-3 mb-3">
@@ -413,41 +396,6 @@ export default function CertificadosPage() {
             )}
           </CardContent>
         </Card>
-
-        {/* Editor Dialog (Admin) */}
-        <Dialog open={editDialog} onOpenChange={setEditDialog}>
-          <DialogContent className="max-w-lg">
-            <DialogHeader>
-              <DialogTitle className="flex items-center gap-2"><Pencil className="h-5 w-5" /> Personalizar Certificado</DialogTitle>
-            </DialogHeader>
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <Label>Nombre del Estudiante</Label>
-                <Input value={editOverrides.studentName || ""} onChange={(e) => setEditOverrides((p) => ({ ...p, studentName: e.target.value }))} placeholder="Nombre completo" />
-              </div>
-              <div className="space-y-2">
-                <Label>Nombre del Curso</Label>
-                <Input value={editOverrides.courseName || ""} onChange={(e) => setEditOverrides((p) => ({ ...p, courseName: e.target.value }))} placeholder="Nombre del curso" />
-              </div>
-              <div className="space-y-2">
-                <Label>Nombre del Instructor</Label>
-                <Input value={editOverrides.teacherName || ""} onChange={(e) => setEditOverrides((p) => ({ ...p, teacherName: e.target.value }))} placeholder="Nombre del instructor" />
-              </div>
-              <div className="space-y-2">
-                <Label>Calificación</Label>
-                <Input value={editOverrides.grade || ""} onChange={(e) => setEditOverrides((p) => ({ ...p, grade: e.target.value }))} placeholder="Ej: 95" />
-              </div>
-              <div className="space-y-2">
-                <Label>Mensaje Personalizado (opcional)</Label>
-                <Textarea value={editOverrides.customMessage || ""} onChange={(e) => setEditOverrides((p) => ({ ...p, customMessage: e.target.value }))} placeholder="Ej: Por su destacada participación..." rows={3} />
-              </div>
-            </div>
-            <DialogFooter>
-              <Button variant="ghost" onClick={() => setEditDialog(false)}>Cancelar</Button>
-              <Button className="bg-orange-600 hover:bg-orange-700" onClick={() => setEditDialog(false)}>Aplicar Cambios</Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
       </div>
     </Layout>
   );

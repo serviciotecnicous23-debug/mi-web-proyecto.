@@ -42,7 +42,7 @@ import { Switch } from "@/components/ui/switch";
 import { ROLES, COURSE_CATEGORIES, ENROLLMENT_STATUSES, ENROLLMENT_MODES, TEACHER_REQUEST_STATUSES, MINISTRY_POSITIONS, MINISTRY_COUNTRIES } from "@shared/schema";
 import type { Event as EventType, SiteContent, Course } from "@shared/schema";
 import { SiWhatsapp } from "react-icons/si";
-import { ChevronDown, ChevronRight, Shield } from "lucide-react";
+import { ChevronDown, ChevronRight, Shield, Upload } from "lucide-react";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 
@@ -52,9 +52,13 @@ function CertificatePreview({ cert, containerId }: { cert: any; containerId: str
   const courseName = cert.courseName || "Curso";
   const teacherName = cert.teacherName || "";
   const grade = cert.grade;
-  const issuedDate = cert.issuedAt
-    ? format(new Date(cert.issuedAt), "dd 'de' MMMM 'de' yyyy", { locale: es })
-    : format(new Date(), "dd 'de' MMMM 'de' yyyy", { locale: es });
+  const customMessage = cert.customMessage || "";
+  const signatureUrl = cert.signatureUrl || "";
+  const issuedDate = cert.issuedDateOverride
+    ? cert.issuedDateOverride
+    : cert.issuedAt
+      ? format(new Date(cert.issuedAt), "dd 'de' MMMM 'de' yyyy", { locale: es })
+      : format(new Date(), "dd 'de' MMMM 'de' yyyy", { locale: es });
   const code = cert.verificationCode || cert.certificateCode || "";
 
   return (
@@ -95,10 +99,12 @@ function CertificatePreview({ cert, containerId }: { cert: any; containerId: str
         <p style={{ fontSize: "0.85em", color: "#78350f", margin: "10px 0 4px" }}>ha completado satisfactoriamente el curso</p>
         <p style={{ fontSize: "1.3em", color: "#b45309", fontWeight: "bold", margin: "4px 0 10px" }}>«{courseName}»</p>
         {grade && <p style={{ fontSize: "0.85em", color: "#78350f", margin: "4px 0" }}>Calificación: <strong style={{ color: "#b45309" }}>{grade}</strong></p>}
+        {customMessage && <p style={{ fontSize: "0.75em", color: "#78350f", margin: "4px 30px", fontStyle: "italic", lineHeight: 1.4 }}>{customMessage}</p>}
         <p style={{ fontSize: "0.75em", color: "#92400e", margin: "6px 0 14px" }}>Otorgado el {issuedDate}</p>
         <div style={{ display: "flex", justifyContent: "center", gap: 60, marginTop: 16, alignItems: "flex-end" }}>
           {teacherName && (
             <div style={{ textAlign: "center" }}>
+              {signatureUrl && <img src={signatureUrl} alt="Firma" crossOrigin="anonymous" style={{ width: 120, height: 50, objectFit: "contain", margin: "0 auto 4px" }} />}
               <div style={{ width: 160, borderTop: "2px solid #b4530966", margin: "0 auto", paddingTop: 4 }}>
                 <p style={{ margin: 0, fontWeight: "bold", color: "#1e3a5f", fontSize: "0.85em" }}>{teacherName}</p>
                 <p style={{ margin: "2px 0 0", fontSize: "0.65em", color: "#92400e" }}>Instructor</p>
@@ -356,6 +362,10 @@ function AdminCourseEnrollments({ courseId, updateEnrollment }: { courseId: numb
   const { data: enrollmentsList, isLoading } = useCourseEnrollments(courseId);
   const [certPreview, setCertPreview] = useState<any>(null);
   const [loadingCert, setLoadingCert] = useState<number | null>(null);
+  const [editingCert, setEditingCert] = useState(false);
+  const [certEdits, setCertEdits] = useState<Record<string, string>>({});
+  const [savingCert, setSavingCert] = useState(false);
+  const [uploadingSignature, setUploadingSignature] = useState(false);
 
   const viewCertificate = async (enrollmentId: number) => {
     setLoadingCert(enrollmentId);
@@ -364,11 +374,77 @@ function AdminCourseEnrollments({ courseId, updateEnrollment }: { courseId: numb
       if (res.ok) {
         const cert = await res.json();
         setCertPreview(cert);
+        setEditingCert(false);
+        setCertEdits({});
       } else {
         alert("Certificado aún no generado. Intenta marcar como 'Completar y Certificar' primero.");
       }
     } catch { alert("Error al cargar certificado"); }
     setLoadingCert(null);
+  };
+
+  const openCertEditor = () => {
+    if (!certPreview) return;
+    setCertEdits({
+      studentName: certPreview.studentNameOverride || certPreview.studentName || "",
+      courseName: certPreview.courseNameOverride || certPreview.courseName || "",
+      teacherName: certPreview.teacherName || "",
+      grade: certPreview.grade || "",
+      customMessage: certPreview.customMessage || "",
+      issuedDateOverride: certPreview.issuedDateOverride || "",
+      signatureUrl: certPreview.signatureUrl || "",
+    });
+    setEditingCert(true);
+  };
+
+  const saveCertChanges = async () => {
+    if (!certPreview?.id) return;
+    setSavingCert(true);
+    try {
+      const res = await fetch(`/api/certificates/${certPreview.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          studentNameOverride: certEdits.studentName || null,
+          courseNameOverride: certEdits.courseName || null,
+          teacherName: certEdits.teacherName || null,
+          grade: certEdits.grade || null,
+          customMessage: certEdits.customMessage || null,
+          issuedDateOverride: certEdits.issuedDateOverride || null,
+          signatureUrl: certEdits.signatureUrl || null,
+        }),
+      });
+      if (res.ok) {
+        const updatedCert = await res.json();
+        setCertPreview(updatedCert);
+        setEditingCert(false);
+        setCertEdits({});
+      } else {
+        alert("Error al guardar cambios");
+      }
+    } catch { alert("Error de conexión al guardar"); }
+    setSavingCert(false);
+  };
+
+  const uploadSignature = async (file: File) => {
+    setUploadingSignature(true);
+    try {
+      const formData = new FormData();
+      formData.append("signature", file);
+      const res = await fetch("/api/upload/signature", {
+        method: "POST",
+        credentials: "include",
+        body: formData,
+      });
+      if (res.ok) {
+        const { url } = await res.json();
+        setCertEdits(prev => ({ ...prev, signatureUrl: url }));
+      } else {
+        alert("Error al subir la firma");
+      }
+    } catch { alert("Error de conexión al subir firma"); }
+    setUploadingSignature(false);
   };
 
   const downloadCertPdf = async () => {
@@ -410,16 +486,99 @@ function AdminCourseEnrollments({ courseId, updateEnrollment }: { courseId: numb
               <GraduationCap className="w-4 h-4" /> Certificado de {certPreview.studentName}
             </h5>
             <div className="flex gap-2">
+              {!editingCert && (
+                <Button size="sm" variant="outline" className="text-blue-600 border-blue-300 hover:bg-blue-50" onClick={openCertEditor}>
+                  <Pencil className="w-4 h-4 mr-1" /> Editar Certificado
+                </Button>
+              )}
               <Button size="sm" className="bg-orange-600 hover:bg-orange-700 text-white" onClick={downloadCertPdf}>
                 <Download className="w-4 h-4 mr-1" /> Descargar PDF
               </Button>
-              <Button size="sm" variant="ghost" onClick={() => setCertPreview(null)}>
+              <Button size="sm" variant="ghost" onClick={() => { setCertPreview(null); setEditingCert(false); setCertEdits({}); }}>
                 <XCircle className="w-4 h-4" />
               </Button>
             </div>
           </div>
+
+          {/* Certificate Editor Panel */}
+          {editingCert && (
+            <div className="mb-4 p-4 border rounded-lg bg-white dark:bg-gray-900 space-y-3">
+              <h6 className="font-semibold text-sm flex items-center gap-2 text-blue-700">
+                <Pencil className="w-4 h-4" /> Editar Certificado
+              </h6>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <Label className="text-xs">Nombre del Estudiante</Label>
+                  <Input value={certEdits.studentName || ""} onChange={(e) => setCertEdits(p => ({ ...p, studentName: e.target.value }))} placeholder="Nombre completo" />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">Nombre del Curso</Label>
+                  <Input value={certEdits.courseName || ""} onChange={(e) => setCertEdits(p => ({ ...p, courseName: e.target.value }))} placeholder="Nombre del curso" />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">Nombre del Instructor</Label>
+                  <Input value={certEdits.teacherName || ""} onChange={(e) => setCertEdits(p => ({ ...p, teacherName: e.target.value }))} placeholder="Nombre del instructor" />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">Calificación</Label>
+                  <Input value={certEdits.grade || ""} onChange={(e) => setCertEdits(p => ({ ...p, grade: e.target.value }))} placeholder="Ej: 95" />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">Fecha de Emisión (personalizada)</Label>
+                  <Input value={certEdits.issuedDateOverride || ""} onChange={(e) => setCertEdits(p => ({ ...p, issuedDateOverride: e.target.value }))} placeholder="Ej: 15 de febrero de 2026" />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">Firma del Instructor</Label>
+                  <div className="flex gap-2 items-center">
+                    {certEdits.signatureUrl && (
+                      <img src={certEdits.signatureUrl} alt="Firma" className="h-10 object-contain border rounded p-1" />
+                    )}
+                    <label className="cursor-pointer">
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) uploadSignature(file);
+                        }}
+                      />
+                      <Button size="sm" variant="outline" asChild disabled={uploadingSignature}>
+                        <span>
+                          <Upload className="w-3 h-3 mr-1" />
+                          {uploadingSignature ? "Subiendo..." : certEdits.signatureUrl ? "Cambiar" : "Cargar Firma"}
+                        </span>
+                      </Button>
+                    </label>
+                    {certEdits.signatureUrl && (
+                      <Button size="sm" variant="ghost" onClick={() => setCertEdits(p => ({ ...p, signatureUrl: "" }))}>
+                        <X className="w-3 h-3" />
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">Mensaje Personalizado (opcional)</Label>
+                <Textarea value={certEdits.customMessage || ""} onChange={(e) => setCertEdits(p => ({ ...p, customMessage: e.target.value }))} placeholder="Ej: Por su destacada participación..." rows={2} />
+              </div>
+              <div className="flex gap-2 pt-2">
+                <Button size="sm" className="bg-green-600 hover:bg-green-700 text-white" onClick={saveCertChanges} disabled={savingCert}>
+                  {savingCert ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : <Save className="w-4 h-4 mr-1" />}
+                  Guardar Cambios
+                </Button>
+                <Button size="sm" variant="ghost" onClick={() => { setEditingCert(false); setCertEdits({}); }}>
+                  Cancelar
+                </Button>
+              </div>
+            </div>
+          )}
+
           <div className="overflow-x-auto flex justify-center">
-            <CertificatePreview cert={certPreview} containerId="admin-cert-preview" />
+            <CertificatePreview
+              cert={editingCert ? { ...certPreview, studentName: certEdits.studentName, courseName: certEdits.courseName, teacherName: certEdits.teacherName, grade: certEdits.grade, customMessage: certEdits.customMessage, signatureUrl: certEdits.signatureUrl, issuedDateOverride: certEdits.issuedDateOverride } : certPreview}
+              containerId="admin-cert-preview"
+            />
           </div>
         </div>
       )}

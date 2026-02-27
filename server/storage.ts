@@ -312,6 +312,7 @@ export interface IStorage {
 
   // Certificates
   createCertificate(userId: number, courseId: number, enrollmentId: number, code: string, teacherName?: string, grade?: string): Promise<Certificate>;
+  updateCertificate(id: number, updates: Partial<Pick<Certificate, 'teacherName' | 'grade' | 'studentNameOverride' | 'courseNameOverride' | 'customMessage' | 'signatureUrl' | 'issuedDateOverride'>>): Promise<Certificate | undefined>;
   getCertificate(id: number): Promise<Certificate | undefined>;
   getCertificateByCode(code: string): Promise<Certificate | undefined>;
   getCertificateByEnrollment(enrollmentId: number): Promise<Certificate | undefined>;
@@ -2060,6 +2061,11 @@ export class DatabaseStorage implements IStorage {
     return cert;
   }
 
+  async updateCertificate(id: number, updates: Partial<Pick<Certificate, 'teacherName' | 'grade' | 'studentNameOverride' | 'courseNameOverride' | 'customMessage' | 'signatureUrl' | 'issuedDateOverride'>>): Promise<Certificate | undefined> {
+    const [cert] = await db.update(certificates).set(updates).where(eq(certificates.id, id)).returning();
+    return cert;
+  }
+
   async getCertificate(id: number): Promise<Certificate | undefined> {
     const [cert] = await db.select().from(certificates).where(eq(certificates.id, id));
     return cert;
@@ -2080,11 +2086,18 @@ export class DatabaseStorage implements IStorage {
       issuedAt: certificates.issuedAt,
       teacherName: certificates.teacherName,
       grade: certificates.grade,
+      studentNameOverride: certificates.studentNameOverride,
+      courseNameOverride: certificates.courseNameOverride,
+      customMessage: certificates.customMessage,
+      signatureUrl: certificates.signatureUrl,
+      issuedDateOverride: certificates.issuedDateOverride,
       courseTitle: courses.title,
     }).from(certificates).leftJoin(courses, eq(certificates.courseId, courses.id)).where(eq(certificates.userId, userId)).orderBy(desc(certificates.issuedAt));
     return rows.map(r => ({
       id: r.id, userId: r.userId, courseId: r.courseId, enrollmentId: r.enrollmentId,
       certificateCode: r.certificateCode, issuedAt: r.issuedAt, teacherName: r.teacherName, grade: r.grade,
+      studentNameOverride: r.studentNameOverride, courseNameOverride: r.courseNameOverride,
+      customMessage: r.customMessage, signatureUrl: r.signatureUrl, issuedDateOverride: r.issuedDateOverride,
       course: { title: r.courseTitle || "Curso eliminado" },
     }));
   }

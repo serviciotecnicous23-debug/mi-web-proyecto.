@@ -1116,6 +1116,11 @@ export const certificates = pgTable("certificates", {
   issuedAt: timestamp("issued_at").defaultNow(),
   teacherName: text("teacher_name"),
   grade: text("grade"),
+  studentNameOverride: text("student_name_override"),
+  courseNameOverride: text("course_name_override"),
+  customMessage: text("custom_message"),
+  signatureUrl: text("signature_url"),
+  issuedDateOverride: text("issued_date_override"),
 });
 
 export type Certificate = typeof certificates.$inferSelect;

@@ -687,6 +687,12 @@ const ADD_COLUMNS_SQL = [
   `ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "email_verified" boolean NOT NULL DEFAULT false`,
   `ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "email_verify_token" text`,
   `ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "email_verify_expires" timestamp`,
+  // Certificates - admin editable fields
+  `ALTER TABLE "certificates" ADD COLUMN IF NOT EXISTS "student_name_override" text`,
+  `ALTER TABLE "certificates" ADD COLUMN IF NOT EXISTS "course_name_override" text`,
+  `ALTER TABLE "certificates" ADD COLUMN IF NOT EXISTS "custom_message" text`,
+  `ALTER TABLE "certificates" ADD COLUMN IF NOT EXISTS "signature_url" text`,
+  `ALTER TABLE "certificates" ADD COLUMN IF NOT EXISTS "issued_date_override" text`,
 ];
 
 export async function ensureDatabaseSchema(): Promise<void> {
