@@ -73,12 +73,16 @@ const videoFrameSources = [
   "https://*.zoom.us",
   "https://meet.google.com",
   "https://teams.microsoft.com",
+  // Jitsi Meet (Sala en Vivo)
+  "https://meet.jit.si",
+  "https://*.jitsi.net",
+  "https://8x8.vc",
 ];
 app.use(helmet({
   contentSecurityPolicy: {
     directives: {
       defaultSrc: ["'self'"],
-      scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https://www.youtube.com", "https://*.facebook.com", "https://*.facebook.net"],
+      scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https://www.youtube.com", "https://*.facebook.com", "https://*.facebook.net", "https://meet.jit.si"],
       styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
       fontSrc: ["'self'", "https://fonts.gstatic.com", "data:"],
       imgSrc: ["'self'", "data:", "blob:", "https:"],
