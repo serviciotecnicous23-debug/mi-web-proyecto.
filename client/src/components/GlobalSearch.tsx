@@ -21,16 +21,20 @@ import {
   Church,
   BookOpen,
   MessageSquare,
-  Flame,
   MapPin,
   FileText,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 
+// Logo icon for nav items
+function LogoNavIcon(props: { className?: string }) {
+  return <img src="/icons/icon-192.png" alt="" className={props.className || "w-4 h-4"} aria-hidden="true" />;
+}
+
 // Static navigation items for instant results
 const PUBLIC_NAV_ITEMS = [
-  { label: "Inicio", href: "/", icon: Flame, category: "Paginas" },
+  { label: "Inicio", href: "/", icon: Home, category: "Paginas" },
   { label: "Eventos", href: "/eventos", icon: Calendar, category: "Paginas" },
   { label: "Historia", href: "/historia", icon: BookOpen, category: "Ministerio" },
   { label: "Equipo", href: "/equipo", icon: Users, category: "Ministerio" },

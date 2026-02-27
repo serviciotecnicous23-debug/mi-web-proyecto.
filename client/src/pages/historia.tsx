@@ -1,6 +1,7 @@
 import { Layout } from "@/components/layout";
 import { Card } from "@/components/ui/card";
 import { Flame, Target, Eye } from "lucide-react";
+import { LogoIcon } from "@/components/LogoIcon";
 
 const timeline = [
   { year: "2017", title: "El Llamado", desc: "Nacimiento del ministerio en Ciudad Bolivar, Venezuela. Un grupo de jovenes apasionados por Dios reciben el mandato de llevar el fuego del evangelio a las naciones." },
@@ -38,7 +39,7 @@ export default function Historia() {
               <div key={item.year} className="flex gap-6" data-testid={`timeline-${item.year}`}>
                 <div className="flex flex-col items-center">
                   <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
-                    <Flame className="w-5 h-5 text-primary" />
+                    <LogoIcon className="w-5 h-5" />
                   </div>
                   {i < timeline.length - 1 && (
                     <div className="w-0.5 flex-1 bg-border mt-2" />
@@ -68,7 +69,7 @@ export default function Historia() {
             <ul className="space-y-2">
               {missionPoints.map((p) => (
                 <li key={p} className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <Flame className="w-3 h-3 text-primary flex-shrink-0" />
+                  <LogoIcon className="w-3 h-3 flex-shrink-0" />
                   {p}
                 </li>
               ))}

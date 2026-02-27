@@ -10,6 +10,7 @@ import {
 } from "@/components/ui/form";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Flame, Loader2, CheckCircle, ArrowLeft } from "lucide-react";
+import { LogoIcon } from "@/components/LogoIcon";
 import { useToast } from "@/hooks/use-toast";
 
 const forgotSchema = z.object({
@@ -75,7 +76,7 @@ export default function ForgotPasswordPage() {
     <div className="min-h-screen flex items-center justify-center bg-muted/30 p-4">
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
-          <Flame className="w-10 h-10 text-primary mx-auto mb-2" />
+          <LogoIcon className="w-10 h-10 mx-auto mb-2" />
           <CardTitle className="text-2xl font-bold">Olvide mi Contraseña</CardTitle>
           <CardDescription>
             Ingresa tu correo electronico y te enviaremos un enlace para restablecer tu contraseña

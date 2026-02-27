@@ -5,6 +5,7 @@ import { Link } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
 import { Flame, Radio, Users, BookOpen, Heart, Globe, HandCoins, Video, Signal } from "lucide-react";
 import { PublicDonationSection } from "@/pages/finanzas";
+import { LogoIcon } from "@/components/LogoIcon";
 
 const stats = [
   { label: "Anos de Servicio", value: "7+" },
@@ -30,7 +31,7 @@ export default function Home() {
       <section className="relative overflow-hidden py-24 md:py-36">
         <div className="absolute inset-0 fire-gradient opacity-10 dark:opacity-20" />
         <div className="relative max-w-4xl mx-auto px-4 text-center">
-          <img src="/icons/logo-full.png" alt="Avivando el Fuego" className="mx-auto mb-6 h-28 md:h-40 w-auto object-contain" />
+          <img src="/icons/logo-transparent.png" alt="Avivando el Fuego" className="mx-auto mb-6 h-28 md:h-40 w-auto object-contain drop-shadow-[0_0_25px_rgba(254,146,24,0.4)]" />
           <p className="text-sm text-muted-foreground mb-4" data-testid="text-subtitle">
             Desde 2017 - Ciudad Bolivar, Venezuela
           </p>
@@ -46,14 +47,14 @@ export default function Home() {
             {user ? (
               <Link href="/perfil">
                 <Button size="lg" data-testid="button-hero-profile">
-                  <Flame className="w-4 h-4 mr-2" />
+                  <LogoIcon className="w-4 h-4 mr-2" />
                   Mi Perfil
                 </Button>
               </Link>
             ) : (
               <Link href="/registro">
                 <Button size="lg" data-testid="button-hero-join">
-                  <Flame className="w-4 h-4 mr-2" />
+                  <LogoIcon className="w-4 h-4 mr-2" />
                   Unirse al Ministerio
                 </Button>
               </Link>

@@ -3,7 +3,6 @@ import {
   LogOut,
   User,
   Shield,
-  Flame,
   Menu,
   X,
   MessageSquare,
@@ -26,6 +25,7 @@ import { Button } from './ui/button'
 import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar'
 import { Popover, PopoverContent, PopoverTrigger } from './ui/popover'
 import { useState } from 'react'
+import { LogoIcon } from './LogoIcon'
 
 const navLinks = [
   { href: '/', label: 'Inicio' },
@@ -77,7 +77,7 @@ export function Navbar() {
           </Link>
           <Link href="/registro">
             <Button size="sm">
-              <Flame className="w-4 h-4 mr-1" />
+              <LogoIcon className="w-4 h-4 mr-1" />
               Unirse
             </Button>
           </Link>

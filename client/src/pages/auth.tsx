@@ -23,6 +23,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Loader2, Flame, Users, BookOpen, Heart } from "lucide-react";
+import { LogoIcon } from "@/components/LogoIcon";
 import { ROLES, MINISTRY_COUNTRIES } from "@shared/schema";
 
 const loginSchema = z.object({
@@ -52,7 +53,7 @@ export function LoginPage() {
     <div className="min-h-screen flex items-center justify-center bg-muted/30 p-4">
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
-          <Flame className="w-10 h-10 text-primary mx-auto mb-2" />
+          <LogoIcon className="w-10 h-10 mx-auto mb-2" />
           <CardTitle className="text-2xl font-bold" data-testid="text-login-title">Iniciar Sesion</CardTitle>
           <CardDescription>Ingresa tus credenciales para acceder</CardDescription>
         </CardHeader>
@@ -151,7 +152,7 @@ export function RegisterPage() {
     <div className="min-h-screen flex items-center justify-center bg-muted/30 p-4">
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
-          <Flame className="w-10 h-10 text-primary mx-auto mb-2" />
+          <LogoIcon className="w-10 h-10 mx-auto mb-2" />
           <CardTitle className="text-2xl font-bold" data-testid="text-register-title">Unirse al Ministerio</CardTitle>
           <CardDescription>Crea tu cuenta para ser parte de Avivando el Fuego</CardDescription>
         </CardHeader>

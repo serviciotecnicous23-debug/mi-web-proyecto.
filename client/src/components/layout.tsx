@@ -6,7 +6,6 @@ import {
   User,
   Users,
   Shield,
-  Flame,
   Menu,
   X,
   MailWarning,
@@ -61,6 +60,7 @@ import { ROLES } from "@shared/schema";
 import { ThemeToggle } from "@/components/ThemeProvider";
 import { GlobalSearch } from "@/components/GlobalSearch";
 import { ScrollToTop, BackToTop } from "@/components/ScrollToTop";
+import { LogoIcon } from "@/components/LogoIcon";
 
 // Desktop nav links — PUBLIC (visitors / not logged in)
 const publicDesktopNavLinks = [
@@ -90,7 +90,7 @@ const publicMobileNavGroups = [
   {
     title: "Inicio",
     icon: Home,
-    links: [{ href: "/", label: "Inicio", icon: Flame }],
+    links: [{ href: "/", label: "Inicio", icon: Home }],
     alwaysOpen: true,
   },
   {
@@ -137,7 +137,7 @@ const memberMobileNavGroups = [
   {
     title: "Inicio",
     icon: Home,
-    links: [{ href: "/", label: "Inicio", icon: Flame }],
+    links: [{ href: "/", label: "Inicio", icon: Home }],
     alwaysOpen: true,
   },
   {
@@ -554,7 +554,7 @@ export function Navbar() {
                 </Link>
                 <Link href="/registro">
                   <Button size="sm" data-testid="link-register">
-                    <Flame className="w-4 h-4 mr-1" aria-hidden="true" />
+                    <LogoIcon className="w-4 h-4 mr-1" />
                     Unirse
                   </Button>
                 </Link>
@@ -720,7 +720,7 @@ export function Navbar() {
                 </Link>
                 <Link href="/registro" onClick={closeMenu}>
                   <Button className="w-full" size="sm" data-testid="link-mobile-register">
-                    <Flame className="w-4 h-4 mr-1" aria-hidden="true" /> Unirse al Ministerio
+                    <LogoIcon className="w-4 h-4 mr-1" /> Unirse al Ministerio
                   </Button>
                 </Link>
               </div>
