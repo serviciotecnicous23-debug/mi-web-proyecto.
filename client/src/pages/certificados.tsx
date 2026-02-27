@@ -37,32 +37,40 @@ function CertificateView({
       style={{
         width: "800px",
         minHeight: "566px",
-        background: "linear-gradient(135deg, #fffbeb 0%, #fff 50%, #fef3c7 100%)",
-        border: "3px solid #b45309",
-        borderRadius: "8px",
+        background: "linear-gradient(135deg, #fffbeb 0%, #ffffff 40%, #fef3c7 70%, #fff7ed 100%)",
+        border: "4px solid #b45309",
+        borderRadius: "12px",
         padding: "0",
         fontFamily: "'Georgia', 'Times New Roman', serif",
         position: "relative",
         overflow: "hidden",
         boxSizing: "border-box",
+        boxShadow: "0 4px 24px rgba(180,83,9,0.12)",
       }}
     >
-      {/* Decorative borders */}
-      <div style={{ position: "absolute", top: "8px", left: "8px", right: "8px", bottom: "8px", border: "2px solid #d97706", borderRadius: "4px", pointerEvents: "none" }} />
-      <div style={{ position: "absolute", top: "16px", left: "16px", right: "16px", bottom: "16px", border: "1px solid #f59e0b", borderRadius: "2px", pointerEvents: "none" }} />
+      {/* Decorative corner accents */}
+      <div style={{ position: "absolute", top: "0", left: "0", width: "80px", height: "80px", borderTop: "4px solid #f59e0b", borderLeft: "4px solid #f59e0b", borderTopLeftRadius: "12px", pointerEvents: "none" }} />
+      <div style={{ position: "absolute", top: "0", right: "0", width: "80px", height: "80px", borderTop: "4px solid #f59e0b", borderRight: "4px solid #f59e0b", borderTopRightRadius: "12px", pointerEvents: "none" }} />
+      <div style={{ position: "absolute", bottom: "0", left: "0", width: "80px", height: "80px", borderBottom: "4px solid #f59e0b", borderLeft: "4px solid #f59e0b", borderBottomLeftRadius: "12px", pointerEvents: "none" }} />
+      <div style={{ position: "absolute", bottom: "0", right: "0", width: "80px", height: "80px", borderBottom: "4px solid #f59e0b", borderRight: "4px solid #f59e0b", borderBottomRightRadius: "12px", pointerEvents: "none" }} />
+
+      {/* Inner border */}
+      <div style={{ position: "absolute", top: "12px", left: "12px", right: "12px", bottom: "12px", border: "1.5px solid #d9770633", borderRadius: "6px", pointerEvents: "none" }} />
 
       <div style={{ position: "relative", zIndex: 1, padding: "40px 50px", textAlign: "center" }}>
-        {/* Logo */}
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "12px", marginBottom: "8px" }}>
-          <div style={{
-            width: "48px", height: "48px", background: "linear-gradient(135deg, #dc2626, #991b1b)",
-            borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center",
-            boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
-          }}>
-            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M12 3q1 4 4 6.5t3 5.5a1 1 0 0 1-14 0 5 5 0 0 1 1-3 1 1 0 0 0 5 0c0-2-1.5-3-1.5-5q0-2 2.5-4" />
-            </svg>
-          </div>
+        {/* Logo del ministerio */}
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "14px", marginBottom: "6px" }}>
+          <img
+            src="/icons/logo-transparent.png?v4"
+            alt="Logo Avivando el Fuego"
+            crossOrigin="anonymous"
+            style={{
+              width: "72px",
+              height: "72px",
+              objectFit: "contain",
+              filter: "drop-shadow(0 2px 8px rgba(180,83,9,0.18))",
+            }}
+          />
         </div>
 
         <h1 style={{ fontSize: "1.6em", color: "#92400e", margin: "0 0 2px", fontWeight: "bold", letterSpacing: "2px", textTransform: "uppercase" }}>
@@ -114,17 +122,23 @@ function CertificateView({
         </p>
 
         {/* Signatures */}
-        <div style={{ display: "flex", justifyContent: "center", gap: "80px", marginTop: "20px" }}>
+        <div style={{ display: "flex", justifyContent: "center", gap: "80px", marginTop: "20px", alignItems: "flex-end" }}>
           {teacherName && (
             <div style={{ textAlign: "center" }}>
-              <div style={{ width: "180px", borderTop: "1px solid #92400e", margin: "0 auto", paddingTop: "6px" }}>
+              <div style={{ width: "180px", borderTop: "2px solid #b4530966", margin: "0 auto", paddingTop: "6px" }}>
                 <p style={{ margin: "0", fontWeight: "bold", color: "#1e3a5f", fontSize: "0.95em" }}>{teacherName}</p>
                 <p style={{ margin: "2px 0 0", fontSize: "0.75em", color: "#92400e" }}>Instructor</p>
               </div>
             </div>
           )}
           <div style={{ textAlign: "center" }}>
-            <div style={{ width: "180px", borderTop: "1px solid #92400e", margin: "0 auto", paddingTop: "6px" }}>
+            <img
+              src="/icons/icon-192.png?v4"
+              alt=""
+              crossOrigin="anonymous"
+              style={{ width: "32px", height: "32px", objectFit: "contain", margin: "0 auto 4px", opacity: 0.7 }}
+            />
+            <div style={{ width: "180px", borderTop: "2px solid #b4530966", margin: "0 auto", paddingTop: "6px" }}>
               <p style={{ margin: "0", fontWeight: "bold", color: "#1e3a5f", fontSize: "0.95em" }}>Avivando el Fuego</p>
               <p style={{ margin: "2px 0 0", fontSize: "0.75em", color: "#92400e" }}>Ministerio</p>
             </div>
