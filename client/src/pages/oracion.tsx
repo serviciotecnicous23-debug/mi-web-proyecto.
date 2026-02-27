@@ -17,6 +17,7 @@ import { z } from "zod";
 import { Loader2, Plus, Trash2, Pencil, ExternalLink, Video, Calendar, Users, CheckCircle, HelpCircle, XCircle, Bell, Clock, Link2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { LiveStreamEmbed, isEmbeddableUrl } from "@/components/LiveStreamEmbed";
+import LiveRoom from "@/components/LiveRoom";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { usePrayerAttendees, useMyPrayerAttendance, useAttendPrayer, useCancelPrayerAttendance } from "@/hooks/use-users";
 
@@ -210,6 +211,23 @@ export default function OracionPage() {
             </Dialog>
           )}
         </div>
+
+        {/* Sala en Vivo de Oracion */}
+        {user && (
+          <div className="mb-6">
+            <LiveRoom
+              context="prayer"
+              contextId="main"
+              roomTitle="Sala de Oracion en Vivo"
+              canManage={user.role === "admin" || user.role === "maestro"}
+              userName={user.displayName || user.username}
+              userEmail={user.email}
+              startLabel="Iniciar Sala de Oracion"
+              joinLabel="Unirse a la Sala de Oracion"
+              startDescription="Se creara una sala de video para la reunion de oracion. Todos los usuarios recibiran una notificacion."
+            />
+          </div>
+        )}
 
         {isLoading ? (
           <div className="flex justify-center py-16">

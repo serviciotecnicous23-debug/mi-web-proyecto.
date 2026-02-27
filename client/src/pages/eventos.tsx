@@ -18,6 +18,7 @@ import {
 import { Loader2, Calendar, MapPin, Clock, Plus, Pencil, Trash2, Users, CheckCircle, HelpCircle, XCircle, ExternalLink, Video, Bell, BellOff, Link2 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { LiveStreamEmbed, isEmbeddableUrl } from "@/components/LiveStreamEmbed";
+import LiveRoom from "@/components/LiveRoom";
 import type { Event } from "@shared/schema";
 
 function formatDate(dateStr: string) {
@@ -183,6 +184,23 @@ export default function Eventos() {
           )}
         </div>
       </section>
+
+      {/* Sala en Vivo para Eventos */}
+      {user && (
+        <section className="max-w-4xl mx-auto px-4 pb-8">
+          <LiveRoom
+            context="event"
+            contextId="main"
+            roomTitle="Sala de Evento en Vivo"
+            canManage={user.role === "admin" || user.role === "maestro"}
+            userName={user.displayName || user.username}
+            userEmail={user.email}
+            startLabel="Iniciar Transmision de Evento"
+            joinLabel="Unirse al Evento en Vivo"
+            startDescription="Se creara una sala de video para transmitir el evento. Todos los usuarios recibiran una notificacion automatica."
+          />
+        </section>
+      )}
 
       <section className="max-w-4xl mx-auto px-4 pb-16">
         {isLoading ? (

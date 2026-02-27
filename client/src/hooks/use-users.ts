@@ -1800,3 +1800,58 @@ export function useStopLiveClassroom() {
     onError: (error) => { toast({ title: "Error", description: error.message, variant: "destructive" }); },
   });
 }
+
+// ========== SALAS EN VIVO GENERICAS (Oracion, Eventos, En Vivo) ==========
+export function useLiveRoom(context: string, contextId: string | number) {
+  return useQuery({
+    queryKey: [api.liveRoom.get.path, context, contextId],
+    queryFn: async () => {
+      const url = buildUrl(api.liveRoom.get.path, { context, contextId });
+      const res = await authFetch(url);
+      if (!res.ok) return { isLive: false, roomName: "", startedBy: null, startedByName: "", startedAt: null, title: "" };
+      return res.json();
+    },
+    enabled: !!context && !!contextId,
+    refetchInterval: 10000,
+  });
+}
+
+export function useStartLiveRoom() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  return useMutation({
+    mutationFn: async ({ context, contextId, title }: { context: string; contextId: string | number; title?: string }) => {
+      const url = buildUrl(api.liveRoom.start.path, { context, contextId });
+      const res = await authFetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title }),
+      });
+      if (!res.ok) throw new Error("Error al iniciar sala en vivo");
+      return res.json();
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: [api.liveRoom.get.path, variables.context, variables.contextId] });
+      toast({ title: "Sala en Vivo Iniciada", description: "Los usuarios pueden unirse ahora" });
+    },
+    onError: (error: any) => { toast({ title: "Error", description: error.message, variant: "destructive" }); },
+  });
+}
+
+export function useStopLiveRoom() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  return useMutation({
+    mutationFn: async ({ context, contextId }: { context: string; contextId: string | number }) => {
+      const url = buildUrl(api.liveRoom.stop.path, { context, contextId });
+      const res = await authFetch(url, { method: "POST" });
+      if (!res.ok) throw new Error("Error al detener sala en vivo");
+      return res.json();
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: [api.liveRoom.get.path, variables.context, variables.contextId] });
+      toast({ title: "Sala en Vivo Finalizada" });
+    },
+    onError: (error: any) => { toast({ title: "Error", description: error.message, variant: "destructive" }); },
+  });
+}

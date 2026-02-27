@@ -1627,6 +1627,78 @@ ${urls}
     res.json(state);
   });
 
+  // ========== SALAS EN VIVO GENERICAS (Oracion, Eventos, En Vivo) ==========
+  const validLiveRoomContexts = ["prayer", "event", "live"];
+
+  // Get live room state
+  app.get(api.liveRoom.get.path, async (req, res) => {
+    const { context, contextId } = req.params;
+    if (!validLiveRoomContexts.includes(context)) return res.sendStatus(400);
+    const key = `live_room_${context}_${contextId}`;
+    const content = await storage.getSiteContent(key);
+    const defaultState = { isLive: false, roomName: "", startedBy: null, startedByName: "", startedAt: null, title: "" };
+    try {
+      const state = content?.content ? JSON.parse(content.content) : defaultState;
+      res.json(state);
+    } catch {
+      res.json(defaultState);
+    }
+  });
+
+  // Start a live room (admin/teacher only)
+  app.post(api.liveRoom.start.path, async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    if (!isTeacherOrAdmin(req)) return res.sendStatus(403);
+    const { context, contextId } = req.params;
+    if (!validLiveRoomContexts.includes(context)) return res.sendStatus(400);
+    const { title } = req.body || {};
+    const contextLabels: Record<string, string> = { prayer: "oracion", event: "evento", live: "envivo" };
+    const sanitized = (title || contextLabels[context] || "sala").replace(/[^a-zA-Z0-9]/g, "-").replace(/-+/g, "-").slice(0, 30).toLowerCase();
+    const roomName = `smartedu-${contextLabels[context]}-${sanitized}-${contextId}-${Date.now()}`;
+    const userName = req.user?.displayName || req.user?.username || "Admin";
+    const state = {
+      isLive: true,
+      roomName,
+      startedBy: req.user!.id,
+      startedByName: userName,
+      startedAt: new Date().toISOString(),
+      title: title || `Sala en Vivo`,
+    };
+    const key = `live_room_${context}_${contextId}`;
+    await storage.upsertSiteContent(key, { content: JSON.stringify(state) }, req.user!.id);
+    // Send notification to all users
+    const notifLabels: Record<string, string> = { prayer: "Oracion", event: "Evento", live: "Transmision" };
+    const linkMap: Record<string, string> = { prayer: "/oracion", event: "/eventos", live: "/en-vivo" };
+    await storage.createNotificationForAll({
+      type: "sala_en_vivo",
+      title: `Sala en Vivo - ${notifLabels[context] || ""}`,
+      content: `${userName} ha iniciado una sala en vivo: ${state.title}`,
+      link: linkMap[context] || "/en-vivo",
+    });
+    res.json(state);
+  });
+
+  // Stop a live room (admin/teacher only or same user who started)
+  app.post(api.liveRoom.stop.path, async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    const { context, contextId } = req.params;
+    if (!validLiveRoomContexts.includes(context)) return res.sendStatus(400);
+    const key = `live_room_${context}_${contextId}`;
+    // Check permissions: admin, teacher, or the user who started it
+    const content = await storage.getSiteContent(key);
+    if (content?.content) {
+      try {
+        const current = JSON.parse(content.content);
+        if (!isAdmin(req) && !isTeacherOrAdmin(req) && current.startedBy !== req.user?.id) {
+          return res.sendStatus(403);
+        }
+      } catch {}
+    }
+    const state = { isLive: false, roomName: "", startedBy: null, startedByName: "", startedAt: null, title: "" };
+    await storage.upsertSiteContent(key, { content: JSON.stringify(state) }, req.user!.id);
+    res.json(state);
+  });
+
   // ========== COURSE SESSIONS ==========
   app.get(api.courseSessions.list.path, async (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);

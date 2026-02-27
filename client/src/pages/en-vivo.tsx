@@ -5,6 +5,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useLiveStreamConfig } from "@/hooks/use-users";
+import { useAuth } from "@/hooks/use-auth";
+import LiveRoom from "@/components/LiveRoom";
 import {
   Radio, Mic, Calendar, Video, Volume2, VolumeX,
   Play, Pause, Tv, Signal, Music, ExternalLink, AlertTriangle, Cast,
@@ -873,6 +875,7 @@ function VideoPlayer({ sourceType, sourceUrl }: { sourceType: string; sourceUrl:
 
 export default function EnVivo() {
   const { data: config, isLoading, isError } = useLiveStreamConfig();
+  const { user } = useAuth();
 
   const isLive = config?.isLive && config?.sourceType !== "radio" && config?.sourceUrl;
   const showRadio = !isLive || config?.sourceType === "radio";
@@ -947,6 +950,21 @@ export default function EnVivo() {
                     <RadioPlayer url={config.radioUrl} title="Radio Avivando el Fuego" />
                   </CardContent>
                 </Card>
+              )}
+
+              {/* Sala de Transmision en Vivo (Jitsi) */}
+              {user && (
+                <LiveRoom
+                  context="live"
+                  contextId="main"
+                  roomTitle="Transmision en Vivo - Culto"
+                  canManage={user.role === "admin" || user.role === "maestro"}
+                  userName={user.displayName || user.username}
+                  userEmail={user.email}
+                  startLabel="Iniciar Transmision en Vivo"
+                  joinLabel="Unirse a la Transmision"
+                  startDescription="Se creara una sala de video para transmitir un culto, reunion o evento en vivo. Todos los usuarios recibiran una notificacion automatica."
+                />
               )}
             </div>
 

@@ -379,6 +379,12 @@ export const api = {
     start: { method: "POST" as const, path: "/api/courses/:courseId/live-classroom/start" as const },
     stop: { method: "POST" as const, path: "/api/courses/:courseId/live-classroom/stop" as const },
   },
+  // ========== SALAS EN VIVO GENERICAS (Oracion, Eventos, En Vivo) ==========
+  liveRoom: {
+    get: { method: "GET" as const, path: "/api/live-room/:context/:contextId" as const },
+    start: { method: "POST" as const, path: "/api/live-room/:context/:contextId/start" as const },
+    stop: { method: "POST" as const, path: "/api/live-room/:context/:contextId/stop" as const },
+  },
   // ========== CALENDARIO UNIFICADO ==========
   calendar: {
     events: { method: "GET" as const, path: "/api/calendar/events" as const },
