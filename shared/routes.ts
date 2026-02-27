@@ -346,6 +346,9 @@ export const api = {
     prayerStats: { method: "GET" as const, path: "/api/reports/prayer" as const },
     libraryStats: { method: "GET" as const, path: "/api/reports/library" as const },
     enrollmentExport: { method: "GET" as const, path: "/api/reports/enrollments/export" as const },
+    liveEvents: { method: "GET" as const, path: "/api/reports/live-events" as const },
+    liveEventDetail: { method: "GET" as const, path: "/api/reports/live-events/:sessionId" as const },
+    liveEventExport: { method: "GET" as const, path: "/api/reports/live-events/export" as const },
   },
   // ========== SERMONES ==========
   sermons: {
@@ -384,6 +387,8 @@ export const api = {
     get: { method: "GET" as const, path: "/api/live-room/:context/:contextId" as const },
     start: { method: "POST" as const, path: "/api/live-room/:context/:contextId/start" as const },
     stop: { method: "POST" as const, path: "/api/live-room/:context/:contextId/stop" as const },
+    join: { method: "POST" as const, path: "/api/live-room/:context/:contextId/join" as const },
+    leave: { method: "POST" as const, path: "/api/live-room/:context/:contextId/leave" as const },
   },
   // ========== CALENDARIO UNIFICADO ==========
   calendar: {

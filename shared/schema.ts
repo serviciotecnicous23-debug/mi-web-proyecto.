@@ -1324,3 +1324,33 @@ export type InsertSmallGroupMeeting = z.infer<typeof insertSmallGroupMeetingSche
 export type SmallGroupAttendance = typeof smallGroupAttendance.$inferSelect;
 export type SmallGroupMessage = typeof smallGroupMessages.$inferSelect;
 export type InsertSmallGroupMessage = z.infer<typeof insertSmallGroupMessageSchema>;
+
+// ========== MONITOREO DE EVENTOS EN VIVO ==========
+
+export const liveEventSessions = pgTable("live_event_sessions", {
+  id: serial("id").primaryKey(),
+  context: text("context").notNull(), // "prayer" | "event" | "live" | "classroom"
+  contextId: text("context_id").notNull(),
+  title: text("title").notNull(),
+  roomName: text("room_name").notNull(),
+  startedBy: integer("started_by").notNull().references(() => users.id),
+  startedAt: timestamp("started_at").notNull().defaultNow(),
+  endedAt: timestamp("ended_at"),
+  durationMinutes: integer("duration_minutes"),
+  peakViewers: integer("peak_viewers").notNull().default(0),
+  totalJoins: integer("total_joins").notNull().default(0),
+  status: text("status").notNull().default("active"), // "active" | "ended"
+});
+
+export const liveEventAttendance = pgTable("live_event_attendance", {
+  id: serial("id").primaryKey(),
+  sessionId: integer("session_id").notNull().references(() => liveEventSessions.id),
+  userId: integer("user_id").notNull().references(() => users.id),
+  joinedAt: timestamp("joined_at").notNull().defaultNow(),
+  leftAt: timestamp("left_at"),
+  durationMinutes: integer("duration_minutes"),
+  joinCount: integer("join_count").notNull().default(1),
+});
+
+export type LiveEventSession = typeof liveEventSessions.$inferSelect;
+export type LiveEventAttendance = typeof liveEventAttendance.$inferSelect;

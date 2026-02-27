@@ -54,6 +54,8 @@ import {
   type SmallGroup, type InsertSmallGroup, type UpdateSmallGroup,
   type SmallGroupMember, type SmallGroupMeeting, type InsertSmallGroupMeeting,
   type SmallGroupAttendance, type SmallGroupMessage, type InsertSmallGroupMessage,
+  liveEventSessions, liveEventAttendance,
+  type LiveEventSession, type LiveEventAttendance,
 } from "@shared/schema";
 import { eq, desc, asc, and, ilike, or, sql, inArray, ne, lt } from "drizzle-orm";
 
@@ -356,6 +358,15 @@ export interface IStorage {
   getAttendanceReport(): Promise<any>;
   getPrayerStatsReport(): Promise<any>;
   getLibraryStatsReport(): Promise<any>;
+
+  // Live Event Monitoring
+  createLiveEventSession(data: { context: string; contextId: string; title: string; roomName: string; startedBy: number }): Promise<LiveEventSession>;
+  endLiveEventSession(sessionId: number): Promise<LiveEventSession | undefined>;
+  getActiveLiveSession(context: string, contextId: string): Promise<LiveEventSession | undefined>;
+  trackLiveEventJoin(sessionId: number, userId: number): Promise<LiveEventAttendance>;
+  trackLiveEventLeave(sessionId: number, userId: number): Promise<void>;
+  getLiveEventReport(): Promise<any>;
+  getLiveEventSessionDetail(sessionId: number): Promise<any>;
 
   // Calendar
   getCalendarEvents(start?: string, end?: string): Promise<any[]>;
@@ -2751,6 +2762,245 @@ export class DatabaseStorage implements IStorage {
         )
       );
     return result[0]?.count || 0;
+  }
+
+  // ========== LIVE EVENT MONITORING ==========
+
+  async createLiveEventSession(data: { context: string; contextId: string; title: string; roomName: string; startedBy: number }): Promise<LiveEventSession> {
+    const [session] = await db.insert(liveEventSessions).values({
+      context: data.context,
+      contextId: data.contextId,
+      title: data.title,
+      roomName: data.roomName,
+      startedBy: data.startedBy,
+      startedAt: new Date(),
+      status: "active",
+    }).returning();
+    return session;
+  }
+
+  async endLiveEventSession(sessionId: number): Promise<LiveEventSession | undefined> {
+    const [session] = await db.select().from(liveEventSessions).where(eq(liveEventSessions.id, sessionId));
+    if (!session) return undefined;
+    const endedAt = new Date();
+    const durationMinutes = session.startedAt ? Math.round((endedAt.getTime() - new Date(session.startedAt).getTime()) / 60000) : 0;
+    // Count total joins and peak concurrent
+    const joinStats = await db
+      .select({
+        totalJoins: sql<number>`count(*)::int`,
+        uniqueUsers: sql<number>`count(distinct user_id)::int`,
+      })
+      .from(liveEventAttendance)
+      .where(eq(liveEventAttendance.sessionId, sessionId));
+    // Also update any attendance records that are still open
+    await db.update(liveEventAttendance)
+      .set({
+        leftAt: endedAt,
+        durationMinutes: sql`GREATEST(1, EXTRACT(EPOCH FROM (${endedAt}::timestamp - joined_at)) / 60)::int`,
+      })
+      .where(
+        and(
+          eq(liveEventAttendance.sessionId, sessionId),
+          sql`left_at IS NULL`
+        )
+      );
+    const [updated] = await db.update(liveEventSessions)
+      .set({
+        endedAt,
+        durationMinutes,
+        status: "ended",
+        totalJoins: joinStats[0]?.totalJoins || 0,
+        peakViewers: joinStats[0]?.uniqueUsers || 0,
+      })
+      .where(eq(liveEventSessions.id, sessionId))
+      .returning();
+    return updated;
+  }
+
+  async getActiveLiveSession(context: string, contextId: string): Promise<LiveEventSession | undefined> {
+    const [session] = await db.select().from(liveEventSessions)
+      .where(
+        and(
+          eq(liveEventSessions.context, context),
+          eq(liveEventSessions.contextId, contextId),
+          eq(liveEventSessions.status, "active")
+        )
+      )
+      .orderBy(desc(liveEventSessions.startedAt))
+      .limit(1);
+    return session;
+  }
+
+  async trackLiveEventJoin(sessionId: number, userId: number): Promise<LiveEventAttendance> {
+    // Check if user already has an open attendance record for this session
+    const [existing] = await db.select().from(liveEventAttendance)
+      .where(
+        and(
+          eq(liveEventAttendance.sessionId, sessionId),
+          eq(liveEventAttendance.userId, userId),
+          sql`left_at IS NULL`
+        )
+      );
+    if (existing) return existing;
+    // Check if user has previous records for this session (to increment joinCount)
+    const prevRecords = await db.select({ count: sql<number>`count(*)::int` })
+      .from(liveEventAttendance)
+      .where(
+        and(
+          eq(liveEventAttendance.sessionId, sessionId),
+          eq(liveEventAttendance.userId, userId)
+        )
+      );
+    const joinCount = (prevRecords[0]?.count || 0) + 1;
+    const [record] = await db.insert(liveEventAttendance).values({
+      sessionId,
+      userId,
+      joinedAt: new Date(),
+      joinCount,
+    }).returning();
+    // Update peak viewers on session
+    const currentViewers = await db.select({ count: sql<number>`count(*)::int` })
+      .from(liveEventAttendance)
+      .where(
+        and(
+          eq(liveEventAttendance.sessionId, sessionId),
+          sql`left_at IS NULL`
+        )
+      );
+    const peak = currentViewers[0]?.count || 0;
+    await db.update(liveEventSessions)
+      .set({ peakViewers: sql`GREATEST(peak_viewers, ${peak})` })
+      .where(eq(liveEventSessions.id, sessionId));
+    return record;
+  }
+
+  async trackLiveEventLeave(sessionId: number, userId: number): Promise<void> {
+    const now = new Date();
+    await db.update(liveEventAttendance)
+      .set({
+        leftAt: now,
+        durationMinutes: sql`GREATEST(1, EXTRACT(EPOCH FROM (${now}::timestamp - joined_at)) / 60)::int`,
+      })
+      .where(
+        and(
+          eq(liveEventAttendance.sessionId, sessionId),
+          eq(liveEventAttendance.userId, userId),
+          sql`left_at IS NULL`
+        )
+      );
+  }
+
+  async getLiveEventReport(): Promise<any> {
+    const sessions = await db
+      .select({
+        id: liveEventSessions.id,
+        context: liveEventSessions.context,
+        contextId: liveEventSessions.contextId,
+        title: liveEventSessions.title,
+        roomName: liveEventSessions.roomName,
+        startedBy: liveEventSessions.startedBy,
+        startedAt: liveEventSessions.startedAt,
+        endedAt: liveEventSessions.endedAt,
+        durationMinutes: liveEventSessions.durationMinutes,
+        peakViewers: liveEventSessions.peakViewers,
+        totalJoins: liveEventSessions.totalJoins,
+        status: liveEventSessions.status,
+        creatorName: sql<string>`COALESCE(u.display_name, u.username)`,
+        creatorUsername: users.username,
+      })
+      .from(liveEventSessions)
+      .innerJoin(users, eq(liveEventSessions.startedBy, users.id))
+      .orderBy(desc(liveEventSessions.startedAt));
+
+    // Get unique attendee counts per session
+    const attendeeCounts = await db
+      .select({
+        sessionId: liveEventAttendance.sessionId,
+        uniqueUsers: sql<number>`count(distinct user_id)::int`,
+        totalConnections: sql<number>`count(*)::int`,
+        avgDuration: sql<number>`COALESCE(AVG(duration_minutes), 0)::int`,
+      })
+      .from(liveEventAttendance)
+      .groupBy(liveEventAttendance.sessionId);
+
+    const countsMap = new Map(attendeeCounts.map(c => [c.sessionId, c]));
+
+    // Summary stats
+    const totalSessions = sessions.length;
+    const totalDuration = sessions.reduce((sum, s) => sum + (s.durationMinutes || 0), 0);
+    const activeSessions = sessions.filter(s => s.status === "active").length;
+    const totalUniqueAttendees = new Set(attendeeCounts.flatMap(c => [])).size; // Simplified
+
+    // Context labels
+    const contextLabels: Record<string, string> = { prayer: "Oración", event: "Evento", live: "En Vivo", classroom: "Aula" };
+
+    return {
+      sessions: sessions.map(s => ({
+        ...s,
+        contextLabel: contextLabels[s.context] || s.context,
+        uniqueAttendees: countsMap.get(s.id)?.uniqueUsers || 0,
+        totalConnections: countsMap.get(s.id)?.totalConnections || 0,
+        avgDuration: countsMap.get(s.id)?.avgDuration || 0,
+      })),
+      summary: {
+        totalSessions,
+        activeSessions,
+        totalDuration,
+        avgDuration: totalSessions > 0 ? Math.round(totalDuration / totalSessions) : 0,
+      },
+    };
+  }
+
+  async getLiveEventSessionDetail(sessionId: number): Promise<any> {
+    const [session] = await db
+      .select({
+        id: liveEventSessions.id,
+        context: liveEventSessions.context,
+        contextId: liveEventSessions.contextId,
+        title: liveEventSessions.title,
+        roomName: liveEventSessions.roomName,
+        startedBy: liveEventSessions.startedBy,
+        startedAt: liveEventSessions.startedAt,
+        endedAt: liveEventSessions.endedAt,
+        durationMinutes: liveEventSessions.durationMinutes,
+        peakViewers: liveEventSessions.peakViewers,
+        totalJoins: liveEventSessions.totalJoins,
+        status: liveEventSessions.status,
+        creatorName: sql<string>`COALESCE(u.display_name, u.username)`,
+        creatorUsername: users.username,
+      })
+      .from(liveEventSessions)
+      .innerJoin(users, eq(liveEventSessions.startedBy, users.id))
+      .where(eq(liveEventSessions.id, sessionId));
+
+    if (!session) return null;
+
+    const attendees = await db
+      .select({
+        id: liveEventAttendance.id,
+        userId: liveEventAttendance.userId,
+        joinedAt: liveEventAttendance.joinedAt,
+        leftAt: liveEventAttendance.leftAt,
+        durationMinutes: liveEventAttendance.durationMinutes,
+        joinCount: liveEventAttendance.joinCount,
+        userName: sql<string>`COALESCE(u2.display_name, u2.username)`,
+        userUsername: sql<string>`u2.username`,
+        userAvatar: sql<string>`u2.avatar_url`,
+      })
+      .from(liveEventAttendance)
+      .innerJoin(sql`users u2`, sql`u2.id = ${liveEventAttendance.userId}`)
+      .where(eq(liveEventAttendance.sessionId, sessionId))
+      .orderBy(desc(liveEventAttendance.joinedAt));
+
+    const contextLabels: Record<string, string> = { prayer: "Oración", event: "Evento", live: "En Vivo", classroom: "Aula" };
+
+    return {
+      ...session,
+      contextLabel: contextLabels[session.context] || session.context,
+      attendees,
+      uniqueAttendees: new Set(attendees.map(a => a.userId)).size,
+      totalConnections: attendees.length,
+    };
   }
 }
 

@@ -1855,3 +1855,24 @@ export function useStopLiveRoom() {
     onError: (error: any) => { toast({ title: "Error", description: error.message, variant: "destructive" }); },
   });
 }
+
+// Track live room join/leave for monitoring
+export function useTrackLiveJoin() {
+  return useMutation({
+    mutationFn: async ({ context, contextId }: { context: string; contextId: string | number }) => {
+      const url = buildUrl(api.liveRoom.join.path, { context, contextId });
+      const res = await authFetch(url, { method: "POST" });
+      return res.json();
+    },
+  });
+}
+
+export function useTrackLiveLeave() {
+  return useMutation({
+    mutationFn: async ({ context, contextId }: { context: string; contextId: string | number }) => {
+      const url = buildUrl(api.liveRoom.leave.path, { context, contextId });
+      const res = await authFetch(url, { method: "POST" });
+      return res.json();
+    },
+  });
+}

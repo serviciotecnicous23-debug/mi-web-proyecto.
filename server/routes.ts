@@ -1595,6 +1595,16 @@ ${urls}
       title: title || `Clase en Vivo - ${course.title}`,
     };
     await storage.upsertSiteContent(`live_classroom_${courseId}`, { content: JSON.stringify(state) }, req.user!.id);
+    // Create monitoring session
+    try {
+      await storage.createLiveEventSession({
+        context: "classroom",
+        contextId: String(courseId),
+        title: state.title,
+        roomName,
+        startedBy: req.user!.id,
+      });
+    } catch (err) { console.error("Error creating live classroom session tracking:", err); }
     // Notify enrolled students
     const enrollments = await storage.listEnrollmentsByCourse(courseId);
     const enrolledUserIds = enrollments
@@ -1622,6 +1632,13 @@ ${urls}
     if (!isAdmin(req) && !(isTeacherOrAdmin(req) && course.teacherId === req.user?.id)) {
       return res.sendStatus(403);
     }
+    // End monitoring session
+    try {
+      const activeSession = await storage.getActiveLiveSession("classroom", String(courseId));
+      if (activeSession) {
+        await storage.endLiveEventSession(activeSession.id);
+      }
+    } catch (err) { console.error("Error ending live classroom session tracking:", err); }
     const state = { isLive: false, roomName: "", startedBy: null, startedByName: "", startedAt: null, title: "" };
     await storage.upsertSiteContent(`live_classroom_${courseId}`, { content: JSON.stringify(state) }, req.user!.id);
     res.json(state);
@@ -1666,6 +1683,16 @@ ${urls}
     };
     const key = `live_room_${context}_${contextId}`;
     await storage.upsertSiteContent(key, { content: JSON.stringify(state) }, req.user!.id);
+    // Create monitoring session
+    try {
+      await storage.createLiveEventSession({
+        context,
+        contextId,
+        title: state.title,
+        roomName,
+        startedBy: req.user!.id,
+      });
+    } catch (err) { console.error("Error creating live session tracking:", err); }
     // Send notification to all users
     const notifLabels: Record<string, string> = { prayer: "Oracion", event: "Evento", live: "Transmision" };
     const linkMap: Record<string, string> = { prayer: "/oracion", event: "/eventos", live: "/en-vivo" };
@@ -1694,9 +1721,50 @@ ${urls}
         }
       } catch {}
     }
+    // End monitoring session
+    try {
+      const activeSession = await storage.getActiveLiveSession(context, contextId);
+      if (activeSession) {
+        await storage.endLiveEventSession(activeSession.id);
+      }
+    } catch (err) { console.error("Error ending live session tracking:", err); }
     const state = { isLive: false, roomName: "", startedBy: null, startedByName: "", startedAt: null, title: "" };
     await storage.upsertSiteContent(key, { content: JSON.stringify(state) }, req.user!.id);
     res.json(state);
+  });
+
+  // Track user joining a live room
+  app.post(api.liveRoom.join.path, async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    const { context, contextId } = req.params;
+    if (!validLiveRoomContexts.includes(context)) return res.sendStatus(400);
+    try {
+      const activeSession = await storage.getActiveLiveSession(context, contextId);
+      if (activeSession) {
+        await storage.trackLiveEventJoin(activeSession.id, req.user!.id);
+      }
+      res.json({ ok: true });
+    } catch (err) {
+      console.error("Error tracking live join:", err);
+      res.json({ ok: true }); // Don't block user from joining
+    }
+  });
+
+  // Track user leaving a live room
+  app.post(api.liveRoom.leave.path, async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    const { context, contextId } = req.params;
+    if (!validLiveRoomContexts.includes(context)) return res.sendStatus(400);
+    try {
+      const activeSession = await storage.getActiveLiveSession(context, contextId);
+      if (activeSession) {
+        await storage.trackLiveEventLeave(activeSession.id, req.user!.id);
+      }
+      res.json({ ok: true });
+    } catch (err) {
+      console.error("Error tracking live leave:", err);
+      res.json({ ok: true });
+    }
   });
 
   // ========== COURSE SESSIONS ==========
@@ -3501,6 +3569,61 @@ ${urls}
       res.send("\uFEFF" + csv); // BOM for Excel
     } catch (err) {
       console.error("Export error:", err);
+      res.sendStatus(500);
+    }
+  });
+
+  // Live Events Report
+  app.get(api.reports.liveEvents.path, async (req, res) => {
+    if (!isAdmin(req)) return res.sendStatus(403);
+    try {
+      const data = await storage.getLiveEventReport();
+      res.json(data);
+    } catch (err) {
+      console.error("Live events report error:", err);
+      res.json({ sessions: [], summary: { totalSessions: 0, activeSessions: 0, totalDuration: 0, avgDuration: 0 } });
+    }
+  });
+
+  // Live Event Session Detail
+  app.get(api.reports.liveEventDetail.path, async (req, res) => {
+    if (!isAdmin(req)) return res.sendStatus(403);
+    try {
+      const sessionId = parseInt(req.params.sessionId);
+      const data = await storage.getLiveEventSessionDetail(sessionId);
+      if (!data) return res.sendStatus(404);
+      res.json(data);
+    } catch (err) {
+      console.error("Live event detail error:", err);
+      res.sendStatus(500);
+    }
+  });
+
+  // Live Events Export CSV
+  app.get(api.reports.liveEventExport.path, async (req, res) => {
+    if (!isAdmin(req)) return res.sendStatus(403);
+    try {
+      const data = await storage.getLiveEventReport();
+      const rows = data.sessions.map((s: any) => ({
+        Titulo: s.title,
+        Tipo: s.contextLabel,
+        Responsable: s.creatorName,
+        "Fecha Inicio": s.startedAt ? new Date(s.startedAt).toLocaleString("es") : "",
+        "Fecha Fin": s.endedAt ? new Date(s.endedAt).toLocaleString("es") : "Activa",
+        "Duracion (min)": s.durationMinutes || 0,
+        "Conectados Unicos": s.uniqueAttendees,
+        "Total Conexiones": s.totalConnections,
+        "Pico Conectados": s.peakViewers,
+        Estado: s.status === "active" ? "Activa" : "Finalizada",
+      }));
+      if (rows.length === 0) return res.status(200).send("Sin datos");
+      const headers = Object.keys(rows[0]);
+      const csv = [headers.join(","), ...rows.map((r: any) => headers.map(h => `"${String(r[h]).replace(/"/g, '""')}"`).join(","))].join("\n");
+      res.setHeader("Content-Type", "text/csv; charset=utf-8");
+      res.setHeader("Content-Disposition", "attachment; filename=eventos_en_vivo.csv");
+      res.send("\uFEFF" + csv);
+    } catch (err) {
+      console.error("Live events export error:", err);
       res.sendStatus(500);
     }
   });

@@ -12,7 +12,7 @@ import {
   Video, VideoOff, Radio, Users, Clock, Maximize2, Minimize2,
   PhoneOff, Loader2,
 } from "lucide-react";
-import { useLiveRoom, useStartLiveRoom, useStopLiveRoom } from "@/hooks/use-users";
+import { useLiveRoom, useStartLiveRoom, useStopLiveRoom, useTrackLiveJoin, useTrackLiveLeave } from "@/hooks/use-users";
 
 interface LiveRoomProps {
   /** Context type: "prayer" | "event" | "live" */
@@ -74,6 +74,8 @@ export default function LiveRoom({
   const { data: liveState, isLoading } = useLiveRoom(context, contextId);
   const startLive = useStartLiveRoom();
   const stopLive = useStopLiveRoom();
+  const trackJoin = useTrackLiveJoin();
+  const trackLeave = useTrackLiveLeave();
 
   const [showStartDialog, setShowStartDialog] = useState(false);
   const [classTitle, setClassTitle] = useState("");
@@ -146,6 +148,8 @@ export default function LiveRoom({
             jitsiApiRef.current = null;
           }
           setJoined(false);
+          // Track leave on Jitsi close
+          trackLeave.mutate({ context, contextId: String(contextId) });
         });
 
         if (canManage) {
@@ -173,6 +177,8 @@ export default function LiveRoom({
       jitsiApiRef.current.dispose();
       jitsiApiRef.current = null;
       setJoined(false);
+      // Track leave when room is stopped externally
+      trackLeave.mutate({ context, contextId: String(contextId) });
     }
   }, [isLive]);
 
@@ -210,6 +216,8 @@ export default function LiveRoom({
   const handleJoin = () => {
     if (!roomName) return;
     setJoined(true);
+    // Track join for monitoring
+    trackJoin.mutate({ context, contextId: String(contextId) });
   };
 
   const handleLeave = () => {
@@ -218,6 +226,8 @@ export default function LiveRoom({
       jitsiApiRef.current = null;
     }
     setJoined(false);
+    // Track leave for monitoring
+    trackLeave.mutate({ context, contextId: String(contextId) });
   };
 
   const toggleFullscreen = () => {

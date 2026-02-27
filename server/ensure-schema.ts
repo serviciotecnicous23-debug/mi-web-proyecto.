@@ -617,6 +617,33 @@ CREATE TABLE IF NOT EXISTS "small_group_messages" (
   "content" text NOT NULL,
   "created_at" timestamp DEFAULT now()
 );
+
+-- Live event sessions (monitoring)
+CREATE TABLE IF NOT EXISTS "live_event_sessions" (
+  "id" serial PRIMARY KEY,
+  "context" text NOT NULL,
+  "context_id" text NOT NULL,
+  "title" text NOT NULL,
+  "room_name" text NOT NULL,
+  "started_by" integer NOT NULL REFERENCES "users"("id"),
+  "started_at" timestamp NOT NULL DEFAULT now(),
+  "ended_at" timestamp,
+  "duration_minutes" integer,
+  "peak_viewers" integer NOT NULL DEFAULT 0,
+  "total_joins" integer NOT NULL DEFAULT 0,
+  "status" text NOT NULL DEFAULT 'active'
+);
+
+-- Live event attendance (monitoring)
+CREATE TABLE IF NOT EXISTS "live_event_attendance" (
+  "id" serial PRIMARY KEY,
+  "session_id" integer NOT NULL REFERENCES "live_event_sessions"("id"),
+  "user_id" integer NOT NULL REFERENCES "users"("id"),
+  "joined_at" timestamp NOT NULL DEFAULT now(),
+  "left_at" timestamp,
+  "duration_minutes" integer,
+  "join_count" integer NOT NULL DEFAULT 1
+);
 `;
 
 // ALTER TABLE statements to add columns that might be missing from older schemas

@@ -15,6 +15,7 @@ import {
   Users, BookOpen, Calendar, Heart, Download, TrendingUp, GraduationCap,
   Library, Activity, DollarSign, FileSpreadsheet, Church, MessageSquare,
   Mic, UserCheck, Globe, Award, BarChart3, ArrowUpRight, ArrowDownRight, Clock,
+  Video, Radio, Eye, Timer, User, ChevronDown, ChevronUp,
 } from "lucide-react";
 
 const COLORS = ["#f97316", "#eab308", "#22c55e", "#3b82f6", "#8b5cf6", "#ec4899", "#14b8a6", "#f43f5e"];
@@ -60,6 +61,19 @@ export default function ReportesPage() {
     enabled: user?.role === "admin",
   });
 
+  const { data: liveEventsReport } = useQuery<any>({
+    queryKey: ["/api/reports/live-events"],
+    enabled: user?.role === "admin",
+  });
+
+  const [expandedSession, setExpandedSession] = useState<number | null>(null);
+
+  const { data: sessionDetail } = useQuery<any>({
+    queryKey: ["/api/reports/live-events", expandedSession],
+    queryFn: () => fetch(`/api/reports/live-events/${expandedSession}`, { credentials: "include" }).then(r => r.json()),
+    enabled: !!expandedSession && user?.role === "admin",
+  });
+
   if (!user || user.role !== "admin") {
     return (
       <Layout>
@@ -87,6 +101,10 @@ export default function ReportesPage() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a"); a.href = url; a.download = `finanzas_${reportYear}.csv`; a.click();
     URL.revokeObjectURL(url);
+  };
+
+  const handleExportLiveEvents = () => {
+    window.open("/api/reports/live-events/export", "_blank");
   };
 
   // Calculate engagement metrics
@@ -233,12 +251,13 @@ export default function ReportesPage() {
 
         {/* ===== DETAILED TABS ===== */}
         <Tabs defaultValue="members">
-          <TabsList className="grid w-full grid-cols-3 sm:grid-cols-6">
+          <TabsList className="grid w-full grid-cols-4 sm:grid-cols-7">
             <TabsTrigger value="members" className="text-xs">Miembros</TabsTrigger>
             <TabsTrigger value="courses" className="text-xs">Cursos</TabsTrigger>
             <TabsTrigger value="finance" className="text-xs">Finanzas</TabsTrigger>
             <TabsTrigger value="prayer" className="text-xs">Oración</TabsTrigger>
             <TabsTrigger value="library" className="text-xs">Biblioteca</TabsTrigger>
+            <TabsTrigger value="live" className="text-xs gap-1"><Video className="h-3 w-3" /> En Vivo</TabsTrigger>
             <TabsTrigger value="engagement" className="text-xs">Engagement</TabsTrigger>
           </TabsList>
 
@@ -546,6 +565,302 @@ export default function ReportesPage() {
                 </CardContent>
               </Card>
             </div>
+          </TabsContent>
+
+          {/* ===== LIVE EVENTS TAB ===== */}
+          <TabsContent value="live" className="space-y-4">
+            {/* Summary Cards */}
+            {liveEventsReport?.summary && (
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <Card className="border-red-200/50 bg-gradient-to-br from-red-50 to-red-100/30 dark:from-red-950/20 dark:to-red-900/10">
+                  <CardContent className="p-3 text-center">
+                    <Video className="h-6 w-6 mx-auto text-red-500 mb-1" />
+                    <div className="text-xl font-bold">{liveEventsReport.summary.totalSessions}</div>
+                    <p className="text-[10px] text-muted-foreground">Total Sesiones</p>
+                    {liveEventsReport.summary.activeSessions > 0 && (
+                      <Badge variant="destructive" className="mt-1 text-[9px] animate-pulse">{liveEventsReport.summary.activeSessions} activa(s)</Badge>
+                    )}
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardContent className="p-3 text-center">
+                    <Timer className="h-6 w-6 mx-auto text-blue-500 mb-1" />
+                    <div className="text-xl font-bold">{liveEventsReport.summary.totalDuration}</div>
+                    <p className="text-[10px] text-muted-foreground">Minutos Totales</p>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardContent className="p-3 text-center">
+                    <Clock className="h-6 w-6 mx-auto text-green-500 mb-1" />
+                    <div className="text-xl font-bold">{liveEventsReport.summary.avgDuration}</div>
+                    <p className="text-[10px] text-muted-foreground">Prom. Duración (min)</p>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardContent className="p-3 text-center">
+                    <Radio className="h-6 w-6 mx-auto text-purple-500 mb-1" />
+                    <div className="text-xl font-bold">
+                      {liveEventsReport.sessions?.reduce((max: number, s: any) => Math.max(max, s.peakViewers || 0), 0)}
+                    </div>
+                    <p className="text-[10px] text-muted-foreground">Pico Máx Conectados</p>
+                  </CardContent>
+                </Card>
+              </div>
+            )}
+
+            {/* Export Button */}
+            <div className="flex justify-end">
+              <Button onClick={handleExportLiveEvents} variant="outline" size="sm" className="gap-1">
+                <FileSpreadsheet className="h-3.5 w-3.5" /> Exportar CSV
+              </Button>
+            </div>
+
+            {/* Sessions Table */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-sm flex items-center gap-2">
+                  <Video className="h-4 w-4 text-red-500" /> Historial de Eventos en Vivo
+                </CardTitle>
+                <CardDescription className="text-xs">
+                  Detalle de cada sesión: quién la creó, conectados, duración y más
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {liveEventsReport?.sessions?.length > 0 ? (
+                  <div className="space-y-2">
+                    {liveEventsReport.sessions.map((session: any) => (
+                      <div key={session.id} className="border rounded-lg overflow-hidden">
+                        {/* Session Header Row */}
+                        <div
+                          className={`p-3 cursor-pointer hover:bg-muted/50 transition-colors ${session.status === "active" ? "bg-red-50/50 dark:bg-red-950/20 border-l-4 border-l-red-500" : ""}`}
+                          onClick={() => setExpandedSession(expandedSession === session.id ? null : session.id)}
+                        >
+                          <div className="flex items-center justify-between flex-wrap gap-2">
+                            <div className="flex items-center gap-3">
+                              <div className="relative">
+                                {session.status === "active" ? (
+                                  <>
+                                    <Radio className="w-5 h-5 text-red-500" />
+                                    <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-red-500 rounded-full animate-pulse" />
+                                  </>
+                                ) : (
+                                  <Video className="w-5 h-5 text-muted-foreground" />
+                                )}
+                              </div>
+                              <div>
+                                <h4 className="text-sm font-semibold flex items-center gap-2">
+                                  {session.title}
+                                  {session.status === "active" && (
+                                    <Badge variant="destructive" className="text-[9px] animate-pulse">EN VIVO</Badge>
+                                  )}
+                                </h4>
+                                <div className="flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground mt-0.5">
+                                  <Badge variant="outline" className="text-[9px]">{session.contextLabel}</Badge>
+                                  <span className="flex items-center gap-1">
+                                    <User className="w-3 h-3" />
+                                    {session.creatorName}
+                                  </span>
+                                  <span className="flex items-center gap-1">
+                                    <Calendar className="w-3 h-3" />
+                                    {session.startedAt ? new Date(session.startedAt).toLocaleDateString("es", { day: "2-digit", month: "short", year: "numeric" }) : ""}
+                                  </span>
+                                  <span className="flex items-center gap-1">
+                                    <Clock className="w-3 h-3" />
+                                    {session.startedAt ? new Date(session.startedAt).toLocaleTimeString("es", { hour: "2-digit", minute: "2-digit" }) : ""}
+                                    {session.endedAt && (
+                                      <> - {new Date(session.endedAt).toLocaleTimeString("es", { hour: "2-digit", minute: "2-digit" })}</>
+                                    )}
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-3 text-xs">
+                              <div className="text-center">
+                                <div className="font-bold text-blue-600">{session.uniqueAttendees}</div>
+                                <div className="text-[9px] text-muted-foreground">Conectados</div>
+                              </div>
+                              <div className="text-center">
+                                <div className="font-bold text-green-600">{session.durationMinutes || 0} min</div>
+                                <div className="text-[9px] text-muted-foreground">Duración</div>
+                              </div>
+                              <div className="text-center">
+                                <div className="font-bold text-purple-600">{session.peakViewers}</div>
+                                <div className="text-[9px] text-muted-foreground">Pico</div>
+                              </div>
+                              {expandedSession === session.id ? (
+                                <ChevronUp className="w-4 h-4 text-muted-foreground" />
+                              ) : (
+                                <ChevronDown className="w-4 h-4 text-muted-foreground" />
+                              )}
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Expanded Session Detail */}
+                        {expandedSession === session.id && sessionDetail && (
+                          <div className="border-t bg-muted/20 p-4 space-y-4">
+                            {/* Session Info */}
+                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                              <div className="bg-background rounded-lg p-3 border">
+                                <p className="text-[10px] text-muted-foreground">Creador / Responsable</p>
+                                <p className="font-semibold text-sm">{sessionDetail.creatorName}</p>
+                                <p className="text-[10px] text-muted-foreground">@{sessionDetail.creatorUsername}</p>
+                              </div>
+                              <div className="bg-background rounded-lg p-3 border">
+                                <p className="text-[10px] text-muted-foreground">Usuarios Únicos</p>
+                                <p className="font-semibold text-sm text-blue-600">{sessionDetail.uniqueAttendees}</p>
+                              </div>
+                              <div className="bg-background rounded-lg p-3 border">
+                                <p className="text-[10px] text-muted-foreground">Total Conexiones</p>
+                                <p className="font-semibold text-sm text-orange-600">{sessionDetail.totalConnections}</p>
+                              </div>
+                              <div className="bg-background rounded-lg p-3 border">
+                                <p className="text-[10px] text-muted-foreground">Sala</p>
+                                <p className="font-semibold text-[10px] break-all">{sessionDetail.roomName}</p>
+                              </div>
+                            </div>
+
+                            {/* Attendees Table */}
+                            {sessionDetail.attendees?.length > 0 ? (
+                              <div>
+                                <h5 className="text-xs font-semibold mb-2 flex items-center gap-1">
+                                  <Users className="w-3.5 h-3.5" /> Detalle de Conectados ({sessionDetail.attendees.length} registros)
+                                </h5>
+                                <div className="overflow-x-auto">
+                                  <table className="w-full text-xs">
+                                    <thead>
+                                      <tr className="border-b bg-muted/30">
+                                        <th className="text-left p-2">Usuario</th>
+                                        <th className="text-left p-2">Hora Entrada</th>
+                                        <th className="text-left p-2">Hora Salida</th>
+                                        <th className="text-right p-2">Duración (min)</th>
+                                        <th className="text-right p-2"># Conexión</th>
+                                      </tr>
+                                    </thead>
+                                    <tbody>
+                                      {sessionDetail.attendees.map((a: any) => (
+                                        <tr key={a.id} className="border-b hover:bg-muted/20">
+                                          <td className="p-2">
+                                            <div className="flex items-center gap-2">
+                                              {a.userAvatar ? (
+                                                <img src={a.userAvatar} alt="" className="w-6 h-6 rounded-full object-cover" />
+                                              ) : (
+                                                <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center">
+                                                  <User className="w-3 h-3 text-primary" />
+                                                </div>
+                                              )}
+                                              <div>
+                                                <span className="font-medium">{a.userName}</span>
+                                                <span className="text-muted-foreground ml-1">@{a.userUsername}</span>
+                                              </div>
+                                            </div>
+                                          </td>
+                                          <td className="p-2">
+                                            {a.joinedAt ? new Date(a.joinedAt).toLocaleTimeString("es", { hour: "2-digit", minute: "2-digit", second: "2-digit" }) : "-"}
+                                          </td>
+                                          <td className="p-2">
+                                            {a.leftAt ? (
+                                              new Date(a.leftAt).toLocaleTimeString("es", { hour: "2-digit", minute: "2-digit", second: "2-digit" })
+                                            ) : (
+                                              <Badge variant="outline" className="text-[9px] text-green-600">Conectado</Badge>
+                                            )}
+                                          </td>
+                                          <td className="p-2 text-right font-mono">
+                                            {a.durationMinutes || (a.leftAt ? "-" : (
+                                              <Badge variant="outline" className="text-[9px]">activo</Badge>
+                                            ))}
+                                          </td>
+                                          <td className="p-2 text-right font-mono">{a.joinCount}</td>
+                                        </tr>
+                                      ))}
+                                    </tbody>
+                                  </table>
+                                </div>
+                              </div>
+                            ) : (
+                              <p className="text-xs text-muted-foreground text-center py-4">
+                                No hay registros de conexión para esta sesión
+                              </p>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-8">
+                    <Video className="w-12 h-12 text-muted-foreground mx-auto mb-3 opacity-40" />
+                    <p className="text-sm text-muted-foreground">No hay sesiones en vivo registradas aún.</p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Las sesiones se registran automáticamente cuando un administrador o maestro inicia una sala en vivo.
+                    </p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Distribution by Type Chart */}
+            {liveEventsReport?.sessions?.length > 0 && (() => {
+              const contextCounts = liveEventsReport.sessions.reduce((acc: any, s: any) => {
+                acc[s.contextLabel] = (acc[s.contextLabel] || 0) + 1;
+                return acc;
+              }, {});
+              const chartData = Object.entries(contextCounts).map(([name, value]) => ({ name, value }));
+              return (
+                <div className="grid md:grid-cols-2 gap-4">
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="text-sm">Distribución por Tipo</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <ResponsiveContainer width="100%" height={250}>
+                        <PieChart>
+                          <Pie data={chartData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={80} innerRadius={35} label>
+                            {chartData.map((_: any, i: number) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
+                          </Pie>
+                          <Tooltip />
+                          <Legend />
+                        </PieChart>
+                      </ResponsiveContainer>
+                    </CardContent>
+                  </Card>
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="text-sm">Top Responsables</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      {(() => {
+                        const creatorCounts = liveEventsReport.sessions.reduce((acc: any, s: any) => {
+                          acc[s.creatorName] = (acc[s.creatorName] || 0) + 1;
+                          return acc;
+                        }, {});
+                        const creatorData = Object.entries(creatorCounts)
+                          .map(([name, count]) => ({ name, count }))
+                          .sort((a: any, b: any) => b.count - a.count)
+                          .slice(0, 10);
+                        const maxCount = creatorData.length > 0 ? (creatorData[0] as any).count : 1;
+                        return (
+                          <div className="space-y-2">
+                            {creatorData.map((c: any, i: number) => (
+                              <div key={i} className="flex items-center gap-3">
+                                <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center text-[10px] font-bold">{i + 1}</div>
+                                <span className="text-xs text-muted-foreground w-24 truncate">{c.name}</span>
+                                <div className="flex-1">
+                                  <div className="w-full bg-muted rounded-full h-2">
+                                    <div className="bg-orange-500 h-2 rounded-full" style={{ width: `${(c.count / maxCount) * 100}%` }} />
+                                  </div>
+                                </div>
+                                <span className="text-xs font-mono font-bold w-6 text-right">{c.count}</span>
+                              </div>
+                            ))}
+                          </div>
+                        );
+                      })()}
+                    </CardContent>
+                  </Card>
+                </div>
+              );
+            })()}
           </TabsContent>
 
           {/* ===== ENGAGEMENT TAB ===== */}
