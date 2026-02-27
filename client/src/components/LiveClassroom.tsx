@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -22,6 +22,28 @@ interface LiveClassroomProps {
   userEmail?: string;
 }
 
+// Helper: load Jitsi external_api.js script once
+function loadJitsiScript(): Promise<void> {
+  return new Promise((resolve, reject) => {
+    if ((window as any).JitsiMeetExternalAPI) {
+      resolve();
+      return;
+    }
+    const existing = document.querySelector('script[src*="external_api.js"]');
+    if (existing) {
+      existing.addEventListener("load", () => resolve());
+      existing.addEventListener("error", () => reject(new Error("Failed to load Jitsi")));
+      return;
+    }
+    const script = document.createElement("script");
+    script.src = "https://meet.jit.si/external_api.js";
+    script.async = true;
+    script.onload = () => resolve();
+    script.onerror = () => reject(new Error("Failed to load Jitsi script"));
+    document.head.appendChild(script);
+  });
+}
+
 export default function LiveClassroom({ courseId, courseTitle, canManage, userName, userEmail }: LiveClassroomProps) {
   const { data: liveState, isLoading } = useLiveClassroom(courseId);
   const startLive = useStartLiveClassroom();
@@ -30,6 +52,7 @@ export default function LiveClassroom({ courseId, courseTitle, canManage, userNa
   const [showStartDialog, setShowStartDialog] = useState(false);
   const [classTitle, setClassTitle] = useState("");
   const [joined, setJoined] = useState(false);
+  const [jitsiLoading, setJitsiLoading] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const jitsiContainerRef = useRef<HTMLDivElement>(null);
   const jitsiApiRef = useRef<any>(null);
@@ -37,7 +60,91 @@ export default function LiveClassroom({ courseId, courseTitle, canManage, userNa
   const isLive = liveState?.isLive;
   const roomName = liveState?.roomName;
 
-  // Clean up Jitsi when leaving or when class stops
+  // Initialize Jitsi AFTER the container div is rendered (joined=true triggers render, then useEffect fires)
+  useEffect(() => {
+    if (!joined || !roomName || !jitsiContainerRef.current) return;
+    // Don't re-init if already running
+    if (jitsiApiRef.current) return;
+
+    let cancelled = false;
+    setJitsiLoading(true);
+
+    loadJitsiScript()
+      .then(() => {
+        if (cancelled || !jitsiContainerRef.current) return;
+
+        const domain = "meet.jit.si";
+        const options = {
+          roomName,
+          parentNode: jitsiContainerRef.current,
+          width: "100%",
+          height: 500,
+          configOverwrite: {
+            startWithAudioMuted: !canManage,
+            startWithVideoMuted: !canManage,
+            prejoinPageEnabled: false,
+            disableModeratorIndicator: false,
+            enableClosePage: false,
+            toolbarButtons: [
+              "microphone", "camera", "desktop", "fullscreen",
+              "chat", "raisehand", "participants-pane",
+              "tileview", "hangup",
+              ...(canManage ? ["mute-everyone", "recording"] : []),
+            ],
+            notifications: [],
+            disableDeepLinking: true,
+          },
+          interfaceConfigOverwrite: {
+            SHOW_JITSI_WATERMARK: false,
+            SHOW_WATERMARK_FOR_GUESTS: false,
+            DEFAULT_BACKGROUND: "#1a1a2e",
+            TOOLBAR_ALWAYS_VISIBLE: true,
+            DISABLE_JOIN_LEAVE_NOTIFICATIONS: false,
+            MOBILE_APP_PROMO: false,
+            HIDE_INVITE_MORE_HEADER: true,
+            SHOW_CHROME_EXTENSION_BANNER: false,
+          },
+          userInfo: {
+            displayName: userName,
+            email: userEmail || "",
+          },
+        };
+
+        // @ts-ignore
+        const api = new window.JitsiMeetExternalAPI(domain, options);
+        jitsiApiRef.current = api;
+        setJitsiLoading(false);
+
+        api.addEventListener("readyToClose", () => {
+          if (jitsiApiRef.current) {
+            jitsiApiRef.current.dispose();
+            jitsiApiRef.current = null;
+          }
+          setJoined(false);
+        });
+
+        // If teacher, set subject
+        if (canManage) {
+          api.addEventListener("participantRoleChanged", (event: any) => {
+            if (event.role === "moderator") {
+              api.executeCommand("subject", liveState?.title || `Clase: ${courseTitle}`);
+            }
+          });
+        }
+      })
+      .catch((err) => {
+        console.error("Error loading Jitsi:", err);
+        setJitsiLoading(false);
+        setJoined(false);
+        alert("Error al cargar Jitsi Meet. Por favor intente de nuevo.");
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [joined, roomName]); // Only re-run when joined or roomName changes
+
+  // Clean up Jitsi when class stops
   useEffect(() => {
     if (!isLive && jitsiApiRef.current) {
       jitsiApiRef.current.dispose();
@@ -78,89 +185,8 @@ export default function LiveClassroom({ courseId, courseTitle, canManage, userNa
   };
 
   const handleJoinClass = () => {
-    if (!roomName || !jitsiContainerRef.current) return;
-    setJoined(true);
-
-    // Load Jitsi external API script if not already loaded
-    const loadJitsiAndStart = () => {
-      if (jitsiApiRef.current) {
-        jitsiApiRef.current.dispose();
-        jitsiApiRef.current = null;
-      }
-
-      const domain = "meet.jit.si";
-      const options = {
-        roomName,
-        parentNode: jitsiContainerRef.current,
-        width: "100%",
-        height: isFullscreen ? "100vh" : "500",
-        configOverwrite: {
-          startWithAudioMuted: !canManage,
-          startWithVideoMuted: !canManage,
-          prejoinPageEnabled: false,
-          disableModeratorIndicator: false,
-          enableClosePage: false,
-          toolbarButtons: [
-            "microphone", "camera", "desktop", "fullscreen",
-            "chat", "raisehand", "participants-pane",
-            "tileview", "hangup",
-            ...(canManage ? ["mute-everyone", "recording"] : []),
-          ],
-          notifications: [],
-          disableDeepLinking: true,
-        },
-        interfaceConfigOverwrite: {
-          SHOW_JITSI_WATERMARK: false,
-          SHOW_WATERMARK_FOR_GUESTS: false,
-          DEFAULT_BACKGROUND: "#1a1a2e",
-          TOOLBAR_ALWAYS_VISIBLE: true,
-          DISABLE_JOIN_LEAVE_NOTIFICATIONS: false,
-          MOBILE_APP_PROMO: false,
-          HIDE_INVITE_MORE_HEADER: true,
-          SHOW_CHROME_EXTENSION_BANNER: false,
-        },
-        userInfo: {
-          displayName: userName,
-          email: userEmail || "",
-        },
-      };
-
-      // @ts-ignore
-      const api = new window.JitsiMeetExternalAPI(domain, options);
-      jitsiApiRef.current = api;
-
-      api.addEventListener("readyToClose", () => {
-        setJoined(false);
-        if (jitsiApiRef.current) {
-          jitsiApiRef.current.dispose();
-          jitsiApiRef.current = null;
-        }
-      });
-
-      // If teacher, set as moderator
-      if (canManage) {
-        api.addEventListener("participantRoleChanged", (event: any) => {
-          if (event.role === "moderator") {
-            api.executeCommand("subject", liveState?.title || `Clase: ${courseTitle}`);
-          }
-        });
-      }
-    };
-
-    // Check if Jitsi API script is already loaded
-    if ((window as any).JitsiMeetExternalAPI) {
-      loadJitsiAndStart();
-    } else {
-      const script = document.createElement("script");
-      script.src = "https://meet.jit.si/external_api.js";
-      script.async = true;
-      script.onload = loadJitsiAndStart;
-      script.onerror = () => {
-        setJoined(false);
-        alert("Error al cargar Jitsi Meet. Por favor intente de nuevo.");
-      };
-      document.head.appendChild(script);
-    }
+    if (!roomName) return;
+    setJoined(true); // This triggers re-render → container appears → useEffect initializes Jitsi
   };
 
   const handleLeaveClass = () => {
@@ -257,6 +283,12 @@ export default function LiveClassroom({ courseId, courseTitle, canManage, userNa
               </div>
             ) : (
               <div className="space-y-2">
+                {jitsiLoading && (
+                  <div className="flex items-center justify-center py-6 gap-2 text-muted-foreground">
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                    <span className="text-sm">Conectando a la sala de video...</span>
+                  </div>
+                )}
                 <div
                   ref={jitsiContainerRef}
                   className={`rounded-lg overflow-hidden ${isFullscreen ? "h-[calc(100vh-120px)]" : "h-[500px]"}`}
