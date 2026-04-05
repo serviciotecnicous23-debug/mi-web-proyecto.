@@ -2113,7 +2113,8 @@ ${urls}
     if (!isAdmin(req)) return res.sendStatus(403);
     const id = parseInt(req.params.id);
     const { role } = req.body;
-    if (!["admin", "obrero", "aspirante", "miembro"].includes(role)) {
+    const validRoles = ["director", "staff_global", "admin_iglesia", "maestro_ministerio", "maestro_iglesia", "miembro", "usuario", "admin", "obrero"];
+    if (!validRoles.includes(role)) {
       return res.status(400).json({ message: "Rol invalido" });
     }
     const user = await storage.updateUserRole(id, role);

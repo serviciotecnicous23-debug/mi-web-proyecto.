@@ -85,8 +85,9 @@ export default function MiIglesiaPage() {
       return res.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/member-channeling"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/churches"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/member-channeling", effectiveChurchId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/churches", effectiveChurchId, "members"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/churches", effectiveChurchId, "dashboard"] });
       toast({ title: "Actualizado", description: "La solicitud ha sido procesada." });
     },
   });
