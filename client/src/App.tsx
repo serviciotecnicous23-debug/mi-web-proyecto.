@@ -36,6 +36,10 @@ import SermonesPage from "@/pages/sermones";
 import GruposPage from "@/pages/grupos";
 import CalendarioPage from "@/pages/calendario";
 import CertificadosPage from "@/pages/certificados";
+import AlianzaPage from "@/pages/alianza";
+import FichaMinisterialPage from "@/pages/ficha-ministerial";
+import MiIglesiaPage from "@/pages/mi-iglesia";
+import BuscarIglesiaPage from "@/pages/buscar-iglesia";
 
 function Router() {
   return (
@@ -70,6 +74,11 @@ function Router() {
       <Route path="/grupos" component={GruposPage} />
       <Route path="/calendario" component={CalendarioPage} />
       <Route path="/certificados" component={CertificadosPage} />
+      <Route path="/alianza" component={AlianzaPage} />
+      <Route path="/ficha-ministerial" component={FichaMinisterialPage} />
+      <Route path="/ficha-ministerial/:userId" component={FichaMinisterialPage} />
+      <Route path="/mi-iglesia" component={MiIglesiaPage} />
+      <Route path="/buscar-iglesia" component={BuscarIglesiaPage} />
       <Route component={NotFound} />
     </Switch>
   );

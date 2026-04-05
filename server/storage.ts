@@ -56,6 +56,15 @@ import {
   type SmallGroupAttendance, type SmallGroupMessage, type InsertSmallGroupMessage,
   liveEventSessions, liveEventAttendance,
   type LiveEventSession, type LiveEventAttendance,
+  // Reforma ministerial
+  teacherProfiles, type TeacherProfile, type InsertTeacherProfile, type UpdateTeacherProfile,
+  churchPermissions, type ChurchPermission, type InsertChurchPermission,
+  churchMemberships, type ChurchMembership,
+  courseTeacherAssignments, type CourseTeacherAssignment, type InsertCourseTeacherAssignment, type UpdateCourseTeacherAssignment,
+  allianceRequests, type AllianceRequest, type InsertAllianceRequest, type UpdateAllianceRequest,
+  memberChanneling, type MemberChanneling, type InsertMemberChanneling,
+  auditLog, type AuditLog,
+  memberProgress, type MemberProgressEntry,
 } from "@shared/schema";
 import { eq, desc, asc, and, ilike, or, sql, inArray, ne, lt } from "drizzle-orm";
 
@@ -370,6 +379,47 @@ export interface IStorage {
 
   // Calendar
   getCalendarEvents(start?: string, end?: string): Promise<any[]>;
+
+  // ========== REFORMA MINISTERIAL ==========
+  // Teacher Profiles
+  getTeacherProfile(userId: number): Promise<TeacherProfile | undefined>;
+  createTeacherProfile(userId: number, data: InsertTeacherProfile): Promise<TeacherProfile>;
+  updateTeacherProfile(userId: number, data: UpdateTeacherProfile): Promise<TeacherProfile | undefined>;
+  listTeacherProfiles(): Promise<(TeacherProfile & { user: { id: number; username: string; displayName: string | null; avatarUrl: string | null } })[]>;
+  approveTeacherProfile(userId: number, approvedBy: number): Promise<TeacherProfile | undefined>;
+
+  // Church Permissions
+  getChurchPermissions(churchId: number): Promise<(ChurchPermission & { user: { id: number; username: string; displayName: string | null } })[]>;
+  setChurchPermission(data: InsertChurchPermission, grantedBy: number): Promise<ChurchPermission>;
+  removeChurchPermission(userId: number, churchId: number): Promise<void>;
+  getUserChurchRole(userId: number, churchId: number): Promise<string | null>;
+
+  // Alliance Requests
+  createAllianceRequest(data: InsertAllianceRequest): Promise<AllianceRequest>;
+  listAllianceRequests(): Promise<AllianceRequest[]>;
+  updateAllianceRequest(id: number, data: UpdateAllianceRequest, reviewedBy: number): Promise<AllianceRequest | undefined>;
+
+  // Member Channeling
+  createMemberChanneling(userId: number, data: InsertMemberChanneling): Promise<MemberChanneling>;
+  listMemberChannelings(churchId?: number): Promise<(MemberChanneling & { user: { id: number; username: string; displayName: string | null } })[]>;
+  resolveMemberChanneling(id: number, status: string, resolvedBy: number): Promise<MemberChanneling | undefined>;
+
+  // Course Teacher Assignments
+  createCourseTeacherAssignment(data: InsertCourseTeacherAssignment, proposedBy: number): Promise<CourseTeacherAssignment>;
+  listCourseTeacherAssignments(courseId: number): Promise<(CourseTeacherAssignment & { teacher: { id: number; username: string; displayName: string | null } })[]>;
+  updateCourseTeacherAssignment(id: number, data: UpdateCourseTeacherAssignment, approvedBy: number): Promise<CourseTeacherAssignment | undefined>;
+
+  // Audit Log
+  createAuditLog(data: { userId?: number; action: string; entityType: string; entityId?: number; details?: string; ipAddress?: string }): Promise<AuditLog>;
+  listAuditLogs(limit?: number): Promise<(AuditLog & { user?: { username: string; displayName: string | null } })[]>;
+
+  // Member Progress / Badges
+  awardBadge(userId: number, badgeType: string, details?: string): Promise<MemberProgressEntry>;
+  getUserBadges(userId: number): Promise<MemberProgressEntry[]>;
+
+  // Church Dashboard
+  getChurchDashboard(churchId: number): Promise<{ memberCount: number; courseCount: number; eventCount: number }>;
+  getChurchMembers(churchId: number): Promise<{ id: number; username: string; displayName: string | null; avatarUrl: string | null; memberType: string | null; role: string }[]>;
 }
 export class DatabaseStorage implements IStorage {
   async getUser(id: number): Promise<User | undefined> {
@@ -3001,6 +3051,201 @@ export class DatabaseStorage implements IStorage {
       uniqueAttendees: new Set(attendees.map(a => a.userId)).size,
       totalConnections: attendees.length,
     };
+  }
+
+  // ========== REFORMA MINISTERIAL: IMPLEMENTACIONES ==========
+
+  // Teacher Profiles
+  async getTeacherProfile(userId: number): Promise<TeacherProfile | undefined> {
+    const [profile] = await db.select().from(teacherProfiles).where(eq(teacherProfiles.userId, userId));
+    return profile;
+  }
+
+  async createTeacherProfile(userId: number, data: InsertTeacherProfile): Promise<TeacherProfile> {
+    const [profile] = await db.insert(teacherProfiles).values({ ...data, userId }).returning();
+    return profile;
+  }
+
+  async updateTeacherProfile(userId: number, data: UpdateTeacherProfile): Promise<TeacherProfile | undefined> {
+    const [profile] = await db.update(teacherProfiles).set({ ...data, updatedAt: new Date() }).where(eq(teacherProfiles.userId, userId)).returning();
+    return profile;
+  }
+
+  async listTeacherProfiles(): Promise<(TeacherProfile & { user: { id: number; username: string; displayName: string | null; avatarUrl: string | null } })[]> {
+    const rows = await db
+      .select({
+        profile: teacherProfiles,
+        user: { id: users.id, username: users.username, displayName: users.displayName, avatarUrl: users.avatarUrl },
+      })
+      .from(teacherProfiles)
+      .innerJoin(users, eq(teacherProfiles.userId, users.id))
+      .orderBy(desc(teacherProfiles.createdAt));
+    return rows.map(r => ({ ...r.profile, user: r.user }));
+  }
+
+  async approveTeacherProfile(userId: number, approvedBy: number): Promise<TeacherProfile | undefined> {
+    const [profile] = await db.update(teacherProfiles).set({ isApproved: true, approvedAt: new Date(), approvedByUserId: approvedBy }).where(eq(teacherProfiles.userId, userId)).returning();
+    return profile;
+  }
+
+  // Church Permissions
+  async getChurchPermissions(churchId: number): Promise<(ChurchPermission & { user: { id: number; username: string; displayName: string | null } })[]> {
+    const rows = await db
+      .select({
+        perm: churchPermissions,
+        user: { id: users.id, username: users.username, displayName: users.displayName },
+      })
+      .from(churchPermissions)
+      .innerJoin(users, eq(churchPermissions.userId, users.id))
+      .where(eq(churchPermissions.churchId, churchId));
+    return rows.map(r => ({ ...r.perm, user: r.user }));
+  }
+
+  async setChurchPermission(data: InsertChurchPermission, grantedBy: number): Promise<ChurchPermission> {
+    // Upsert: delete existing then insert
+    await db.delete(churchPermissions).where(and(eq(churchPermissions.userId, data.userId), eq(churchPermissions.churchId, data.churchId)));
+    const [perm] = await db.insert(churchPermissions).values({ ...data, grantedBy }).returning();
+    return perm;
+  }
+
+  async removeChurchPermission(userId: number, churchId: number): Promise<void> {
+    await db.delete(churchPermissions).where(and(eq(churchPermissions.userId, userId), eq(churchPermissions.churchId, churchId)));
+  }
+
+  async getUserChurchRole(userId: number, churchId: number): Promise<string | null> {
+    const [perm] = await db.select().from(churchPermissions).where(and(eq(churchPermissions.userId, userId), eq(churchPermissions.churchId, churchId)));
+    return perm?.role ?? null;
+  }
+
+  // Alliance Requests
+  async createAllianceRequest(data: InsertAllianceRequest): Promise<AllianceRequest> {
+    const [req] = await db.insert(allianceRequests).values(data).returning();
+    return req;
+  }
+
+  async listAllianceRequests(): Promise<AllianceRequest[]> {
+    return db.select().from(allianceRequests).orderBy(desc(allianceRequests.createdAt));
+  }
+
+  async updateAllianceRequest(id: number, data: UpdateAllianceRequest, reviewedBy: number): Promise<AllianceRequest | undefined> {
+    const [req] = await db.update(allianceRequests).set({ ...data, reviewedBy, resolvedAt: new Date() }).where(eq(allianceRequests.id, id)).returning();
+    return req;
+  }
+
+  // Member Channeling
+  async createMemberChanneling(userId: number, data: InsertMemberChanneling): Promise<MemberChanneling> {
+    const [ch] = await db.insert(memberChanneling).values({ ...data, userId }).returning();
+    return ch;
+  }
+
+  async listMemberChannelings(churchId?: number): Promise<(MemberChanneling & { user: { id: number; username: string; displayName: string | null } })[]> {
+    const baseQuery = db
+      .select({
+        channeling: memberChanneling,
+        user: { id: users.id, username: users.username, displayName: users.displayName },
+      })
+      .from(memberChanneling)
+      .innerJoin(users, eq(memberChanneling.userId, users.id));
+
+    const rows = churchId
+      ? await baseQuery.where(eq(memberChanneling.targetChurchId, churchId)).orderBy(desc(memberChanneling.requestedAt))
+      : await baseQuery.orderBy(desc(memberChanneling.requestedAt));
+
+    return rows.map(r => ({ ...r.channeling, user: r.user }));
+  }
+
+  async resolveMemberChanneling(id: number, status: string, resolvedBy: number): Promise<MemberChanneling | undefined> {
+    const [ch] = await db.update(memberChanneling).set({ status, resolvedBy, resolvedAt: new Date() }).where(eq(memberChanneling.id, id)).returning();
+    if (ch && status === "aprobado") {
+      // Automatically update user's churchId and memberType
+      await db.update(users).set({ churchId: ch.targetChurchId, memberType: "iglesia" }).where(eq(users.id, ch.userId));
+      // Record membership
+      await db.insert(churchMemberships).values({ userId: ch.userId, churchId: ch.targetChurchId });
+    }
+    return ch;
+  }
+
+  // Course Teacher Assignments
+  async createCourseTeacherAssignment(data: InsertCourseTeacherAssignment, proposedBy: number): Promise<CourseTeacherAssignment> {
+    const [a] = await db.insert(courseTeacherAssignments).values({ ...data, proposedBy }).returning();
+    return a;
+  }
+
+  async listCourseTeacherAssignments(courseId: number): Promise<(CourseTeacherAssignment & { teacher: { id: number; username: string; displayName: string | null } })[]> {
+    const rows = await db
+      .select({
+        assignment: courseTeacherAssignments,
+        teacher: { id: users.id, username: users.username, displayName: users.displayName },
+      })
+      .from(courseTeacherAssignments)
+      .innerJoin(users, eq(courseTeacherAssignments.teacherUserId, users.id))
+      .where(eq(courseTeacherAssignments.courseId, courseId))
+      .orderBy(desc(courseTeacherAssignments.createdAt));
+    return rows.map(r => ({ ...r.assignment, teacher: r.teacher }));
+  }
+
+  async updateCourseTeacherAssignment(id: number, data: UpdateCourseTeacherAssignment, approvedBy: number): Promise<CourseTeacherAssignment | undefined> {
+    const [a] = await db.update(courseTeacherAssignments).set({ ...data, approvedBy, resolvedAt: new Date() }).where(eq(courseTeacherAssignments.id, id)).returning();
+    if (a && data.status === "aprobado") {
+      // Auto-assign teacher to the course
+      await db.update(courses).set({ teacherId: a.teacherUserId }).where(eq(courses.id, a.courseId));
+    }
+    return a;
+  }
+
+  // Audit Log
+  async createAuditLog(data: { userId?: number; action: string; entityType: string; entityId?: number; details?: string; ipAddress?: string }): Promise<AuditLog> {
+    const [log] = await db.insert(auditLog).values(data).returning();
+    return log;
+  }
+
+  async listAuditLogs(limit = 100): Promise<(AuditLog & { user?: { username: string; displayName: string | null } })[]> {
+    const rows = await db
+      .select({
+        log: auditLog,
+        user: { username: users.username, displayName: users.displayName },
+      })
+      .from(auditLog)
+      .leftJoin(users, eq(auditLog.userId, users.id))
+      .orderBy(desc(auditLog.createdAt))
+      .limit(limit);
+    return rows.map(r => ({ ...r.log, user: r.user ?? undefined }));
+  }
+
+  // Member Progress / Badges
+  async awardBadge(userId: number, badgeType: string, details?: string): Promise<MemberProgressEntry> {
+    const [badge] = await db.insert(memberProgress).values({ userId, badgeType, details }).returning();
+    return badge;
+  }
+
+  async getUserBadges(userId: number): Promise<MemberProgressEntry[]> {
+    return db.select().from(memberProgress).where(eq(memberProgress.userId, userId)).orderBy(desc(memberProgress.earnedAt));
+  }
+
+  // Church Dashboard
+  async getChurchDashboard(churchId: number): Promise<{ memberCount: number; courseCount: number; eventCount: number }> {
+    const [members] = await db.select({ count: sql<number>`count(*)` }).from(users).where(eq(users.churchId, churchId));
+    const [coursesCount] = await db.select({ count: sql<number>`count(*)` }).from(courses).where(eq(courses.churchId, churchId));
+    return {
+      memberCount: Number(members?.count ?? 0),
+      courseCount: Number(coursesCount?.count ?? 0),
+      eventCount: 0, // Events don't have churchId yet
+    };
+  }
+
+  async getChurchMembers(churchId: number): Promise<{ id: number; username: string; displayName: string | null; avatarUrl: string | null; memberType: string | null; role: string }[]> {
+    return db
+      .select({
+        id: users.id,
+        username: users.username,
+        displayName: users.displayName,
+        avatarUrl: users.avatarUrl,
+        memberType: users.memberType,
+        role: users.role,
+      })
+      .from(users)
+      .where(eq(users.churchId, churchId))
+      .orderBy(users.displayName);
   }
 }
 

@@ -40,6 +40,8 @@ const navLinks = [
   { href: '/calendario', label: 'Calendario' },
   { href: '/regiones', label: 'Regiones' },
   { href: '/iglesias', label: 'Iglesias' },
+  { href: '/alianza', label: 'Alianza' },
+  { href: '/ficha-ministerial', label: 'Maestros' },
   { href: '/en-vivo', label: 'En Vivo' },
   { href: '/contacto', label: 'Contacto' },
 ]
@@ -138,12 +140,13 @@ export function Footer() {
             <p className="text-sm text-muted-foreground">Austin, Texas, USA</p>
             <p className="text-sm text-muted-foreground">Iglesia Casa del Alfarero</p>
             <p className="text-sm text-muted-foreground mt-2">
-              Cobertura: Pastores Carlo y Trinibeth Chevez
+              Alianza Pastoral: Pastores Carlo y Trinibeth Chevez
             </p>
           </div>
           <div>
-            <h4 className="font-semibold mb-3 text-sm">Presencia Internacional</h4>
-            <p className="text-sm text-muted-foreground">Venezuela - Peru - USA</p>
+            <h4 className="font-semibold mb-3 text-sm">Alianza Global</h4>
+            <p className="text-sm text-muted-foreground">Venezuela · Peru · USA</p>
+            <p className="text-sm text-muted-foreground mt-1">Red de iglesias autonomas unidas por el fuego</p>
             <p className="text-sm text-muted-foreground mt-2 italic">
               "No apagueis el Espiritu" - 1 Tesalonicenses 5:19
             </p>

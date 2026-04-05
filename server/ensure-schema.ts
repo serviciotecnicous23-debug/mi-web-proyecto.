@@ -644,6 +644,115 @@ CREATE TABLE IF NOT EXISTS "live_event_attendance" (
   "duration_minutes" integer,
   "join_count" integer NOT NULL DEFAULT 1
 );
+
+-- ========== REFORMA MINISTERIAL: NUEVAS TABLAS ==========
+
+-- Teacher Profiles (Ficha de Presentación Ministerial)
+CREATE TABLE IF NOT EXISTS "teacher_profiles" (
+  "id" serial PRIMARY KEY,
+  "user_id" integer NOT NULL REFERENCES "users"("id") UNIQUE,
+  "theological_education" text,
+  "ministry_experience" text,
+  "specializations" text,
+  "doctrinal_statement" text,
+  "pastoral_endorsement" text,
+  "endorsed_by_user_id" integer REFERENCES "users"("id"),
+  "teaching_materials" text,
+  "is_approved" boolean NOT NULL DEFAULT false,
+  "approved_at" timestamp,
+  "approved_by_user_id" integer REFERENCES "users"("id"),
+  "created_at" timestamp DEFAULT now(),
+  "updated_at" timestamp DEFAULT now()
+);
+
+-- Church Permissions (RBAC Local)
+CREATE TABLE IF NOT EXISTS "church_permissions" (
+  "id" serial PRIMARY KEY,
+  "user_id" integer NOT NULL REFERENCES "users"("id"),
+  "church_id" integer NOT NULL REFERENCES "ministry_churches"("id"),
+  "role" text NOT NULL DEFAULT 'miembro',
+  "granted_by" integer REFERENCES "users"("id"),
+  "created_at" timestamp DEFAULT now()
+);
+
+-- Church Memberships (Historial)
+CREATE TABLE IF NOT EXISTS "church_memberships" (
+  "id" serial PRIMARY KEY,
+  "user_id" integer NOT NULL REFERENCES "users"("id"),
+  "church_id" integer NOT NULL REFERENCES "ministry_churches"("id"),
+  "status" text NOT NULL DEFAULT 'activo',
+  "joined_at" timestamp DEFAULT now(),
+  "left_at" timestamp,
+  "reason" text
+);
+
+-- Course Teacher Assignments (Acuerdo Mutuo)
+CREATE TABLE IF NOT EXISTS "course_teacher_assignments" (
+  "id" serial PRIMARY KEY,
+  "course_id" integer NOT NULL REFERENCES "courses"("id"),
+  "teacher_user_id" integer NOT NULL REFERENCES "users"("id"),
+  "proposed_by" integer NOT NULL REFERENCES "users"("id"),
+  "approved_by" integer REFERENCES "users"("id"),
+  "status" text NOT NULL DEFAULT 'propuesto',
+  "message" text,
+  "created_at" timestamp DEFAULT now(),
+  "resolved_at" timestamp
+);
+
+-- Alliance Requests (Solicitud de Alianza)
+CREATE TABLE IF NOT EXISTS "alliance_requests" (
+  "id" serial PRIMARY KEY,
+  "church_name" text NOT NULL,
+  "pastor_name" text NOT NULL,
+  "pastor_email" text NOT NULL,
+  "pastor_phone" text,
+  "city" text,
+  "country" text,
+  "denomination" text,
+  "congregation_size" text,
+  "motivation" text,
+  "website" text,
+  "status" text NOT NULL DEFAULT 'pendiente',
+  "reviewed_by" integer REFERENCES "users"("id"),
+  "review_notes" text,
+  "resulting_church_id" integer REFERENCES "ministry_churches"("id"),
+  "created_at" timestamp DEFAULT now(),
+  "resolved_at" timestamp
+);
+
+-- Member Channeling (Canalización Ética)
+CREATE TABLE IF NOT EXISTS "member_channeling" (
+  "id" serial PRIMARY KEY,
+  "user_id" integer NOT NULL REFERENCES "users"("id"),
+  "target_church_id" integer NOT NULL REFERENCES "ministry_churches"("id"),
+  "status" text NOT NULL DEFAULT 'solicitado',
+  "requested_at" timestamp DEFAULT now(),
+  "consent_given" boolean NOT NULL DEFAULT true,
+  "resolved_by" integer REFERENCES "users"("id"),
+  "resolved_at" timestamp,
+  "notes" text
+);
+
+-- Audit Log
+CREATE TABLE IF NOT EXISTS "audit_log" (
+  "id" serial PRIMARY KEY,
+  "user_id" integer REFERENCES "users"("id"),
+  "action" text NOT NULL,
+  "entity_type" text NOT NULL,
+  "entity_id" integer,
+  "details" text,
+  "ip_address" text,
+  "created_at" timestamp DEFAULT now()
+);
+
+-- Member Progress (Gamificación / Badges)
+CREATE TABLE IF NOT EXISTS "member_progress" (
+  "id" serial PRIMARY KEY,
+  "user_id" integer NOT NULL REFERENCES "users"("id"),
+  "badge_type" text NOT NULL,
+  "earned_at" timestamp DEFAULT now(),
+  "details" text
+);
 `;
 
 // ALTER TABLE statements to add columns that might be missing from older schemas
@@ -720,6 +829,27 @@ const ADD_COLUMNS_SQL = [
   `ALTER TABLE "certificates" ADD COLUMN IF NOT EXISTS "custom_message" text`,
   `ALTER TABLE "certificates" ADD COLUMN IF NOT EXISTS "signature_url" text`,
   `ALTER TABLE "certificates" ADD COLUMN IF NOT EXISTS "issued_date_override" text`,
+  // ========== REFORMA MINISTERIAL ==========
+  // Users - alianza fields
+  `ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "church_id" integer`,
+  `ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "member_type" text DEFAULT 'independiente'`,
+  // Courses - alianza fields
+  `ALTER TABLE "courses" ADD COLUMN IF NOT EXISTS "course_type" text NOT NULL DEFAULT 'global'`,
+  `ALTER TABLE "courses" ADD COLUMN IF NOT EXISTS "church_id" integer`,
+  `ALTER TABLE "courses" ADD COLUMN IF NOT EXISTS "prerequisite_course_id" integer`,
+  `ALTER TABLE "courses" ADD COLUMN IF NOT EXISTS "is_public" boolean NOT NULL DEFAULT true`,
+  `ALTER TABLE "courses" ADD COLUMN IF NOT EXISTS "level" integer NOT NULL DEFAULT 1`,
+  // Ministry Churches - alianza fields
+  `ALTER TABLE "ministry_churches" ADD COLUMN IF NOT EXISTS "pastor_user_id" integer REFERENCES "users"("id")`,
+  `ALTER TABLE "ministry_churches" ADD COLUMN IF NOT EXISTS "logo_url" text`,
+  `ALTER TABLE "ministry_churches" ADD COLUMN IF NOT EXISTS "alliance_status" text NOT NULL DEFAULT 'pendiente'`,
+  `ALTER TABLE "ministry_churches" ADD COLUMN IF NOT EXISTS "alliance_date" timestamp`,
+  `ALTER TABLE "ministry_churches" ADD COLUMN IF NOT EXISTS "max_admins" integer NOT NULL DEFAULT 3`,
+  // Certificates - co-certification
+  `ALTER TABLE "certificates" ADD COLUMN IF NOT EXISTS "church_id" integer`,
+  `ALTER TABLE "certificates" ADD COLUMN IF NOT EXISTS "church_logo_url" text`,
+  `ALTER TABLE "certificates" ADD COLUMN IF NOT EXISTS "church_name" text`,
+  `ALTER TABLE "certificates" ADD COLUMN IF NOT EXISTS "is_co_certified" boolean NOT NULL DEFAULT false`,
 ];
 
 export async function ensureDatabaseSchema(): Promise<void> {

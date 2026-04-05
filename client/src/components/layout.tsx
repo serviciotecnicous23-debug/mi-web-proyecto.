@@ -1,6 +1,7 @@
 import { Link, useLocation } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
+import { motion, AnimatePresence } from "framer-motion";
 import {
   LogOut,
   User,
@@ -836,6 +837,8 @@ function EmailVerifyBanner() {
 }
 
 export function Layout({ children }: { children: React.ReactNode }) {
+  const [location] = useLocation();
+
   return (
     <div className="min-h-screen flex flex-col bg-background font-sans">
       {/* Skip to content link for screen readers - 5.5 Accessibility */}
@@ -848,9 +851,20 @@ export function Layout({ children }: { children: React.ReactNode }) {
       <ScrollToTop />
       <Navbar />
       <EmailVerifyBanner />
-      <main id="main-content" className="flex-1 focus:outline-none" tabIndex={-1}>
-        {children}
-      </main>
+      <AnimatePresence mode="wait">
+        <motion.main
+          key={location}
+          id="main-content"
+          className="flex-1 focus:outline-none"
+          tabIndex={-1}
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -12 }}
+          transition={{ duration: 0.2, ease: "easeInOut" }}
+        >
+          {children}
+        </motion.main>
+      </AnimatePresence>
       <Footer />
       <BackToTop />
     </div>

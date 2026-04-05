@@ -170,11 +170,23 @@ async function comparePasswords(supplied: string, stored: string) {
 }
 
 function isAdmin(req: Request): boolean {
-  return req.isAuthenticated() && req.user?.role === "admin";
+  return req.isAuthenticated() && (req.user?.role === "admin" || req.user?.role === "director" || req.user?.role === "staff_global");
 }
 
 function isTeacherOrAdmin(req: Request): boolean {
-  return req.isAuthenticated() && (req.user?.role === "admin" || req.user?.role === "obrero");
+  return req.isAuthenticated() && (
+    req.user?.role === "admin" || req.user?.role === "obrero" ||
+    req.user?.role === "director" || req.user?.role === "staff_global" ||
+    req.user?.role === "maestro_ministerio" || req.user?.role === "maestro_iglesia" ||
+    req.user?.role === "admin_iglesia"
+  );
+}
+
+function isChurchAdmin(req: Request, churchId: number): boolean {
+  return req.isAuthenticated() && (
+    isAdmin(req) ||
+    (req.user?.role === "admin_iglesia" && req.user?.churchId === churchId)
+  );
 }
 
 export async function registerRoutes(
@@ -3801,6 +3813,224 @@ ${urls}
     const { start, end } = req.query;
     const items = await storage.getCalendarEvents(start as string, end as string);
     res.json(items);
+  });
+
+  // ========== REFORMA MINISTERIAL: NUEVAS RUTAS ==========
+
+  // --- Teacher Profiles ---
+  app.get("/api/teacher-profiles", async (req, res) => {
+    const profiles = await storage.listTeacherProfiles();
+    res.json(profiles);
+  });
+
+  app.get("/api/teacher-profiles/:userId", async (req, res) => {
+    const profile = await storage.getTeacherProfile(parseInt(req.params.userId));
+    if (!profile) return res.sendStatus(404);
+    res.json(profile);
+  });
+
+  app.post("/api/teacher-profiles", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    try {
+      const existing = await storage.getTeacherProfile(req.user!.id);
+      if (existing) return res.status(400).json({ message: "Ya tienes una ficha ministerial" });
+      const profile = await storage.createTeacherProfile(req.user!.id, req.body);
+      await storage.createAuditLog({ userId: req.user!.id, action: "create", entityType: "teacher_profile", entityId: profile.id });
+      res.status(201).json(profile);
+    } catch (err) {
+      res.sendStatus(500);
+    }
+  });
+
+  app.patch("/api/teacher-profiles/:userId", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    const targetUserId = parseInt(req.params.userId);
+    if (targetUserId !== req.user!.id && !isAdmin(req)) return res.sendStatus(403);
+    const profile = await storage.updateTeacherProfile(targetUserId, req.body);
+    if (!profile) return res.sendStatus(404);
+    res.json(profile);
+  });
+
+  app.post("/api/teacher-profiles/:userId/approve", async (req, res) => {
+    if (!isAdmin(req)) return res.sendStatus(403);
+    const profile = await storage.approveTeacherProfile(parseInt(req.params.userId), req.user!.id);
+    if (!profile) return res.sendStatus(404);
+    await storage.createAuditLog({ userId: req.user!.id, action: "approve", entityType: "teacher_profile", entityId: profile.id });
+    res.json(profile);
+  });
+
+  // --- Alliance Requests ---
+  app.get("/api/alliance-requests", async (req, res) => {
+    if (!isAdmin(req)) return res.sendStatus(403);
+    const requests = await storage.listAllianceRequests();
+    res.json(requests);
+  });
+
+  app.post("/api/alliance-requests", async (req, res) => {
+    try {
+      const { insertAllianceRequestSchema } = await import("@shared/schema");
+      const data = insertAllianceRequestSchema.parse(req.body);
+      const request = await storage.createAllianceRequest(data);
+      res.status(201).json(request);
+    } catch (err) {
+      if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });
+      res.sendStatus(500);
+    }
+  });
+
+  app.patch("/api/alliance-requests/:id", async (req, res) => {
+    if (!isAdmin(req)) return res.sendStatus(403);
+    try {
+      const { updateAllianceRequestSchema } = await import("@shared/schema");
+      const data = updateAllianceRequestSchema.parse(req.body);
+      const request = await storage.updateAllianceRequest(parseInt(req.params.id), data, req.user!.id);
+      if (!request) return res.sendStatus(404);
+      await storage.createAuditLog({ userId: req.user!.id, action: "review_alliance", entityType: "alliance_request", entityId: request.id, details: data.status });
+      res.json(request);
+    } catch (err) {
+      if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });
+      res.sendStatus(500);
+    }
+  });
+
+  // --- Church Permissions ---
+  app.get("/api/churches/:churchId/permissions", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    const churchId = parseInt(req.params.churchId);
+    if (!isAdmin(req) && !isChurchAdmin(req, churchId)) return res.sendStatus(403);
+    const perms = await storage.getChurchPermissions(churchId);
+    res.json(perms);
+  });
+
+  app.post("/api/churches/:churchId/permissions", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    const churchId = parseInt(req.params.churchId);
+    if (!isAdmin(req) && !isChurchAdmin(req, churchId)) return res.sendStatus(403);
+    try {
+      const perm = await storage.setChurchPermission({ ...req.body, churchId }, req.user!.id);
+      await storage.createAuditLog({ userId: req.user!.id, action: "set_permission", entityType: "church_permission", entityId: perm.id });
+      res.status(201).json(perm);
+    } catch (err) {
+      res.sendStatus(500);
+    }
+  });
+
+  app.delete("/api/churches/:churchId/permissions/:userId", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    const churchId = parseInt(req.params.churchId);
+    if (!isAdmin(req) && !isChurchAdmin(req, churchId)) return res.sendStatus(403);
+    await storage.removeChurchPermission(parseInt(req.params.userId), churchId);
+    res.sendStatus(204);
+  });
+
+  // --- Church Dashboard & Members ---
+  app.get("/api/churches/:churchId/dashboard", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    const churchId = parseInt(req.params.churchId);
+    if (!isAdmin(req) && !isChurchAdmin(req, churchId)) return res.sendStatus(403);
+    const dashboard = await storage.getChurchDashboard(churchId);
+    res.json(dashboard);
+  });
+
+  app.get("/api/churches/:churchId/members", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    const churchId = parseInt(req.params.churchId);
+    if (!isAdmin(req) && !isChurchAdmin(req, churchId)) return res.sendStatus(403);
+    const members = await storage.getChurchMembers(churchId);
+    res.json(members);
+  });
+
+  // --- Member Channeling ---
+  app.post("/api/member-channeling", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    try {
+      const { insertMemberChannelingSchema } = await import("@shared/schema");
+      const data = insertMemberChannelingSchema.parse(req.body);
+      const channeling = await storage.createMemberChanneling(req.user!.id, data);
+      await storage.createAuditLog({ userId: req.user!.id, action: "request_channeling", entityType: "member_channeling", entityId: channeling.id });
+      res.status(201).json(channeling);
+    } catch (err) {
+      if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });
+      res.sendStatus(500);
+    }
+  });
+
+  app.get("/api/member-channeling", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    const churchId = req.query.churchId ? parseInt(req.query.churchId as string) : undefined;
+    if (churchId && !isAdmin(req) && !isChurchAdmin(req, churchId)) return res.sendStatus(403);
+    if (!churchId && !isAdmin(req)) return res.sendStatus(403);
+    const channelings = await storage.listMemberChannelings(churchId);
+    res.json(channelings);
+  });
+
+  app.patch("/api/member-channeling/:id", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    if (!isAdmin(req) && !isTeacherOrAdmin(req)) return res.sendStatus(403);
+    const { status } = req.body;
+    if (!["aprobado", "rechazado"].includes(status)) return res.status(400).json({ message: "Estado inválido" });
+    const channeling = await storage.resolveMemberChanneling(parseInt(req.params.id), status, req.user!.id);
+    if (!channeling) return res.sendStatus(404);
+    await storage.createAuditLog({ userId: req.user!.id, action: "resolve_channeling", entityType: "member_channeling", entityId: channeling.id, details: status });
+    res.json(channeling);
+  });
+
+  // --- Course Teacher Assignments ---
+  app.get("/api/courses/:courseId/teacher-assignments", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    const assignments = await storage.listCourseTeacherAssignments(parseInt(req.params.courseId));
+    res.json(assignments);
+  });
+
+  app.post("/api/courses/:courseId/teacher-assignments", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    if (!isTeacherOrAdmin(req)) return res.sendStatus(403);
+    try {
+      const { insertCourseTeacherAssignmentSchema } = await import("@shared/schema");
+      const data = insertCourseTeacherAssignmentSchema.parse({ ...req.body, courseId: parseInt(req.params.courseId) });
+      const assignment = await storage.createCourseTeacherAssignment(data, req.user!.id);
+      res.status(201).json(assignment);
+    } catch (err) {
+      if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });
+      res.sendStatus(500);
+    }
+  });
+
+  app.patch("/api/course-teacher-assignments/:id", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    if (!isTeacherOrAdmin(req)) return res.sendStatus(403);
+    try {
+      const { updateCourseTeacherAssignmentSchema } = await import("@shared/schema");
+      const data = updateCourseTeacherAssignmentSchema.parse(req.body);
+      const assignment = await storage.updateCourseTeacherAssignment(parseInt(req.params.id), data, req.user!.id);
+      if (!assignment) return res.sendStatus(404);
+      res.json(assignment);
+    } catch (err) {
+      if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });
+      res.sendStatus(500);
+    }
+  });
+
+  // --- Audit Log ---
+  app.get("/api/audit-logs", async (req, res) => {
+    if (!isAdmin(req)) return res.sendStatus(403);
+    const limit = req.query.limit ? parseInt(req.query.limit as string) : 100;
+    const logs = await storage.listAuditLogs(limit);
+    res.json(logs);
+  });
+
+  // --- Member Progress / Badges ---
+  app.get("/api/badges/:userId", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    const badges = await storage.getUserBadges(parseInt(req.params.userId));
+    res.json(badges);
+  });
+
+  // --- Active Churches (public, for "Buscar Iglesia") ---
+  app.get("/api/churches/active", async (_req, res) => {
+    const allChurches = await storage.listMinistryChurches();
+    const activeAllied = allChurches.filter((c: any) => c.isActive && (c.churchType === "aliada" || c.allianceStatus === "activa"));
+    res.json(activeAllied);
   });
 
   return httpServer;

@@ -3,15 +3,16 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Link } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
-import { Flame, Radio, Users, BookOpen, Heart, Globe, HandCoins, Video, Signal } from "lucide-react";
+import { motion } from "framer-motion";
+import { Flame, Radio, Users, BookOpen, Heart, Globe, HandCoins, Video, Signal, Church, Shield, Award } from "lucide-react";
 import { PublicDonationSection } from "@/pages/finanzas";
 import { LogoIcon } from "@/components/LogoIcon";
 
 const stats = [
   { label: "Anos de Servicio", value: "7+" },
   { label: "Paises", value: "3" },
+  { label: "Iglesias Aliadas", value: "10+" },
   { label: "Vidas Impactadas", value: "1000+" },
-  { label: "Fuego del Espiritu", value: "\u221E" },
 ];
 
 const areas = [
@@ -30,7 +31,12 @@ export default function Home() {
     <Layout>
       <section className="relative overflow-hidden py-24 md:py-36">
         <div className="absolute inset-0 fire-gradient opacity-10 dark:opacity-20" />
-        <div className="relative max-w-4xl mx-auto px-4 text-center">
+        <motion.div
+          className="relative max-w-4xl mx-auto px-4 text-center"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, ease: "easeOut" }}
+        >
           <img src="/icons/logo-transparent.png?v4" alt="Avivando el Fuego" className="mx-auto mb-6 h-28 md:h-40 w-auto object-contain drop-shadow-[0_0_25px_rgba(254,146,24,0.4)]" />
           <p className="text-sm text-muted-foreground mb-4" data-testid="text-subtitle">
             Desde 2017 - Ciudad Bolivar, Venezuela
@@ -65,16 +71,24 @@ export default function Home() {
               </Button>
             </Link>
           </div>
-        </div>
+        </motion.div>
       </section>
 
       <section className="py-12 border-t">
         <div className="max-w-5xl mx-auto px-4 grid grid-cols-2 md:grid-cols-4 gap-6">
-          {stats.map((s) => (
-            <div key={s.label} className="text-center" data-testid={`stat-${s.value}`}>
+          {stats.map((s, i) => (
+            <motion.div
+              key={s.label}
+              className="text-center"
+              data-testid={`stat-${s.value}`}
+              initial={{ opacity: 0, y: 16 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.4, delay: i * 0.1 }}
+            >
               <p className="text-3xl md:text-4xl font-bold fire-text">{s.value}</p>
               <p className="text-sm text-muted-foreground mt-1">{s.label}</p>
-            </div>
+            </motion.div>
           ))}
         </div>
       </section>
@@ -89,12 +103,20 @@ export default function Home() {
             </p>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {areas.map((a) => (
-              <Card key={a.title} className="p-6" data-testid={`card-area-${a.title}`}>
-                <a.icon className="w-8 h-8 text-primary mb-3" />
-                <h3 className="font-semibold mb-2">{a.title}</h3>
-                <p className="text-sm text-muted-foreground">{a.desc}</p>
-              </Card>
+            {areas.map((a, i) => (
+              <motion.div
+                key={a.title}
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.35, delay: i * 0.08 }}
+              >
+                <Card className="p-6" data-testid={`card-area-${a.title}`}>
+                  <a.icon className="w-8 h-8 text-primary mb-3" />
+                  <h3 className="font-semibold mb-2">{a.title}</h3>
+                  <p className="text-sm text-muted-foreground">{a.desc}</p>
+                </Card>
+              </motion.div>
             ))}
           </div>
         </div>
@@ -133,8 +155,58 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Donation Section */}
+      {/* Alianza Global Section */}
       <section className="py-16 bg-card border-t">
+        <div className="max-w-6xl mx-auto px-4">
+          <div className="text-center mb-10">
+            <p className="text-sm text-primary font-medium mb-2">Alianza para la Gran Comision</p>
+            <h2 className="text-3xl font-bold">Una Red de Iglesias Unidas</h2>
+            <p className="text-muted-foreground mt-2 max-w-2xl mx-auto">
+              No somos cobertura, somos companeros de yugo. Iglesias autonomas unidas por el mismo fuego,
+              compartiendo recursos, formacion y proposito.
+            </p>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
+            <Card className="p-6 text-center">
+              <Church className="w-10 h-10 text-primary mx-auto mb-3" />
+              <h3 className="font-semibold mb-2">Iglesias Aliadas</h3>
+              <p className="text-sm text-muted-foreground">
+                Cada congregacion mantiene su autonomia pastoral y administrativa mientras accede a recursos compartidos.
+              </p>
+            </Card>
+            <Card className="p-6 text-center">
+              <Award className="w-10 h-10 text-primary mx-auto mb-3" />
+              <h3 className="font-semibold mb-2">Formacion Ministerial</h3>
+              <p className="text-sm text-muted-foreground">
+                Cursos nucleares del ministerio mas formacion propia de cada iglesia. Certificacion conjunta.
+              </p>
+            </Card>
+            <Card className="p-6 text-center">
+              <Shield className="w-10 h-10 text-primary mx-auto mb-3" />
+              <h3 className="font-semibold mb-2">Canalizacion Etica</h3>
+              <p className="text-sm text-muted-foreground">
+                Miembros independientes conectados con iglesias locales. Sin proselitismo, con transparencia.
+              </p>
+            </Card>
+          </div>
+          <div className="flex flex-col sm:flex-row justify-center gap-4">
+            <Link href="/alianza">
+              <Button size="lg" variant="default">
+                <Church className="w-4 h-4 mr-2" />
+                Eres Pastor? Unete a la Alianza
+              </Button>
+            </Link>
+            <Link href="/buscar-iglesia">
+              <Button size="lg" variant="outline">
+                Buscar una Iglesia Cercana
+              </Button>
+            </Link>
+          </div>
+        </div>
+      </section>
+
+      {/* Donation Section */}
+      <section className="py-16 border-t">
         <div className="max-w-4xl mx-auto px-4">
           <div className="text-center mb-8">
             <p className="text-sm text-primary font-medium mb-2">Apoyo</p>
@@ -151,13 +223,21 @@ export default function Home() {
         <div className="max-w-3xl mx-auto px-4 text-center">
           <h2 className="text-2xl font-bold mb-4">Sientes el llamado?</h2>
           <p className="text-muted-foreground mb-6">
-            Estamos buscando obreros apasionados que quieran unirse a esta vision de llevar el fuego del evangelio a las naciones.
+            Unete como miembro, maestro o iglesia aliada. Juntos llevamos el fuego del evangelio a las naciones.
           </p>
-          <Link href="/registro">
-            <Button size="lg" data-testid="button-cta-join">
-              Ser Parte del Equipo
-            </Button>
-          </Link>
+          <div className="flex flex-wrap justify-center gap-3">
+            <Link href="/registro">
+              <Button size="lg" data-testid="button-cta-join">
+                Ser Parte del Equipo
+              </Button>
+            </Link>
+            <Link href="/ficha-ministerial">
+              <Button size="lg" variant="outline">
+                <BookOpen className="w-4 h-4 mr-2" />
+                Directorio de Maestros
+              </Button>
+            </Link>
+          </div>
         </div>
       </section>
     </Layout>
