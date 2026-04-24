@@ -11,7 +11,7 @@
     "db:push": "drizzle-kit --env-file=.env push"
   },
   "engines": {
-    "node": ">=20.11.0"
+    "node": ">=20.19.0"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.995.0",

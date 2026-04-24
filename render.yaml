@@ -26,7 +26,7 @@ services:
       - key: PORT
         value: "10000"
       - key: NODE_VERSION
-        value: "20.11.0"
+        value: "20.19.0"
       # S3/R2 file storage (set in Render dashboard)
       - key: S3_ENDPOINT
         sync: false
