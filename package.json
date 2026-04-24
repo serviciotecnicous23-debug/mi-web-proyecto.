@@ -10,6 +10,9 @@
     "check": "tsc",
     "db:push": "drizzle-kit --env-file=.env push"
   },
+  "engines": {
+    "node": ">=20.11.0"
+  },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.995.0",
     "@hookform/resolvers": "^3.10.0",
@@ -93,11 +96,7 @@
     "zod-validation-error": "^3.4.0"
   },
   "devDependencies": {
-    "@replit/vite-plugin-cartographer": "^0.4.4",
-    "@replit/vite-plugin-dev-banner": "^0.1.1",
-    "@replit/vite-plugin-runtime-error-modal": "^0.0.3",
     "@tailwindcss/typography": "^0.5.15",
-    "@tailwindcss/vite": "^4.1.18",
     "@types/compression": "^1.8.1",
     "@types/connect-pg-simple": "^7.0.3",
     "@types/express": "^5.0.0",
