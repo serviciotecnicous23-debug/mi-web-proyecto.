@@ -22,6 +22,7 @@ import "./types"; // side-effect: augment Express.User
 import { uploadFile } from "./file-storage";
 import { sendPasswordResetEmail, sendVerificationEmail, sendWelcomeEmail, sendAccountApprovedEmail, sendDirectMessageEmail, sendNewCourseEmail, sendEventReminderEmail, isEmailConfigured } from "./email";
 import { sendPushToMany, getVapidPublicKey, isPushConfigured, type PushPayload } from "./push";
+import { registerAgentRoutes } from "./agent/routes";
 
 const scryptAsync = promisify(scrypt);
 
@@ -255,13 +256,18 @@ ${urls}
 
   // Health check endpoint (used by Render)
   app.get("/api/hello", (_req, res) => {
-    res.json({ 
+    res.json({
       status: "ok",
       message: "Ministerio Avivando el Fuego API is running",
       uptime: Math.floor(process.uptime()),
       timestamp: new Date().toISOString(),
     });
   });
+
+  // ========== AGENT ECOSYSTEM (Fase 1) ==========
+  // Memoria compartida y revisor previo a acciones destructivas.
+  // Ver AGENT_MEMORY.md en la raiz del repo para el protocolo completo.
+  registerAgentRoutes(app);
 
   // ========== GLOBAL SEARCH ==========
   app.get("/api/search", async (req, res) => {

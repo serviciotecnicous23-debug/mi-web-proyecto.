@@ -1627,3 +1627,97 @@ export const COURSE_TYPES = {
   iglesia: "Curso de Iglesia Aliada",
   global: "Curso Global",
 } as const;
+
+// ========== AGENT ECOSYSTEM (Fase 1: memoria y revisor) ==========
+//
+// Estas tablas permiten que multiples agentes (bot de Telegram, Claude en
+// Cowork, futuros workers en background) compartan estado. Sobreviven a
+// cortes de sesion y sirven de bitacora auditable.
+//
+// Principio: un agente empieza leyendo su mision y termina actualizandola.
+
+// Misiones: tareas de alto nivel que persisten entre sesiones.
+// Estado puede ser: pending, in_progress, blocked, awaiting_review, done, cancelled.
+// createdBy y assignedTo son identificadores libres: "bot-telegram", "claude-cowork",
+// "luis" (el humano), o cualquier nombre de subagente futuro.
+export const agentMissions = pgTable("agent_missions", {
+  id: serial("id").primaryKey(),
+  title: text("title").notNull(),
+  description: text("description"),
+  status: text("status").notNull().default("pending"),
+  priority: text("priority").notNull().default("normal"), // low, normal, high, urgent
+  createdBy: text("created_by").notNull(), // quien origino la mision
+  assignedTo: text("assigned_to"), // agente actualmente trabajando en ella
+  parentId: integer("parent_id"), // para descomponer en subtareas
+  progressNotes: text("progress_notes"), // bitacora acumulativa (los agentes appendean aqui)
+  metadata: text("metadata"), // JSON stringificado para datos estructurados libres
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+  completedAt: timestamp("completed_at"),
+});
+
+export const AGENT_MISSION_STATUSES = [
+  "pending", "in_progress", "blocked", "awaiting_review", "done", "cancelled",
+] as const;
+
+export type AgentMission = typeof agentMissions.$inferSelect;
+export type InsertAgentMission = typeof agentMissions.$inferInsert;
+
+// Revisiones: cuando un agente quiere ejecutar una accion de riesgo
+// (push a main, borrar archivos, publicar en redes, mover dinero, etc.)
+// crea un review_request y espera decision humana.
+// decision: pending, approved, denied, expired.
+export const agentReviewRequests = pgTable("agent_review_requests", {
+  id: serial("id").primaryKey(),
+  missionId: integer("mission_id"), // opcional: asociar a una mision
+  agentId: text("agent_id").notNull(), // quien pide la revision
+  actionType: text("action_type").notNull(), // git_push, file_delete, social_post, db_migration, etc.
+  summary: text("summary").notNull(), // resumen humano (ej: "push de 3 commits a main")
+  payload: text("payload"), // contenido completo revisado (diff, mensaje, etc.)
+  riskReasons: text("risk_reasons"), // JSON array de razones por las que se escalo a humano
+  riskScore: integer("risk_score").notNull().default(0), // 0-100
+  autoDecision: text("auto_decision"), // lo que el revisor automatico recomendaba: approve, block, needs_human
+  decision: text("decision").notNull().default("pending"),
+  decidedBy: text("decided_by"), // humano o agente que decidio
+  decidedAt: timestamp("decided_at"),
+  telegramChatId: text("telegram_chat_id"), // a quien se le notifico
+  telegramMessageId: text("telegram_message_id"), // para editar mensaje al decidir
+  expiresAt: timestamp("expires_at"), // si no hay decision en X tiempo, auto-denied
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const AGENT_REVIEW_DECISIONS = [
+  "pending", "approved", "denied", "expired",
+] as const;
+
+export const AGENT_ACTION_TYPES = [
+  "git_push",
+  "git_force_push",
+  "file_delete",
+  "file_overwrite_critical",
+  "db_migration",
+  "db_destructive",
+  "social_post",
+  "email_send_bulk",
+  "env_change",
+  "deploy",
+  "custom",
+] as const;
+
+export type AgentReviewRequest = typeof agentReviewRequests.$inferSelect;
+export type InsertAgentReviewRequest = typeof agentReviewRequests.$inferInsert;
+
+// Bitacora de actividad: registro auditable de todo lo que los agentes hacen.
+// Util para debugging ("que hizo el bot anoche?") y para entrenar futuros revisores.
+export const agentActivityLog = pgTable("agent_activity_log", {
+  id: serial("id").primaryKey(),
+  missionId: integer("mission_id"),
+  agentId: text("agent_id").notNull(),
+  action: text("action").notNull(), // mission_created, review_requested, push_executed, error, etc.
+  details: text("details"), // JSON stringificado
+  success: boolean("success").notNull().default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export type AgentActivityEntry = typeof agentActivityLog.$inferSelect;
+export type InsertAgentActivityEntry = typeof agentActivityLog.$inferInsert;

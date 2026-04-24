@@ -753,6 +753,65 @@ CREATE TABLE IF NOT EXISTS "member_progress" (
   "earned_at" timestamp DEFAULT now(),
   "details" text
 );
+
+-- ========== AGENT ECOSYSTEM (Fase 1) ==========
+-- Memoria compartida entre el bot de Telegram, Claude en Cowork, y futuros
+-- agentes en background. Sobrevive a cortes de sesion.
+CREATE TABLE IF NOT EXISTS "agent_missions" (
+  "id" serial PRIMARY KEY,
+  "title" text NOT NULL,
+  "description" text,
+  "status" text NOT NULL DEFAULT 'pending',
+  "priority" text NOT NULL DEFAULT 'normal',
+  "created_by" text NOT NULL,
+  "assigned_to" text,
+  "parent_id" integer,
+  "progress_notes" text,
+  "metadata" text,
+  "created_at" timestamp DEFAULT now(),
+  "updated_at" timestamp DEFAULT now(),
+  "completed_at" timestamp
+);
+
+CREATE INDEX IF NOT EXISTS "idx_agent_missions_status" ON "agent_missions"("status");
+CREATE INDEX IF NOT EXISTS "idx_agent_missions_assigned_to" ON "agent_missions"("assigned_to");
+
+-- Revisiones: acciones de riesgo que esperan decision humana
+CREATE TABLE IF NOT EXISTS "agent_review_requests" (
+  "id" serial PRIMARY KEY,
+  "mission_id" integer,
+  "agent_id" text NOT NULL,
+  "action_type" text NOT NULL,
+  "summary" text NOT NULL,
+  "payload" text,
+  "risk_reasons" text,
+  "risk_score" integer NOT NULL DEFAULT 0,
+  "auto_decision" text,
+  "decision" text NOT NULL DEFAULT 'pending',
+  "decided_by" text,
+  "decided_at" timestamp,
+  "telegram_chat_id" text,
+  "telegram_message_id" text,
+  "expires_at" timestamp,
+  "created_at" timestamp DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS "idx_agent_reviews_decision" ON "agent_review_requests"("decision");
+CREATE INDEX IF NOT EXISTS "idx_agent_reviews_mission" ON "agent_review_requests"("mission_id");
+
+-- Bitacora auditable de actividad de agentes
+CREATE TABLE IF NOT EXISTS "agent_activity_log" (
+  "id" serial PRIMARY KEY,
+  "mission_id" integer,
+  "agent_id" text NOT NULL,
+  "action" text NOT NULL,
+  "details" text,
+  "success" boolean NOT NULL DEFAULT true,
+  "created_at" timestamp DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS "idx_agent_activity_mission" ON "agent_activity_log"("mission_id");
+CREATE INDEX IF NOT EXISTS "idx_agent_activity_created_at" ON "agent_activity_log"("created_at");
 `;
 
 // ALTER TABLE statements to add columns that might be missing from older schemas

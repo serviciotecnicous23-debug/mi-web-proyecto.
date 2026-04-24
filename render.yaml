@@ -66,6 +66,13 @@ services:
         sync: false
       - key: VAPID_SUBJECT
         value: "mailto:admin@ministerioavivandoelfuego.com"
+      # Agent ecosystem (Fase 1): memoria compartida y revisor de acciones
+      - key: AGENT_API_KEY
+        generateValue: true
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false
+      - key: TELEGRAM_OWNER_CHAT_ID
+        sync: false
     autoDeploy: true
     healthCheckPath: /api/hello
     # Starter plan benefits: always-on, no spin-down, shell access, metrics
