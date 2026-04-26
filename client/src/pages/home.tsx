@@ -4,6 +4,8 @@ import { Card } from "@/components/ui/card";
 import { Link } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
 import { motion } from "framer-motion";
+import { useEffect, useRef } from "react";
+import gsap from "gsap";
 import { Flame, Radio, Users, BookOpen, Heart, Globe, HandCoins, Video, Signal, Church, Shield, Award } from "lucide-react";
 import { PublicDonationSection } from "@/pages/finanzas";
 import { LogoIcon } from "@/components/LogoIcon";
@@ -29,6 +31,42 @@ const areas = [
 
 export default function Home() {
   const { user } = useAuth();
+  const ctaRef = useRef<HTMLDivElement>(null);
+
+  // GSAP magnetic hover physics on hero CTAs
+  useEffect(() => {
+    const container = ctaRef.current;
+    if (!container || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+
+    const buttons = container.querySelectorAll("button");
+    const cleanups: (() => void)[] = [];
+
+    buttons.forEach((btn) => {
+      const enter = () => {
+        gsap.to(btn, { scale: 1.06, y: -3, duration: 0.35, ease: "power2.out" });
+        gsap.to(btn, { "--fire-glow": "1", duration: 0.28, ease: "power2.out" });
+      };
+      const leave = () => {
+        gsap.to(btn, { scale: 1, y: 0, duration: 0.55, ease: "elastic.out(1.15, 0.5)" });
+      };
+      const down = () => gsap.to(btn, { scale: 0.94, duration: 0.1, ease: "power2.in" });
+      const up   = () => gsap.to(btn, { scale: 1.06, duration: 0.25, ease: "power2.out" });
+
+      btn.addEventListener("mouseenter", enter, { passive: true });
+      btn.addEventListener("mouseleave", leave, { passive: true });
+      btn.addEventListener("mousedown",  down,  { passive: true });
+      btn.addEventListener("mouseup",    up,    { passive: true });
+
+      cleanups.push(() => {
+        btn.removeEventListener("mouseenter", enter);
+        btn.removeEventListener("mouseleave", leave);
+        btn.removeEventListener("mousedown",  down);
+        btn.removeEventListener("mouseup",    up);
+      });
+    });
+
+    return () => cleanups.forEach((fn) => fn());
+  }, [user]);
 
   return (
     <Layout>
@@ -60,39 +98,41 @@ export default function Home() {
               <FlameLogoSVG className="w-full h-full" animate />
             </div>
 
-            {/* Big Oswald heading */}
-            <h1
-              className="heading-display font-display text-6xl md:text-8xl lg:text-9xl mb-4 leading-none"
-              data-testid="text-title"
-            >
-              <span className="fire-text">AVIVANDO</span>
-              <br />
-              <span className="text-foreground/80">EL FUEGO</span>
-            </h1>
+            {/* Glassmorphism contrast well — ensures heading legibility against WebGL fire */}
+            <div className="hero-text-well mx-auto max-w-3xl px-6 py-8 md:px-10 md:py-10 mb-8">
+              <h1
+                className="heading-display font-display text-6xl md:text-8xl lg:text-9xl mb-4 leading-none"
+                data-testid="text-title"
+              >
+                <span className="fire-text">AVIVANDO</span>
+                <br />
+                <span className="text-foreground/90 dark:text-white/90">EL FUEGO</span>
+              </h1>
+              <blockquote className="text-base md:text-lg text-muted-foreground max-w-2xl mx-auto mb-2 italic">
+                "Para que vuestra fe no este fundada en la sabiduria de los hombres, sino en el poder de Dios"
+              </blockquote>
+              <p className="text-sm text-muted-foreground">— 1 Corintios 2:4</p>
+            </div>
 
-            <blockquote className="text-base md:text-lg text-muted-foreground max-w-2xl mx-auto mb-2 italic">
-              "Para que vuestra fe no este fundada en la sabiduria de los hombres, sino en el poder de Dios"
-            </blockquote>
-            <p className="text-sm text-muted-foreground mb-10">— 1 Corintios 2:4</p>
-
-            <div className="flex flex-wrap justify-center gap-3">
+            {/* CTAs — GSAP hover physics applied via ctaRef */}
+            <div ref={ctaRef} className="flex flex-wrap justify-center gap-4">
               {user ? (
                 <Link href="/perfil">
-                  <Button size="lg" data-testid="button-hero-profile">
+                  <Button size="lg" className="btn-fire-glow" data-testid="button-hero-profile" data-magnetic>
                     <LogoIcon className="w-4 h-4 mr-2" />
                     Mi Perfil
                   </Button>
                 </Link>
               ) : (
                 <Link href="/registro">
-                  <Button size="lg" className="fire-btn-primary" data-testid="button-hero-join">
+                  <Button size="lg" className="fire-btn-primary" data-testid="button-hero-join" data-magnetic>
                     <LogoIcon className="w-4 h-4 mr-2" />
                     Unirse al Ministerio
                   </Button>
                 </Link>
               )}
               <Link href="/historia">
-                <Button variant="outline" size="lg" data-testid="button-hero-vision">
+                <Button variant="outline" size="lg" className="btn-fire-glow" data-testid="button-hero-vision" data-magnetic>
                   Conocer la Vision
                 </Button>
               </Link>

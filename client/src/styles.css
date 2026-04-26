@@ -472,6 +472,118 @@ button:not([disabled]):hover  { filter: brightness(1.05); }
 button:not([disabled]):active { transform: scale(0.965); transition-duration: 0.08s; }
 
 /* ═══════════════════════════════════════════════════════════════════════
+   HERO TEXT CONTRAST WELL
+   Glassmorphism backdrop panel that separates heading from WebGL fire
+   while preserving the flame's visual impact.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+  .hero-text-well {
+    position: relative;
+    border-radius: 1.25rem;
+    background: rgba(7, 8, 15, 0.52);
+    backdrop-filter: blur(14px) saturate(160%);
+    -webkit-backdrop-filter: blur(14px) saturate(160%);
+    border: 1px solid rgba(255, 255, 255, 0.055);
+    box-shadow:
+      0 0 0 1px rgba(249,115,22,0.06) inset,
+      0 32px 80px rgba(0,0,0,0.55);
+  }
+  /* Light mode: light-frosted contrast */
+  :root:not(.dark) .hero-text-well {
+    background: rgba(250, 249, 246, 0.62);
+    box-shadow:
+      0 0 0 1px rgba(0,0,0,0.05) inset,
+      0 24px 60px rgba(0,0,0,0.12);
+  }
+
+/* ═══════════════════════════════════════════════════════════════════════
+   PREMIUM FIRE BUTTON  (.btn-fire-glow)
+   Dark glass base with neon-fire border, layered glow on hover,
+   depth shimmer via ::before, thermal pulse on active.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+  .btn-fire-glow {
+    position: relative;
+    overflow: hidden;
+    background: rgba(14, 16, 28, 0.82);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    border: 1px solid rgba(249, 115, 22, 0.38) !important;
+    color: hsl(var(--foreground)) !important;
+    font-family: var(--font-sans);
+    font-weight: 500;
+    letter-spacing: 0.03em;
+    /* multi-layer shadow for depth illusion */
+    box-shadow:
+      0 1px 0 rgba(255,255,255,0.06) inset,
+      0 -1px 0 rgba(0,0,0,0.35) inset,
+      0 4px 16px rgba(0,0,0,0.35);
+    transition:
+      border-color 0.28s ease,
+      box-shadow   0.28s ease,
+      background   0.28s ease;
+  }
+  /* Diagonal shimmer layer (depth glass refraction) */
+  .btn-fire-glow::before {
+    content: '';
+    position: absolute;
+    top: 0; left: -75%;
+    width: 55%; height: 100%;
+    background: linear-gradient(
+      100deg,
+      transparent       0%,
+      rgba(255,255,255,0.06) 50%,
+      transparent       100%
+    );
+    transform: skewX(-18deg);
+    transition: left 0.45s cubic-bezier(0.4, 0, 0.2, 1);
+    pointer-events: none;
+  }
+  /* Fire glow pulse layer (scales up on hover via ::after) */
+  .btn-fire-glow::after {
+    content: '';
+    position: absolute;
+    inset: -1px;
+    border-radius: inherit;
+    background: linear-gradient(135deg,
+      hsl(39 100% 56% / 0.0),
+      hsl(24 95% 53% / 0.0));
+    filter: blur(12px);
+    z-index: -1;
+    transition: opacity 0.35s ease, background 0.35s ease;
+    opacity: 0;
+  }
+  .btn-fire-glow:hover {
+    border-color: rgba(249,115,22,0.85) !important;
+    background: rgba(18, 20, 34, 0.92);
+    box-shadow:
+      0 0 0 1px rgba(249,115,22,0.22) inset,
+      0 0 24px rgba(249,115,22,0.30),
+      0 0 48px rgba(249,115,22,0.12),
+      0 8px 32px rgba(0,0,0,0.40);
+  }
+  .btn-fire-glow:hover::before { left: 130%; }
+  .btn-fire-glow:hover::after {
+    opacity: 1;
+    background: linear-gradient(135deg,
+      hsl(39 100% 56% / 0.18),
+      hsl(24 95% 53% / 0.14));
+  }
+  .btn-fire-glow:active {
+    box-shadow:
+      0 0 12px rgba(249,115,22,0.22),
+      0 2px 8px rgba(0,0,0,0.4);
+  }
+  /* Light-mode variant */
+  :root:not(.dark) .btn-fire-glow {
+    background: rgba(255, 252, 248, 0.78);
+    color: hsl(20 28% 9%) !important;
+  }
+  :root:not(.dark) .btn-fire-glow:hover {
+    background: rgba(255, 252, 248, 0.96);
+  }
+
+/* ═══════════════════════════════════════════════════════════════════════
    CUSTOM CURSOR (desktop only, applied via GlassCursor component)
    ═══════════════════════════════════════════════════════════════════════ */
 

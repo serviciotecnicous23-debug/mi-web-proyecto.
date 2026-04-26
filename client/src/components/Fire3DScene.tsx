@@ -195,6 +195,8 @@ void main(){
 export interface Fire3DSceneHandle {
   /** Animate the fire intensity up or down (0–1) */
   setIntensity: (v: number, duration?: number) => void;
+  /** Switch between majestic hero flames and drifting ember clouds */
+  setMode: (mode: "hero" | "ember") => void;
 }
 
 interface Fire3DSceneProps {
@@ -212,6 +214,8 @@ export const Fire3DScene = forwardRef<Fire3DSceneHandle, Fire3DSceneProps>(
   function Fire3DScene({ opacity = 0.92, emberCount = EMBER_POOL, className = "" }, ref) {
     const containerRef = useRef<HTMLDivElement>(null);
     const intensityRef = useRef<number>(1.0);
+    // emberModeRef: true → floating drift cloud, false → concentrated base fire
+    const emberModeRef = useRef<boolean>(false);
 
     useImperativeHandle(ref, () => ({
       setIntensity(v: number, duration = 1.2) {
@@ -220,7 +224,25 @@ export const Fire3DScene = forwardRef<Fire3DSceneHandle, Fire3DSceneProps>(
         const startT = performance.now();
         const tick   = () => {
           const p = Math.min((performance.now() - startT) / (duration * 1000), 1);
-          intensityRef.current = start + (end - start) * p;
+          // ease-in-out quad
+          const ease = p < 0.5 ? 2 * p * p : -1 + (4 - 2 * p) * p;
+          intensityRef.current = start + (end - start) * ease;
+          if (p < 1) requestAnimationFrame(tick);
+        };
+        requestAnimationFrame(tick);
+      },
+      setMode(mode: "hero" | "ember") {
+        const isEmber      = mode === "ember";
+        emberModeRef.current = isEmber;
+        // Animate intensity with a slow, cinematic ease
+        const start  = intensityRef.current;
+        const end    = isEmber ? 0.06 : 1.0;
+        const startT = performance.now();
+        const dur    = isEmber ? 2200 : 1400; // ms — fade out is slower than fade in
+        const tick   = () => {
+          const p    = Math.min((performance.now() - startT) / dur, 1);
+          const ease = p < 0.5 ? 2 * p * p : -1 + (4 - 2 * p) * p;
+          intensityRef.current = start + (end - start) * ease;
           if (p < 1) requestAnimationFrame(tick);
         };
         requestAnimationFrame(tick);
@@ -281,12 +303,19 @@ export const Fire3DScene = forwardRef<Fire3DSceneHandle, Fire3DSceneProps>(
 
       const spawnEmber = (i: number) => {
         const i3 = i * 3;
-        positions[i3]     = (Math.random() - 0.5) * 2.2;
-        positions[i3 + 1] = (Math.random() - 0.5) * 0.4;
-        positions[i3 + 2] = (Math.random() - 0.5) * 0.3;
-        velocities[i3]     = (Math.random() - 0.5) * 0.014;
-        velocities[i3 + 1] = Math.random() * 0.022 + 0.008;
-        sizes_arr[i]       = Math.random() * 4.0 + 1.5;
+        const isEmber = emberModeRef.current;
+        // Ember mode: wide viewport scatter; Hero mode: concentrated at flame base
+        const spreadX  = isEmber ? 7.0 : 2.2;
+        const spreadY  = isEmber ? 4.5 : 0.4;  // embers at varied heights in ember mode
+        const speedX   = isEmber ? 0.007 : 0.014;
+        const speedY   = isEmber ? Math.random() * 0.010 + 0.003 : Math.random() * 0.022 + 0.008;
+        const sizeMax  = isEmber ? 2.8 : 4.0;
+        positions[i3]     = (Math.random() - 0.5) * spreadX;
+        positions[i3 + 1] = isEmber ? (Math.random() - 0.5) * spreadY : (Math.random() - 0.5) * 0.4;
+        positions[i3 + 2] = (Math.random() - 0.5) * (isEmber ? 1.2 : 0.3);
+        velocities[i3]     = (Math.random() - 0.5) * speedX;
+        velocities[i3 + 1] = speedY;
+        sizes_arr[i]       = Math.random() * sizeMax + 1.2;
         lifes[i]           = Math.random();
       };
 
@@ -352,16 +381,20 @@ export const Fire3DScene = forwardRef<Fire3DSceneHandle, Fire3DSceneProps>(
         const posAttr  = emberGeo.attributes.position as THREE.BufferAttribute;
         const lifeAttr = emberGeo.attributes.aLife    as THREE.BufferAttribute;
         const dt       = 0.016; // assume ~60fps
+        const isEmber  = emberModeRef.current;
+        // In ember mode: embers drift very slowly; in hero: fast-rising sparks
+        const decayBase = isEmber ? 0.06 : 0.18;
+        const swaySin   = isEmber ? 0.003 : 0.0015;
         for (let i = 0; i < emberCount; i++) {
           const i3 = i * 3;
-          const life = lifes[i] - dt * (0.18 + Math.random() * 0.04);
+          const life = lifes[i] - dt * (decayBase + Math.random() * 0.025);
           if (life <= 0) {
             spawnEmber(i);
           } else {
             lifes[i] = life;
             // Drift upward with gentle sinusoidal sway
-            positions[i3]     += velocities[i3] + Math.sin(t * 1.4 + i * 0.37) * 0.0015;
-            positions[i3 + 1] += velocities[i3 + 1] * intensityRef.current;
+            positions[i3]     += velocities[i3] + Math.sin(t * (isEmber ? 0.7 : 1.4) + i * 0.37) * swaySin;
+            positions[i3 + 1] += velocities[i3 + 1] * (isEmber ? 0.55 : intensityRef.current);
           }
           (posAttr.array  as Float32Array)[i3]     = positions[i3];
           (posAttr.array  as Float32Array)[i3 + 1] = positions[i3 + 1];

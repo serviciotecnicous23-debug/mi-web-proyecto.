@@ -66,6 +66,7 @@ import { ScrollToTop, BackToTop } from "@/components/ScrollToTop";
 import { LogoIcon } from "@/components/LogoIcon";
 import { FlameLogoSVG } from "@/components/FlameLogoSVG";
 import { Fire3DScene } from "@/components/Fire3DScene";
+import type { Fire3DSceneHandle } from "@/components/Fire3DScene";
 
 // Desktop nav links — PUBLIC (visitors / not logged in)
 const publicDesktopNavLinks = [
@@ -883,6 +884,21 @@ function EmailVerifyBanner() {
 
 export function Layout({ children }: { children: React.ReactNode }) {
   const [location] = useLocation();
+  const fireRef = useRef<Fire3DSceneHandle>(null);
+
+  // ── Fire state bridge: Hero (intense) at home-top → Ember (drifting) elsewhere ──
+  useEffect(() => {
+    const transition = () => {
+      const isHome      = location === "/";
+      const scrolledDown = window.scrollY > 260;
+      const mode: "hero" | "ember" = (isHome && !scrolledDown) ? "hero" : "ember";
+      fireRef.current?.setMode(mode);
+    };
+    // Immediate on location change
+    transition();
+    window.addEventListener("scroll", transition, { passive: true });
+    return () => window.removeEventListener("scroll", transition);
+  }, [location]);
 
   return (
     <div className="min-h-screen flex flex-col bg-background font-sans">
@@ -945,7 +961,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
       </AnimatePresence>
       <Footer />
       <BackToTop />
-      <Fire3DScene className="fixed inset-0 z-0" opacity={0.88} />
+      <Fire3DScene ref={fireRef} className="fixed inset-0 z-0" opacity={0.88} />
     </div>
   );
 }
