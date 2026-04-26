@@ -12,10 +12,6 @@ interface UseScrollAnimationOptions {
 /**
  * Hook que detecta cuando un elemento entra en el viewport usando IntersectionObserver.
  * Devuelve un ref para asignar al elemento y un booleano `isVisible`.
- *
- * Uso:
- *   const { ref, isVisible } = useScrollAnimation({ once: true });
- *   return <div ref={ref} className={isVisible ? "opacity-100" : "opacity-0"} />;
  */
 export function useScrollAnimation<T extends HTMLElement = HTMLDivElement>(
   options: UseScrollAnimationOptions = {},
@@ -29,7 +25,6 @@ export function useScrollAnimation<T extends HTMLElement = HTMLDivElement>(
     const node = ref.current;
     if (!node) return;
 
-    // Fallback: si no hay IntersectionObserver, mostrar de una.
     if (typeof IntersectionObserver === "undefined") {
       setIsVisible(true);
       return;
@@ -54,4 +49,4 @@ export function useScrollAnimation<T extends HTMLElement = HTMLDivElement>(
   return { ref, isVisible };
 }
 
-export default useScrollA
+export default useScrollAnimation;
