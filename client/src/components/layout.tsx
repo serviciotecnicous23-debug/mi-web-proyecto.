@@ -65,7 +65,7 @@ import { GlobalSearch } from "@/components/GlobalSearch";
 import { ScrollToTop, BackToTop } from "@/components/ScrollToTop";
 import { LogoIcon } from "@/components/LogoIcon";
 import { FlameLogoSVG } from "@/components/FlameLogoSVG";
-import { FireCanvas } from "@/components/FireCanvas";
+import { Fire3DScene } from "@/components/Fire3DScene";
 
 // Desktop nav links — PUBLIC (visitors / not logged in)
 const publicDesktopNavLinks = [
@@ -886,6 +886,39 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="min-h-screen flex flex-col bg-background font-sans">
+      {/* SVG heat-distortion filter — referenced via CSS filter: url(#heat) */}
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        style={{ position: "absolute", width: 0, height: 0, overflow: "hidden" }}
+        aria-hidden="true"
+      >
+        <defs>
+          <filter id="heat-distortion" x="0%" y="0%" width="100%" height="100%" colorInterpolationFilters="sRGB">
+            <feTurbulence
+              type="fractalNoise"
+              baseFrequency="0.012 0.018"
+              numOctaves="2"
+              seed="7"
+              result="noise"
+            >
+              <animate
+                attributeName="baseFrequency"
+                values="0.012 0.018;0.018 0.012;0.012 0.018"
+                dur="4s"
+                repeatCount="indefinite"
+              />
+            </feTurbulence>
+            <feDisplacementMap
+              in="SourceGraphic"
+              in2="noise"
+              scale="7"
+              xChannelSelector="R"
+              yChannelSelector="G"
+            />
+          </filter>
+        </defs>
+      </svg>
+
       {/* Skip to content link for screen readers - 5.5 Accessibility */}
       <a
         href="#main-content"
@@ -912,7 +945,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
       </AnimatePresence>
       <Footer />
       <BackToTop />
-      <FireCanvas />
+      <Fire3DScene className="fixed inset-0 z-0" opacity={0.88} />
     </div>
   );
 }

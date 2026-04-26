@@ -36,8 +36,14 @@ export default function Home() {
         <section className="relative overflow-hidden py-28 md:py-40">
           <FireParticles />
           {/* Obsidian grid overlay */}
-          <div className="hero-grid-bg" />
+          <div className="hero-grid-bg absolute inset-0" />
           <div className="absolute inset-0 fire-gradient opacity-10 dark:opacity-20" />
+          {/* Heat distortion zone — lower 35% of hero only */}
+          <div
+            className="absolute bottom-0 left-0 right-0 h-[35%] pointer-events-none"
+            style={{ filter: "url(#heat-distortion)" }}
+            aria-hidden="true"
+          />
           <motion.div
             className="relative max-w-4xl mx-auto px-4 text-center"
             initial={{ opacity: 0, y: 24 }}
@@ -146,81 +152,74 @@ export default function Home() {
       </section>
 
       {/* En Vivo Section */}
-      <section className="py-16 border-t">
+      <section className="py-20 border-t border-border/40">
         <div className="max-w-4xl mx-auto px-4">
-          <div className="text-center mb-8">
-            <p className="text-sm text-primary font-medium mb-2">Transmisiones</p>
-            <h2 className="text-3xl font-bold">En Vivo</h2>
-            <p className="text-muted-foreground mt-2 max-w-xl mx-auto">
-              Conéctate a nuestras transmisiones en vivo. Cultos, enseñanzas y más.
-            </p>
+          <div className="text-center mb-10">
+            <span className="glass-pill inline-block mb-4 text-xs">Transmisiones</span>
+            <h2 className="heading-display font-display text-4xl md:text-5xl">En Vivo</h2>
           </div>
-          <Card className="p-6 bg-gradient-to-br from-red-50/50 to-orange-50/30 dark:from-red-950/20 dark:to-orange-950/10 border-red-200/50">
-            <div className="flex flex-col md:flex-row items-center gap-6">
-              <div className="flex items-center gap-3">
+          <div className="glass-card neon-border-fire p-8">
+            <div className="flex flex-col md:flex-row items-center gap-8">
+              <div className="flex items-center gap-4">
                 <div className="relative">
-                  <Signal className="h-10 w-10 text-red-500" />
-                  <span className="absolute -top-1 -right-1 h-3 w-3 bg-red-500 rounded-full animate-pulse" />
+                  <Signal className="h-12 w-12 text-primary" />
+                  <span className="absolute -top-1 -right-1 h-3.5 w-3.5 bg-red-500 rounded-full animate-pulse shadow-[0_0_8px_rgba(239,68,68,0.8)]" />
                 </div>
                 <div>
-                  <h3 className="font-bold text-lg">Transmisiones del Ministerio</h3>
-                  <p className="text-sm text-muted-foreground">Radio, YouTube, Facebook y más</p>
+                  <h3 className="font-display text-lg font-semibold tracking-wider uppercase">Transmisiones del Ministerio</h3>
+                  <p className="text-sm text-muted-foreground">Radio &bull; YouTube &bull; Facebook &bull; Podcast</p>
                 </div>
               </div>
               <div className="flex-1" />
               <Link href="/en-vivo">
-                <Button size="lg" className="gap-2 bg-red-600 hover:bg-red-700">
+                <Button size="lg" className="gap-2 fire-btn-primary" data-magnetic>
                   <Video className="h-4 w-4" /> Ver En Vivo
                 </Button>
               </Link>
             </div>
-          </Card>
+          </div>
         </div>
       </section>
 
       {/* Alianza Global Section */}
-      <section className="py-16 bg-card border-t">
+      <section className="py-20 border-t border-border/40">
         <div className="max-w-6xl mx-auto px-4">
-          <div className="text-center mb-10">
-            <p className="text-sm text-primary font-medium mb-2">Alianza para la Gran Comision</p>
-            <h2 className="text-3xl font-bold">Una Red de Iglesias Unidas</h2>
-            <p className="text-muted-foreground mt-2 max-w-2xl mx-auto">
+          <div className="text-center mb-12">
+            <span className="glass-pill inline-block mb-4 text-xs">Alianza para la Gran Comision</span>
+            <h2 className="heading-display font-display text-4xl md:text-5xl">Una Red de Iglesias Unidas</h2>
+            <p className="text-muted-foreground mt-4 max-w-2xl mx-auto">
               No somos cobertura, somos companeros de yugo. Iglesias autonomas unidas por el mismo fuego,
               compartiendo recursos, formacion y proposito.
             </p>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
-            <Card className="p-6 text-center">
-              <Church className="w-10 h-10 text-primary mx-auto mb-3" />
-              <h3 className="font-semibold mb-2">Iglesias Aliadas</h3>
-              <p className="text-sm text-muted-foreground">
-                Cada congregacion mantiene su autonomia pastoral y administrativa mientras accede a recursos compartidos.
-              </p>
-            </Card>
-            <Card className="p-6 text-center">
-              <Award className="w-10 h-10 text-primary mx-auto mb-3" />
-              <h3 className="font-semibold mb-2">Formacion Ministerial</h3>
-              <p className="text-sm text-muted-foreground">
-                Cursos nucleares del ministerio mas formacion propia de cada iglesia. Certificacion conjunta.
-              </p>
-            </Card>
-            <Card className="p-6 text-center">
-              <Shield className="w-10 h-10 text-primary mx-auto mb-3" />
-              <h3 className="font-semibold mb-2">Canalizacion Etica</h3>
-              <p className="text-sm text-muted-foreground">
-                Miembros independientes conectados con iglesias locales. Sin proselitismo, con transparencia.
-              </p>
-            </Card>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-10">
+            {[
+              { icon: Church, title: "Iglesias Aliadas", desc: "Cada congregacion mantiene su autonomia pastoral mientras accede a recursos compartidos." },
+              { icon: Award,  title: "Formacion Ministerial", desc: "Cursos nucleares del ministerio mas formacion propia. Certificacion conjunta." },
+              { icon: Shield, title: "Canalizacion Etica", desc: "Miembros conectados con iglesias locales. Sin proselitismo, con transparencia." },
+            ].map((item, i) => (
+              <motion.div
+                key={item.title}
+                className="glass-card p-7 text-center"
+                initial={{ opacity: 0, y: 24 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.4, delay: i * 0.1 }}
+              >
+                <item.icon className="w-10 h-10 text-primary mx-auto mb-4" />
+                <h3 className="font-display text-sm font-semibold tracking-widest uppercase mb-3">{item.title}</h3>
+                <p className="text-sm text-muted-foreground">{item.desc}</p>
+              </motion.div>
+            ))}
           </div>
           <div className="flex flex-col sm:flex-row justify-center gap-4">
             <Link href="/alianza">
-              <Button size="lg" variant="default">
-                <Church className="w-4 h-4 mr-2" />
-                Eres Pastor? Unete a la Alianza
+              <Button size="lg" className="fire-btn-primary" data-magnetic>
+                <Church className="w-4 h-4 mr-2" /> Eres Pastor? Unete a la Alianza
               </Button>
             </Link>
             <Link href="/buscar-iglesia">
-              <Button size="lg" variant="outline">
+              <Button size="lg" variant="outline" data-magnetic>
                 Buscar una Iglesia Cercana
               </Button>
             </Link>
@@ -229,37 +228,42 @@ export default function Home() {
       </section>
 
       {/* Donation Section */}
-      <section className="py-16 border-t">
+      <section className="py-20 border-t border-border/40">
         <div className="max-w-4xl mx-auto px-4">
           <div className="text-center mb-8">
-            <p className="text-sm text-primary font-medium mb-2">Apoyo</p>
-            <h2 className="text-3xl font-bold">Apoya el Ministerio</h2>
-            <p className="text-muted-foreground mt-2 max-w-xl mx-auto">
-              Tu generosidad hace posible que el fuego del evangelio siga llegando a más personas.
+            <span className="glass-pill inline-block mb-4 text-xs">Apoyo</span>
+            <h2 className="heading-display font-display text-4xl md:text-5xl">Apoya el Ministerio</h2>
+            <p className="text-muted-foreground mt-4 max-w-xl mx-auto">
+              Tu generosidad hace posible que el fuego del evangelio siga llegando a mas personas.
             </p>
           </div>
           <PublicDonationSection />
         </div>
       </section>
 
-      <section className="py-16 border-t">
+      {/* Final CTA */}
+      <section className="py-24 border-t border-border/40">
         <div className="max-w-3xl mx-auto px-4 text-center">
-          <h2 className="text-2xl font-bold mb-4">Sientes el llamado?</h2>
-          <p className="text-muted-foreground mb-6">
-            Unete como miembro, maestro o iglesia aliada. Juntos llevamos el fuego del evangelio a las naciones.
-          </p>
-          <div className="flex flex-wrap justify-center gap-3">
-            <Link href="/registro">
-              <Button size="lg" data-testid="button-cta-join">
-                Ser Parte del Equipo
-              </Button>
-            </Link>
-            <Link href="/ficha-ministerial">
-              <Button size="lg" variant="outline">
-                <BookOpen className="w-4 h-4 mr-2" />
-                Directorio de Maestros
-              </Button>
-            </Link>
+          <div className="glass-card neon-border-fire p-12">
+            <h2 className="heading-display font-display text-4xl md:text-5xl mb-6">
+              Sientes el <span className="fire-text">Llamado?</span>
+            </h2>
+            <p className="text-muted-foreground mb-8 max-w-lg mx-auto">
+              Unete como miembro, maestro o iglesia aliada. Juntos llevamos el fuego del evangelio a las naciones.
+            </p>
+            <div className="flex flex-wrap justify-center gap-4">
+              <Link href="/registro">
+                <Button size="lg" className="fire-btn-primary px-8" data-testid="button-cta-join" data-magnetic>
+                  Ser Parte del Equipo
+                </Button>
+              </Link>
+              <Link href="/ficha-ministerial">
+                <Button size="lg" variant="outline" data-magnetic>
+                  <BookOpen className="w-4 h-4 mr-2" />
+                  Directorio de Maestros
+                </Button>
+              </Link>
+            </div>
           </div>
         </div>
       </section>

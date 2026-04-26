@@ -6,6 +6,8 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { Component, type ErrorInfo, type ReactNode } from "react";
 import * as Sentry from "@sentry/react";
 import { ThemeProvider } from "@/components/ThemeProvider";
+import { PageTransition } from "@/components/PageTransition";
+import { GlassCursor } from "@/components/GlassCursor";
 import NotFound from "@/pages/not-found";
 import Home from "@/pages/home";
 import Historia from "@/pages/historia";
@@ -144,7 +146,10 @@ function App() {
         <QueryClientProvider client={queryClient}>
           <TooltipProvider>
             <Toaster />
-            <Router />
+            <GlassCursor />
+            <PageTransition>
+              <Router />
+            </PageTransition>
           </TooltipProvider>
         </QueryClientProvider>
       </ThemeProvider>
