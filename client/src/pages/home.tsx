@@ -7,6 +7,8 @@ import { motion } from "framer-motion";
 import { Flame, Radio, Users, BookOpen, Heart, Globe, HandCoins, Video, Signal, Church, Shield, Award } from "lucide-react";
 import { PublicDonationSection } from "@/pages/finanzas";
 import { LogoIcon } from "@/components/LogoIcon";
+import AnimatedSection from "@/components/AnimatedSection";
+import FireParticles from "@/components/FireParticles";
 
 const stats = [
   { label: "Anos de Servicio", value: "7+" },
@@ -29,50 +31,53 @@ export default function Home() {
 
   return (
     <Layout>
-      <section className="relative overflow-hidden py-24 md:py-36">
-        <div className="absolute inset-0 fire-gradient opacity-10 dark:opacity-20" />
-        <motion.div
-          className="relative max-w-4xl mx-auto px-4 text-center"
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, ease: "easeOut" }}
-        >
-          <img src="/icons/logo-transparent.png?v4" alt="Avivando el Fuego" className="mx-auto mb-6 h-28 md:h-40 w-auto object-contain drop-shadow-[0_0_25px_rgba(254,146,24,0.4)]" />
-          <p className="text-sm text-muted-foreground mb-4" data-testid="text-subtitle">
-            Desde 2017 - Ciudad Bolivar, Venezuela
-          </p>
-          <p className="text-xs text-muted-foreground/50 mb-2">v2.1.0 — Febrero 2026</p>
-          <h1 className="text-4xl md:text-6xl font-bold mb-6" data-testid="text-title">
-            <span className="fire-text">AVIVANDO EL FUEGO</span>
-          </h1>
-          <blockquote className="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto mb-2 italic">
-            "Para que vuestra fe no este fundada en la sabiduria de los hombres, sino en el poder de Dios"
-          </blockquote>
-          <p className="text-sm text-muted-foreground mb-8">- 1 Corintios 2:4</p>
-          <div className="flex flex-wrap justify-center gap-3">
-            {user ? (
-              <Link href="/perfil">
-                <Button size="lg" data-testid="button-hero-profile">
-                  <LogoIcon className="w-4 h-4 mr-2" />
-                  Mi Perfil
+      <AnimatedSection>
+        <section className="relative overflow-hidden py-24 md:py-36">
+          <FireParticles />
+          <div className="absolute inset-0 fire-gradient opacity-10 dark:opacity-20" />
+          <motion.div
+            className="relative max-w-4xl mx-auto px-4 text-center"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, ease: "easeOut" }}
+          >
+            <img src="/icons/logo-transparent.png?v4" alt="Avivando el Fuego" className="mx-auto mb-6 h-28 md:h-40 w-auto object-contain drop-shadow-[0_0_25px_rgba(254,146,24,0.4)]" />
+            <p className="text-sm text-muted-foreground mb-4" data-testid="text-subtitle">
+              Desde 2017 - Ciudad Bolivar, Venezuela
+            </p>
+            <p className="text-xs text-muted-foreground/50 mb-2">v2.1.0 — Febrero 2026</p>
+            <h1 className="text-4xl md:text-6xl font-bold mb-6" data-testid="text-title">
+              <span className="fire-text">AVIVANDO EL FUEGO</span>
+            </h1>
+            <blockquote className="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto mb-2 italic">
+              "Para que vuestra fe no este fundada en la sabiduria de los hombres, sino en el poder de Dios"
+            </blockquote>
+            <p className="text-sm text-muted-foreground mb-8">- 1 Corintios 2:4</p>
+            <div className="flex flex-wrap justify-center gap-3">
+              {user ? (
+                <Link href="/perfil">
+                  <Button size="lg" data-testid="button-hero-profile">
+                    <LogoIcon className="w-4 h-4 mr-2" />
+                    Mi Perfil
+                  </Button>
+                </Link>
+              ) : (
+                <Link href="/registro">
+                  <Button size="lg" data-testid="button-hero-join">
+                    <LogoIcon className="w-4 h-4 mr-2" />
+                    Unirse al Ministerio
+                  </Button>
+                </Link>
+              )}
+              <Link href="/historia">
+                <Button variant="outline" size="lg" data-testid="button-hero-vision">
+                  Conocer la Vision
                 </Button>
               </Link>
-            ) : (
-              <Link href="/registro">
-                <Button size="lg" data-testid="button-hero-join">
-                  <LogoIcon className="w-4 h-4 mr-2" />
-                  Unirse al Ministerio
-                </Button>
-              </Link>
-            )}
-            <Link href="/historia">
-              <Button variant="outline" size="lg" data-testid="button-hero-vision">
-                Conocer la Vision
-              </Button>
-            </Link>
-          </div>
-        </motion.div>
-      </section>
+            </div>
+          </motion.div>
+        </section>
+      </AnimatedSection>
 
       <section className="py-12 border-t">
         <div className="max-w-5xl mx-auto px-4 grid grid-cols-2 md:grid-cols-4 gap-6">
