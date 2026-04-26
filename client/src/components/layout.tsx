@@ -55,6 +55,7 @@ import {
 } from "@/components/ui/collapsible";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useState, useEffect, useRef, useCallback } from "react";
+import gsap from "gsap";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { ROLES } from "@shared/schema";
@@ -223,7 +224,7 @@ function MobileNavGroup({
                     ? "secondary"
                     : "ghost"
                 }
-                className="w-full justify-start gap-3"
+                className="w-full justify-start gap-3 mobile-nav-item"
                 size="sm"
               >
                 <Icon className="w-4 h-4" />
@@ -269,7 +270,7 @@ function MobileNavGroup({
             <Link key={link.href} href={link.href} onClick={onNavigate}>
               <Button
                 variant={active ? "secondary" : "ghost"}
-                className="w-full justify-start gap-3"
+                className="w-full justify-start gap-3 mobile-nav-item"
                 size="sm"
               >
                 <Icon className="w-4 h-4" />
@@ -359,10 +360,37 @@ export function Navbar() {
   const [location] = useLocation();
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+  const navRef = useRef<HTMLElement>(null);
 
   const roleLabel = user ? (ROLES[user.role as keyof typeof ROLES] || user.role) : "";
-
   const closeMenu = useCallback(() => setMenuOpen(false), []);
+
+  // ── Scroll → intensify glass ──────────────────────────────────────
+  useEffect(() => {
+    const handleScroll = () => {
+      if (navRef.current) {
+        navRef.current.classList.toggle("nav-scrolled", window.scrollY > 24);
+      }
+    };
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
+
+  // ── GSAP stagger on mobile menu open ─────────────────────────────
+  useEffect(() => {
+    if (!menuOpen) return;
+    const timer = setTimeout(() => {
+      if (typeof window === "undefined") return;
+      const items = document.querySelectorAll(".mobile-nav-item");
+      if (items.length > 0) {
+        gsap.fromTo(items,
+          { x: -18, opacity: 0 },
+          { x: 0, opacity: 1, duration: 0.3, stagger: 0.035, ease: "power2.out", clearProps: "all" }
+        );
+      }
+    }, 60);
+    return () => clearTimeout(timer);
+  }, [menuOpen]);
 
   // Focus trap for mobile menu (accessibility)
   useEffect(() => {
@@ -402,28 +430,33 @@ export function Navbar() {
   }, [menuOpen]);
 
   return (
-    <nav className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 sticky top-0 z-50" role="navigation" aria-label="Navegacion principal">
+    <nav ref={navRef} className="navbar-glass sticky top-0 z-50" role="navigation" aria-label="Navegacion principal">
       <div className="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between gap-4">
-        <Link href="/" className="flex items-center gap-2" data-testid="link-home-logo" aria-label="Ir al inicio - Avivando el Fuego">
+        <Link href="/" className="flex items-center gap-3" data-testid="link-home-logo" aria-label="Ir al inicio - Avivando el Fuego">
           <span className="flame-logo-wrap">
             <FlameLogoSVG className="w-9 h-9" />
           </span>
-          <span className="font-bold text-lg hidden sm:inline fire-text">Avivando el Fuego</span>
+          <div className="hidden sm:flex flex-col leading-none">
+            <span className="font-display text-[11px] font-bold tracking-[0.22em] uppercase text-foreground/90">Avivando</span>
+            <span className="font-display text-[9px] tracking-[0.35em] uppercase text-primary">El Fuego</span>
+          </div>
         </Link>
 
         {/* Desktop navigation — public or member */}
-        <div className="hidden lg:flex items-center gap-1">
-          {(user ? memberDesktopNavLinks : publicDesktopNavLinks).map((l) => (
-            <Link key={l.href} href={l.href}>
-              <Button
-                variant={location === l.href || (l.href !== "/" && location.startsWith(l.href)) ? "secondary" : "ghost"}
-                size="sm"
-                data-testid={`link-nav-${l.label.toLowerCase().replace(/\s/g, "-")}`}
-              >
-                {l.label}
-              </Button>
-            </Link>
-          ))}
+        <div className="hidden lg:flex items-center gap-0.5">
+          {(user ? memberDesktopNavLinks : publicDesktopNavLinks).map((l) => {
+            const isActive = location === l.href || (l.href !== "/" && location.startsWith(l.href));
+            return (
+              <Link key={l.href} href={l.href}>
+                <span
+                  className={`nav-link ${isActive ? "nav-link-active" : ""}`}
+                  data-testid={`link-nav-${l.label.toLowerCase().replace(/\s/g, "-")}`}
+                >
+                  {l.label}
+                </span>
+              </Link>
+            );
+          })}
         </div>
 
         {/* Right side: Search + Theme + Auth */}
@@ -740,20 +773,26 @@ export function Navbar() {
 
 export function Footer() {
   return (
-    <footer className="border-t bg-card">
+    <footer className="border-t glass-panel mt-auto">
       <div className="max-w-7xl mx-auto px-4 py-10">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
           <div>
             <div className="flex items-center gap-2 mb-3">
-              <FlameLogoSVG className="w-7 h-7" />
-              <span className="font-bold text-lg fire-text">Avivando el Fuego</span>
+              <span className="flame-logo-wrap">
+                <FlameLogoSVG className="w-7 h-7" />
+              </span>
+              <div className="flex flex-col leading-none">
+                <span className="font-display text-sm font-bold tracking-[0.2em] uppercase fire-text">Avivando</span>
+                <span className="font-display text-[10px] tracking-[0.3em] uppercase text-primary">El Fuego</span>
+              </div>
             </div>
             <p className="text-sm text-muted-foreground">
               Ministerio evangelistico internacional. Desde 2017, Ciudad Bolivar, Venezuela.
             </p>
           </div>
           <div>
-            <h4 className="font-semibold mb-3 text-sm">Sede Principal</h4>
+            <div className="h-0.5 w-10 bg-primary rounded-full mb-3" />
+            <h4 className="font-display text-xs font-semibold mb-3 tracking-widest uppercase text-foreground/80">Sede Principal</h4>
             <p className="text-sm text-muted-foreground">Austin, Texas, USA</p>
             <p className="text-sm text-muted-foreground">Iglesia Casa del Alfarero</p>
             <p className="text-sm text-muted-foreground mt-2">
@@ -761,16 +800,17 @@ export function Footer() {
             </p>
           </div>
           <div>
-            <h4 className="font-semibold mb-3 text-sm">Presencia Internacional</h4>
+            <div className="h-0.5 w-10 bg-primary rounded-full mb-3" />
+            <h4 className="font-display text-xs font-semibold mb-3 tracking-widest uppercase text-foreground/80">Presencia Internacional</h4>
             <p className="text-sm text-muted-foreground">Venezuela - Peru - USA</p>
             <p className="text-sm text-muted-foreground mt-2 italic">
               "No apagueis el Espiritu" - 1 Tesalonicenses 5:19
             </p>
           </div>
         </div>
-        <div className="border-t mt-8 pt-6 text-center">
+        <div className="border-t border-border/40 mt-8 pt-6 text-center">
           <p className="text-xs text-muted-foreground">
-            Avivando el Fuego - Ministerio Evangelistico Internacional
+            Avivando el Fuego &mdash; Ministerio Evangelistico Internacional
           </p>
         </div>
       </div>

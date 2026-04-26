@@ -2,59 +2,70 @@
 @tailwind components;
 @tailwind utilities;
 
-:root {
-  --button-outline: rgba(0,0,0, .10);
-  --badge-outline: rgba(0,0,0, .05);
-  --opaque-button-border-intensity: -8;
-  --elevate-1: rgba(0,0,0, .03);
-  --elevate-2: rgba(0,0,0, .08);
+/* ═══════════════════════════════════════════════════════════════════════
+   FUTURISMO MINISTERIAL — Design System v3.0
+   Dark:  Obsidian cool-black + Fire neon accents (orange/red/amber)
+   Light: Premium warm stone + Refined fire accents
+   Type:  Oswald (display/headings) · DM Sans (body/UI)
+   ═══════════════════════════════════════════════════════════════════════ */
 
-  --background: 0 0% 100%;
-  --foreground: 20 14% 10%;
-  --border: 20 6% 90%;
-  --card: 30 20% 98%;
-  --card-foreground: 20 14% 10%;
-  --card-border: 20 6% 88%;
-  --sidebar: 20 10% 96%;
-  --sidebar-foreground: 20 14% 15%;
-  --sidebar-border: 20 6% 88%;
-  --sidebar-primary: 24 95% 53%;
+:root {
+  /* ── Light: premium warm stone palette ───────────────────────────── */
+  --button-outline: rgba(0,0,0, .07);
+  --badge-outline: rgba(0,0,0, .04);
+  --opaque-button-border-intensity: -6;
+  --elevate-1: rgba(0,0,0, .025);
+  --elevate-2: rgba(0,0,0, .055);
+
+  --background: 36 22% 97%;          /* warm stone white  */
+  --foreground: 20 28% 9%;           /* deep espresso     */
+  --border: 30 16% 86%;              /* warm light border */
+  --card: 36 28% 99%;                /* near white canvas */
+  --card-foreground: 20 28% 9%;
+  --card-border: 30 16% 87%;
+  --sidebar: 36 16% 96%;
+  --sidebar-foreground: 20 24% 13%;
+  --sidebar-border: 30 16% 87%;
+  --sidebar-primary: 24 92% 50%;
   --sidebar-primary-foreground: 0 0% 100%;
-  --sidebar-accent: 24 80% 94%;
-  --sidebar-accent-foreground: 24 95% 30%;
-  --sidebar-ring: 24 95% 53%;
-  --popover: 0 0% 100%;
-  --popover-foreground: 20 14% 10%;
-  --popover-border: 20 6% 88%;
-  --primary: 24 95% 53%;
+  --sidebar-accent: 30 38% 93%;
+  --sidebar-accent-foreground: 24 92% 30%;
+  --sidebar-ring: 24 92% 50%;
+  --popover: 36 28% 99%;
+  --popover-foreground: 20 28% 9%;
+  --popover-border: 30 16% 86%;
+  --primary: 24 92% 50%;             /* fire orange       */
   --primary-foreground: 0 0% 100%;
-  --secondary: 20 10% 94%;
-  --secondary-foreground: 20 14% 15%;
-  --muted: 20 10% 94%;
-  --muted-foreground: 20 6% 45%;
-  --accent: 0 72% 51%;
+  --secondary: 36 16% 92%;
+  --secondary-foreground: 20 24% 13%;
+  --muted: 36 14% 91%;
+  --muted-foreground: 25 14% 42%;    /* warm brown-grey   */
+  --accent: 0 80% 50%;               /* fire red          */
   --accent-foreground: 0 0% 100%;
   --destructive: 0 84% 60%;
   --destructive-foreground: 0 0% 100%;
-  --input: 20 6% 85%;
-  --ring: 24 95% 53%;
-  --chart-1: 24 95% 53%;
-  --chart-2: 0 72% 51%;
+  --input: 30 14% 84%;
+  --ring: 24 92% 50%;
+  --chart-1: 24 92% 50%;
+  --chart-2: 0 80% 50%;
   --chart-3: 39 100% 50%;
   --chart-4: 20 14% 30%;
-  --chart-5: 24 80% 70%;
+  --chart-5: 24 78% 68%;
 
-  --font-sans: 'Inter', sans-serif;
+  /* ── Typography ─────────────────────────────────────────────────── */
+  --font-sans: 'DM Sans', 'Inter', system-ui, sans-serif;
+  --font-display: 'Oswald', 'Inter', system-ui, sans-serif;
   --font-serif: Georgia, serif;
-  --font-mono: Menlo, monospace;
+  --font-mono: 'JetBrains Mono', Menlo, monospace;
+
   --radius: .5rem;
   --shadow-2xs: 0px 1px 2px 0px rgba(0,0,0,0.03);
-  --shadow-xs: 0px 1px 2px 0px rgba(0,0,0,0.05);
-  --shadow-sm: 0px 1px 3px 0px rgba(0,0,0,0.06), 0px 1px 2px -1px rgba(0,0,0,0.06);
-  --shadow: 0px 2px 4px 0px rgba(0,0,0,0.06), 0px 1px 2px -1px rgba(0,0,0,0.06);
-  --shadow-md: 0px 4px 6px -1px rgba(0,0,0,0.07), 0px 2px 4px -2px rgba(0,0,0,0.07);
-  --shadow-lg: 0px 10px 15px -3px rgba(0,0,0,0.07), 0px 4px 6px -4px rgba(0,0,0,0.07);
-  --shadow-xl: 0px 20px 25px -5px rgba(0,0,0,0.08), 0px 8px 10px -6px rgba(0,0,0,0.08);
+  --shadow-xs:  0px 1px 2px 0px rgba(0,0,0,0.05);
+  --shadow-sm:  0px 1px 3px 0px rgba(0,0,0,0.06), 0px 1px 2px -1px rgba(0,0,0,0.06);
+  --shadow:     0px 2px 4px 0px rgba(0,0,0,0.06), 0px 1px 2px -1px rgba(0,0,0,0.06);
+  --shadow-md:  0px 4px 6px -1px rgba(0,0,0,0.07), 0px 2px 4px -2px rgba(0,0,0,0.07);
+  --shadow-lg:  0px 10px 15px -3px rgba(0,0,0,0.07), 0px 4px 6px -4px rgba(0,0,0,0.07);
+  --shadow-xl:  0px 20px 25px -5px rgba(0,0,0,0.08), 0px 8px 10px -6px rgba(0,0,0,0.08);
   --shadow-2xl: 0px 25px 50px -12px rgba(0,0,0,0.15);
   --tracking-normal: 0em;
   --spacing: 0.25rem;
@@ -76,55 +87,56 @@
 }
 
 .dark {
-  --button-outline: rgba(255,255,255, .10);
-  --badge-outline: rgba(255,255,255, .05);
-  --opaque-button-border-intensity: 9;
-  --elevate-1: rgba(255,255,255, .04);
-  --elevate-2: rgba(255,255,255, .09);
+  /* ── Dark: obsidian ministerial palette ──────────────────────────── */
+  --button-outline: rgba(255,255,255, .07);
+  --badge-outline: rgba(255,255,255, .04);
+  --opaque-button-border-intensity: 8;
+  --elevate-1: rgba(255,255,255, .03);
+  --elevate-2: rgba(255,255,255, .07);
 
-  --background: 270 80% 5%;
-  --foreground: 30 20% 92%;
-  --border: 270 20% 16%;
-  --card: 270 40% 8%;
-  --card-foreground: 30 20% 92%;
-  --card-border: 270 20% 14%;
-  --sidebar: 270 40% 6%;
-  --sidebar-foreground: 30 20% 88%;
-  --sidebar-border: 270 20% 14%;
+  --background: 222 20% 4%;          /* obsidian cool-black  */
+  --foreground: 36 25% 91%;          /* warm cream           */
+  --border: 222 18% 12%;             /* subtle slate edge    */
+  --card: 222 22% 7%;                /* deep charcoal        */
+  --card-foreground: 36 25% 91%;
+  --card-border: 222 18% 11%;
+  --sidebar: 222 24% 5%;
+  --sidebar-foreground: 36 22% 87%;
+  --sidebar-border: 222 18% 11%;
   --sidebar-primary: 24 95% 53%;
-  --sidebar-primary-foreground: 0 0% 100%;
-  --sidebar-accent: 270 40% 15%;
+  --sidebar-primary-foreground: 0 0% 5%;
+  --sidebar-accent: 222 22% 11%;
   --sidebar-accent-foreground: 24 95% 70%;
   --sidebar-ring: 24 95% 53%;
-  --popover: 270 40% 8%;
-  --popover-foreground: 30 20% 92%;
-  --popover-border: 270 20% 14%;
-  --primary: 24 95% 53%;
-  --primary-foreground: 0 0% 100%;
-  --secondary: 270 20% 14%;
-  --secondary-foreground: 30 20% 88%;
-  --muted: 270 20% 14%;
-  --muted-foreground: 270 10% 55%;
-  --accent: 0 72% 51%;
+  --popover: 222 22% 7%;
+  --popover-foreground: 36 25% 91%;
+  --popover-border: 222 18% 12%;
+  --primary: 24 95% 53%;             /* fire orange          */
+  --primary-foreground: 0 0% 5%;
+  --secondary: 222 18% 11%;
+  --secondary-foreground: 36 22% 87%;
+  --muted: 222 18% 10%;
+  --muted-foreground: 220 10% 48%;   /* cool mid-grey        */
+  --accent: 0 82% 52%;               /* fire red             */
   --accent-foreground: 0 0% 100%;
-  --destructive: 0 62% 30%;
+  --destructive: 0 62% 32%;
   --destructive-foreground: 0 0% 100%;
-  --input: 270 15% 20%;
+  --input: 222 18% 13%;
   --ring: 24 95% 53%;
   --chart-1: 24 95% 53%;
-  --chart-2: 0 72% 51%;
+  --chart-2: 0 82% 52%;
   --chart-3: 39 100% 50%;
-  --chart-4: 270 20% 70%;
-  --chart-5: 24 80% 40%;
+  --chart-4: 222 18% 62%;
+  --chart-5: 24 80% 42%;
 
-  --shadow-2xs: 0px 1px 2px 0px rgba(0,0,0,0.2);
-  --shadow-xs: 0px 1px 2px 0px rgba(0,0,0,0.3);
-  --shadow-sm: 0px 1px 3px 0px rgba(0,0,0,0.3), 0px 1px 2px -1px rgba(0,0,0,0.3);
-  --shadow: 0px 2px 4px 0px rgba(0,0,0,0.3), 0px 1px 2px -1px rgba(0,0,0,0.3);
-  --shadow-md: 0px 4px 6px -1px rgba(0,0,0,0.35), 0px 2px 4px -2px rgba(0,0,0,0.35);
-  --shadow-lg: 0px 10px 15px -3px rgba(0,0,0,0.35), 0px 4px 6px -4px rgba(0,0,0,0.35);
-  --shadow-xl: 0px 20px 25px -5px rgba(0,0,0,0.4), 0px 8px 10px -6px rgba(0,0,0,0.4);
-  --shadow-2xl: 0px 25px 50px -12px rgba(0,0,0,0.6);
+  --shadow-2xs: 0px 1px 2px 0px rgba(0,0,0,0.5);
+  --shadow-xs:  0px 1px 2px 0px rgba(0,0,0,0.6);
+  --shadow-sm:  0px 1px 3px 0px rgba(0,0,0,0.6), 0px 1px 2px -1px rgba(0,0,0,0.6);
+  --shadow:     0px 2px 4px 0px rgba(0,0,0,0.55), 0px 1px 2px -1px rgba(0,0,0,0.55);
+  --shadow-md:  0px 4px 6px -1px rgba(0,0,0,0.6), 0px 2px 4px -2px rgba(0,0,0,0.6);
+  --shadow-lg:  0px 10px 15px -3px rgba(0,0,0,0.6), 0px 4px 6px -4px rgba(0,0,0,0.6);
+  --shadow-xl:  0px 20px 25px -5px rgba(0,0,0,0.65), 0px 8px 10px -6px rgba(0,0,0,0.65);
+  --shadow-2xl: 0px 25px 50px -12px rgba(0,0,0,0.8);
 }
 
 @layer base {
@@ -132,19 +144,14 @@
     @apply border-border;
   }
   body {
-    @apply font-sans antialiased bg-background text-foreground;
-    /* Smooth color transition for dark mode */
+    @apply antialiased bg-background text-foreground;
+    font-family: var(--font-sans);
     transition: background-color 0.3s ease, color 0.3s ease;
   }
-  /* Smooth dark-mode transitions for common elements */
-  .bg-background,
-  .bg-card,
-  .bg-muted,
-  .border-b,
-  .border-t,
-  nav,
-  footer,
-  main {
+  h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-sans);
+  }
+  .bg-background, .bg-card, .bg-muted, .border-b, .border-t, nav, footer, main {
     transition: background-color 0.3s ease, border-color 0.3s ease, color 0.2s ease;
   }
 }
@@ -209,32 +216,36 @@
     inset: -1px;
   }
 
+  /* ── Fire gradient ─────────────────────────────────────────────── */
   .fire-gradient {
-    background: linear-gradient(135deg, hsl(24, 95%, 53%), hsl(0, 72%, 51%), hsl(270, 60%, 25%));
+    background: linear-gradient(135deg,
+      hsl(24, 95%, 53%),
+      hsl(0, 80%, 50%),
+      hsl(222, 60%, 10%));
   }
 
-  /* ── Animated fire text: shimmer sweep ─────────────────────────────── */
+  /* ── Fire text: animated shimmer sweep (Oswald for max impact) ─── */
   .fire-text {
     background: linear-gradient(
       105deg,
-      hsl(0,  85%, 50%),
-      hsl(24, 95%, 53%),
-      hsl(39, 100%, 55%),
-      hsl(24, 95%, 60%),
-      hsl(0,  85%, 52%)
+      hsl(0,  88%, 52%)  0%,
+      hsl(18, 95%, 53%) 25%,
+      hsl(39, 100%, 56%) 50%,
+      hsl(18, 95%, 55%) 75%,
+      hsl(0,  88%, 54%) 100%
     );
-    background-size: 250% auto;
+    background-size: 280% auto;
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
-    animation: fire-shimmer 4s linear infinite;
+    animation: fire-shimmer 4.5s linear infinite;
   }
 
-  /* ── Canvas blend mode: screen in dark mode for "illumination" look ─ */
-  .dark .fire-canvas  { mix-blend-mode: screen; }
-  .fire-canvas        { mix-blend-mode: normal; }
+  /* ── Canvas particle: screen blend in dark mode ─────────────────── */
+  .dark .fire-canvas { mix-blend-mode: screen; }
+  .fire-canvas       { mix-blend-mode: normal; }
 
-  /* ── Logo breathing glow ─────────────────────────────────────────── */
+  /* ── Logo breathing glow (wraps the FlameLogoSVG) ───────────────── */
   .flame-logo-wrap {
     animation: flame-glow-pulse 2.8s ease-in-out infinite;
     display: inline-flex;
@@ -242,44 +253,212 @@
     justify-content: center;
   }
 
-  /* ── Primary button: warm glow on hover ──────────────────────────── */
+  /* ── Primary fire button ─────────────────────────────────────────── */
   .fire-btn-primary {
     position: relative;
     overflow: hidden;
+    background: linear-gradient(135deg,
+      hsl(24 93% 52%),
+      hsl(10 88% 46%));
+    border: none;
+    color: white;
+    font-family: var(--font-sans);
+    font-weight: 600;
+    letter-spacing: 0.04em;
     transition: box-shadow 0.25s ease, filter 0.2s ease, transform 0.12s ease;
   }
-  .fire-btn-primary::after {
+  .fire-btn-primary::before {
     content: '';
     position: absolute;
-    inset: 0;
+    inset: -2px;
     border-radius: inherit;
-    background: radial-gradient(circle at 50% 110%, rgba(255,120,20,0.25) 0%, transparent 70%);
+    background: linear-gradient(135deg,
+      hsl(39 100% 55%),
+      hsl(24 95% 53%),
+      hsl(0  88% 48%));
+    z-index: -1;
     opacity: 0;
+    filter: blur(8px);
     transition: opacity 0.25s ease;
-    pointer-events: none;
   }
-  .fire-btn-primary:hover::after  { opacity: 1; }
-  .fire-btn-primary:hover         { box-shadow: 0 0 14px hsl(24 95% 53% / 0.55), 0 0 30px hsl(24 95% 53% / 0.2); filter: brightness(1.07); }
-  .fire-btn-primary:active        { transform: scale(0.955); transition-duration: 0.08s; }
+  .fire-btn-primary:hover::before { opacity: 0.75; }
+  .fire-btn-primary:hover {
+    box-shadow: 0 0 20px hsl(24 95% 53% / 0.45),
+                0 6px 24px rgba(0,0,0,0.25);
+    filter: brightness(1.06);
+  }
+  .fire-btn-primary:active {
+    transform: scale(0.955);
+    transition-duration: 0.08s;
+  }
+
+  /* ── Glassmorphism panels ────────────────────────────────────────── */
+  .glass-panel {
+    background: rgba(9, 10, 18, 0.72);
+    backdrop-filter: blur(24px) saturate(180%);
+    -webkit-backdrop-filter: blur(24px) saturate(180%);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+  }
+  .glass-card {
+    background: rgba(14, 16, 26, 0.65);
+    backdrop-filter: blur(16px) saturate(160%);
+    -webkit-backdrop-filter: blur(16px) saturate(160%);
+    border: 1px solid rgba(255, 255, 255, 0.07);
+    transition: border-color 0.3s ease, box-shadow 0.3s ease;
+  }
+  .glass-card:hover {
+    border-color: rgba(249, 115, 22, 0.22);
+    box-shadow: 0 0 0 1px rgba(249,115,22,0.1) inset,
+                0 4px 24px rgba(249,115,22,0.08);
+  }
+  /* Light-mode glass: warm frosted look */
+  :root:not(.dark) .glass-panel {
+    background: rgba(250, 249, 245, 0.78);
+    border: 1px solid rgba(0,0,0,0.07);
+  }
+  :root:not(.dark) .glass-card {
+    background: rgba(255, 253, 250, 0.72);
+    border: 1px solid rgba(0,0,0,0.08);
+  }
+
+  /* ── Glass pill (hero tag / status) ─────────────────────────────── */
+  .glass-pill {
+    border: 1px solid rgba(249, 115, 22, 0.28);
+    background: rgba(249, 115, 22, 0.08);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+  }
+
+  /* ── Glassmorphic Navbar ─────────────────────────────────────────── */
+  .navbar-glass {
+    background: rgba(9, 10, 18, 0.60);
+    backdrop-filter: blur(28px) saturate(200%);
+    -webkit-backdrop-filter: blur(28px) saturate(200%);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.055);
+    transition: background 0.4s ease, box-shadow 0.4s ease;
+  }
+  .navbar-glass.nav-scrolled {
+    background: rgba(9, 10, 18, 0.90);
+    box-shadow: 0 1px 0 rgba(249, 115, 22, 0.14),
+                0 6px 36px rgba(0, 0, 0, 0.55);
+  }
+  :root:not(.dark) .navbar-glass {
+    background: rgba(250, 249, 245, 0.76);
+    border-bottom: 1px solid rgba(0,0,0,0.06);
+  }
+  :root:not(.dark) .navbar-glass.nav-scrolled {
+    background: rgba(250, 249, 245, 0.96);
+    box-shadow: 0 1px 0 rgba(249,115,22,0.16),
+                0 4px 22px rgba(0,0,0,0.08);
+  }
+
+  /* ── Desktop nav link text style ────────────────────────────────── */
+  .nav-link {
+    display: inline-flex;
+    align-items: center;
+    font-size: 0.775rem;
+    font-weight: 500;
+    letter-spacing: 0.065em;
+    text-transform: uppercase;
+    color: hsl(var(--muted-foreground));
+    padding: 0.35rem 0.7rem;
+    border-radius: var(--radius);
+    position: relative;
+    transition: color 0.2s ease;
+    white-space: nowrap;
+  }
+  .nav-link::after {
+    content: '';
+    position: absolute;
+    bottom: 1px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 0;
+    height: 1.5px;
+    background: hsl(var(--primary));
+    box-shadow: 0 0 8px hsl(var(--primary) / 0.7);
+    transition: width 0.24s cubic-bezier(0.4, 0, 0.2, 1);
+    border-radius: 1px;
+  }
+  .nav-link:hover              { color: hsl(var(--foreground)); }
+  .nav-link:hover::after       { width: 65%; }
+  .nav-link-active             { color: hsl(var(--primary)); }
+  .nav-link-active::after      { width: 65%; }
+
+  /* ── Hero grid background ────────────────────────────────────────── */
+  .hero-grid-bg {
+    background-image:
+      linear-gradient(rgba(255,255,255,0.028) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,0.028) 1px, transparent 1px);
+    background-size: 64px 64px;
+    mask-image: radial-gradient(ellipse 88% 78% at 50% 0%, black 30%, transparent 100%);
+    -webkit-mask-image: radial-gradient(ellipse 88% 78% at 50% 0%, black 30%, transparent 100%);
+  }
+  :root:not(.dark) .hero-grid-bg {
+    background-image:
+      linear-gradient(rgba(0,0,0,0.04) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,0,0,0.04) 1px, transparent 1px);
+  }
+
+  /* ── Neon fire border ────────────────────────────────────────────── */
+  .neon-border-fire {
+    box-shadow: 0 0 0 1px hsl(24 95% 53% / 0.32),
+                0 0 24px hsl(24 95% 53% / 0.14),
+                inset 0 0 0 1px hsl(24 95% 53% / 0.1);
+  }
+
+  /* ── Display heading helper (Oswald + uppercase) ─────────────────── */
+  .heading-display {
+    font-family: var(--font-display);
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    line-height: 0.95;
+    text-transform: uppercase;
+  }
+
+  /* ── Section reveal ──────────────────────────────────────────────── */
+  .section-reveal {
+    opacity: 0;
+    transform: translateY(22px);
+    transition: opacity 0.55s cubic-bezier(0.22,1,0.36,1),
+                transform 0.55s cubic-bezier(0.22,1,0.36,1);
+  }
+  .section-reveal.visible {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
-/* ── Keyframes ─────────────────────────────────────────────────────────── */
+/* ═══════════════════════════════════════════════════════════════════════
+   KEYFRAMES
+   ═══════════════════════════════════════════════════════════════════════ */
 
 @keyframes fire-shimmer {
   0%   { background-position: 0%   center; }
-  100% { background-position: 250% center; }
+  100% { background-position: 280% center; }
 }
 
 @keyframes flame-glow-pulse {
   0%, 100% {
-    filter: drop-shadow(0 0  6px hsl(24 95% 53% / 0.60))
-            drop-shadow(0 0 14px hsl(24 95% 53% / 0.25));
+    filter: drop-shadow(0 0  5px hsl(24 95% 53% / 0.55))
+            drop-shadow(0 0 12px hsl(24 95% 53% / 0.22));
   }
   50% {
-    filter: drop-shadow(0 0 10px hsl(24 95% 65% / 0.85))
-            drop-shadow(0 0 22px hsl(24 95% 53% / 0.50))
-            drop-shadow(0 0 40px hsl(0   72% 51% / 0.25));
+    filter: drop-shadow(0 0 10px hsl(24 95% 65% / 0.90))
+            drop-shadow(0 0 24px hsl(24 95% 53% / 0.55))
+            drop-shadow(0 0 44px hsl(0   80% 52% / 0.30));
   }
+}
+
+@keyframes neon-pulse {
+  0%, 100% { box-shadow: 0 0 12px hsl(24 95% 53% / 0.40); }
+  50%       { box-shadow: 0 0 28px hsl(24 95% 53% / 0.70),
+                          0 0 50px hsl(0  80% 50% / 0.28); }
+}
+
+@keyframes slide-up-fade {
+  from { opacity: 0; transform: translateY(16px); }
+  to   { opacity: 1; transform: translateY(0);    }
 }
 
 /* ── Global button micro-interactions ─────────────────────────────────── */
@@ -287,24 +466,12 @@ button:not([disabled]) {
   transition:
     box-shadow 0.22s ease,
     filter      0.22s ease,
-    transform   0.12s ease;
+    transform   0.14s ease;
 }
-button:not([disabled]):hover  { filter: brightness(1.06); }
-button:not([disabled]):active { transform: scale(0.963); transition-duration: 0.08s; }
+button:not([disabled]):hover  { filter: brightness(1.05); }
+button:not([disabled]):active { transform: scale(0.965); transition-duration: 0.08s; }
 
-/* ── Section reveal on scroll (JS toggles .visible) ───────────────────── */
-.section-reveal {
-  opacity: 0;
-  transform: translateY(22px);
-  transition: opacity 0.55s cubic-bezier(0.22,1,0.36,1),
-              transform 0.55s cubic-bezier(0.22,1,0.36,1);
-}
-.section-reveal.visible {
-  opacity: 1;
-  transform: translateY(0);
-}
-
-/* Respect reduced motion preferences */
+/* ── Respect reduced motion preferences ───────────────────────────────── */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     animation-duration: 0.01ms !important;
