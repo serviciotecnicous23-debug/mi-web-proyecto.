@@ -63,7 +63,7 @@ export default function Home() {
                 </Link>
               ) : (
                 <Link href="/registro">
-                  <Button size="lg" data-testid="button-hero-join">
+                  <Button size="lg" className="fire-btn-primary" data-testid="button-hero-join">
                     <LogoIcon className="w-4 h-4 mr-2" />
                     Unirse al Ministerio
                   </Button>

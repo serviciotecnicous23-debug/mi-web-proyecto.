@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/use-auth";
+import { isAdminRole } from "@/lib/utils";
 import { Layout } from "@/components/layout";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -71,10 +72,10 @@ export default function ReportesPage() {
   const { data: sessionDetail } = useQuery<any>({
     queryKey: ["/api/reports/live-events", expandedSession],
     queryFn: () => fetch(`/api/reports/live-events/${expandedSession}`, { credentials: "include" }).then(r => r.json()),
-    enabled: !!expandedSession && user?.role === "admin",
+    enabled: !!expandedSession && isAdminRole(user?.role),
   });
 
-  if (!user || user.role !== "admin") {
+  if (!user || !isAdminRole(user.role)) {
     return (
       <Layout>
         <div className="container mx-auto p-6 text-center">

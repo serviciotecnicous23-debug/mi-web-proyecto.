@@ -212,12 +212,96 @@
   .fire-gradient {
     background: linear-gradient(135deg, hsl(24, 95%, 53%), hsl(0, 72%, 51%), hsl(270, 60%, 25%));
   }
+
+  /* ── Animated fire text: shimmer sweep ─────────────────────────────── */
   .fire-text {
-    background: linear-gradient(135deg, hsl(39, 100%, 50%), hsl(24, 95%, 53%), hsl(0, 85%, 55%));
+    background: linear-gradient(
+      105deg,
+      hsl(0,  85%, 50%),
+      hsl(24, 95%, 53%),
+      hsl(39, 100%, 55%),
+      hsl(24, 95%, 60%),
+      hsl(0,  85%, 52%)
+    );
+    background-size: 250% auto;
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
+    animation: fire-shimmer 4s linear infinite;
   }
+
+  /* ── Canvas blend mode: screen in dark mode for "illumination" look ─ */
+  .dark .fire-canvas  { mix-blend-mode: screen; }
+  .fire-canvas        { mix-blend-mode: normal; }
+
+  /* ── Logo breathing glow ─────────────────────────────────────────── */
+  .flame-logo-wrap {
+    animation: flame-glow-pulse 2.8s ease-in-out infinite;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  /* ── Primary button: warm glow on hover ──────────────────────────── */
+  .fire-btn-primary {
+    position: relative;
+    overflow: hidden;
+    transition: box-shadow 0.25s ease, filter 0.2s ease, transform 0.12s ease;
+  }
+  .fire-btn-primary::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    background: radial-gradient(circle at 50% 110%, rgba(255,120,20,0.25) 0%, transparent 70%);
+    opacity: 0;
+    transition: opacity 0.25s ease;
+    pointer-events: none;
+  }
+  .fire-btn-primary:hover::after  { opacity: 1; }
+  .fire-btn-primary:hover         { box-shadow: 0 0 14px hsl(24 95% 53% / 0.55), 0 0 30px hsl(24 95% 53% / 0.2); filter: brightness(1.07); }
+  .fire-btn-primary:active        { transform: scale(0.955); transition-duration: 0.08s; }
+}
+
+/* ── Keyframes ─────────────────────────────────────────────────────────── */
+
+@keyframes fire-shimmer {
+  0%   { background-position: 0%   center; }
+  100% { background-position: 250% center; }
+}
+
+@keyframes flame-glow-pulse {
+  0%, 100% {
+    filter: drop-shadow(0 0  6px hsl(24 95% 53% / 0.60))
+            drop-shadow(0 0 14px hsl(24 95% 53% / 0.25));
+  }
+  50% {
+    filter: drop-shadow(0 0 10px hsl(24 95% 65% / 0.85))
+            drop-shadow(0 0 22px hsl(24 95% 53% / 0.50))
+            drop-shadow(0 0 40px hsl(0   72% 51% / 0.25));
+  }
+}
+
+/* ── Global button micro-interactions ─────────────────────────────────── */
+button:not([disabled]) {
+  transition:
+    box-shadow 0.22s ease,
+    filter      0.22s ease,
+    transform   0.12s ease;
+}
+button:not([disabled]):hover  { filter: brightness(1.06); }
+button:not([disabled]):active { transform: scale(0.963); transition-duration: 0.08s; }
+
+/* ── Section reveal on scroll (JS toggles .visible) ───────────────────── */
+.section-reveal {
+  opacity: 0;
+  transform: translateY(22px);
+  transition: opacity 0.55s cubic-bezier(0.22,1,0.36,1),
+              transform 0.55s cubic-bezier(0.22,1,0.36,1);
+}
+.section-reveal.visible {
+  opacity: 1;
+  transform: translateY(0);
 }
 
 /* Respect reduced motion preferences */

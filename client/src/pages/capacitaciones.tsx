@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { useAuth } from "@/hooks/use-auth";
+import { isAdminRole, isTeacherOrAdminRole } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import {
   useCourses, useCreateEnrollment, useMyEnrollments,
@@ -68,9 +69,9 @@ export default function Capacitaciones() {
     );
   }
 
-  const isAdmin = user.role === "admin";
-  const isTeacher = user.role === "obrero";
-  const canManage = isAdmin || isTeacher;
+  const isAdmin = isAdminRole(user.role);
+  const isTeacher = isTeacherOrAdminRole(user.role);
+  const canManage = isTeacher;
   const unseen = carteleraAnns?.some((a: any) => !lastSeen || new Date(a.createdAt) > new Date(lastSeen));
 
   const handleTabChange = (tab: string) => {

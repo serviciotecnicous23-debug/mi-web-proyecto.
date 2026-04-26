@@ -58,10 +58,13 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { ROLES } from "@shared/schema";
+import { isAdminRole, isTeacherOrAdminRole } from "@/lib/utils";
 import { ThemeToggle } from "@/components/ThemeProvider";
 import { GlobalSearch } from "@/components/GlobalSearch";
 import { ScrollToTop, BackToTop } from "@/components/ScrollToTop";
 import { LogoIcon } from "@/components/LogoIcon";
+import { FlameLogoSVG } from "@/components/FlameLogoSVG";
+import { FireCanvas } from "@/components/FireCanvas";
 
 // Desktop nav links — PUBLIC (visitors / not logged in)
 const publicDesktopNavLinks = [
@@ -402,8 +405,10 @@ export function Navbar() {
     <nav className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 sticky top-0 z-50" role="navigation" aria-label="Navegacion principal">
       <div className="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between gap-4">
         <Link href="/" className="flex items-center gap-2" data-testid="link-home-logo" aria-label="Ir al inicio - Avivando el Fuego">
-          <img src="/icons/icon-192.png?v4" alt="Logo" className="w-8 h-8 rounded-md" aria-hidden="true" />
-          <span className="font-bold text-lg hidden sm:inline">Avivando el Fuego</span>
+          <span className="flame-logo-wrap">
+            <FlameLogoSVG className="w-9 h-9" />
+          </span>
+          <span className="font-bold text-lg hidden sm:inline fire-text">Avivando el Fuego</span>
         </Link>
 
         {/* Desktop navigation — public or member */}
@@ -504,7 +509,7 @@ export function Navbar() {
                         Certificados
                       </Link>
                     </DropdownMenuItem>
-                    {(user.role === "obrero" || user.role === "admin") && (
+                    {isTeacherOrAdminRole(user.role) && (
                       <DropdownMenuItem asChild>
                         <Link href="/maestro" className="cursor-pointer">
                           <BookOpen className="mr-2 h-4 w-4" aria-hidden="true" />
@@ -512,7 +517,7 @@ export function Navbar() {
                         </Link>
                       </DropdownMenuItem>
                     )}
-                    {user.role === "admin" && (
+                    {isAdminRole(user.role) && (
                       <>
                         <DropdownMenuItem asChild>
                           <Link href="/admin" className="cursor-pointer">
@@ -554,7 +559,7 @@ export function Navbar() {
                   </Button>
                 </Link>
                 <Link href="/registro">
-                  <Button size="sm" data-testid="link-register">
+                  <Button size="sm" className="fire-btn-primary" data-testid="link-register">
                     <LogoIcon className="w-4 h-4 mr-1" />
                     Unirse
                   </Button>
@@ -587,7 +592,7 @@ export function Navbar() {
         >
           <SheetHeader className="p-4 pb-2 border-b">
             <SheetTitle className="flex items-center gap-2 text-left">
-              <img src="/icons/icon-192.png?v4" alt="Logo" className="w-7 h-7 rounded-md" aria-hidden="true" />
+              <FlameLogoSVG className="w-7 h-7" />
               Avivando el Fuego
             </SheetTitle>
             <SheetDescription className="text-left text-xs">
@@ -720,7 +725,7 @@ export function Navbar() {
                   </Button>
                 </Link>
                 <Link href="/registro" onClick={closeMenu}>
-                  <Button className="w-full" size="sm" data-testid="link-mobile-register">
+                  <Button className="w-full fire-btn-primary" size="sm" data-testid="link-mobile-register">
                     <LogoIcon className="w-4 h-4 mr-1" /> Unirse al Ministerio
                   </Button>
                 </Link>
@@ -740,8 +745,8 @@ export function Footer() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
           <div>
             <div className="flex items-center gap-2 mb-3">
-              <img src="/icons/icon-192.png?v4" alt="Logo" className="w-7 h-7 rounded-md" />
-              <span className="font-bold text-lg">Avivando el Fuego</span>
+              <FlameLogoSVG className="w-7 h-7" />
+              <span className="font-bold text-lg fire-text">Avivando el Fuego</span>
             </div>
             <p className="text-sm text-muted-foreground">
               Ministerio evangelistico internacional. Desde 2017, Ciudad Bolivar, Venezuela.
@@ -867,6 +872,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
       </AnimatePresence>
       <Footer />
       <BackToTop />
+      <FireCanvas />
     </div>
   );
 }

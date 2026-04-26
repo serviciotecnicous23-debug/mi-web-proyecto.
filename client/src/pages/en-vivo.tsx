@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { useLiveStreamConfig } from "@/hooks/use-users";
 import { useAuth } from "@/hooks/use-auth";
 import LiveRoom from "@/components/LiveRoom";
+import { isTeacherOrAdminRole } from "@/lib/utils";
 import {
   Radio, Mic, Calendar, Video, Volume2, VolumeX,
   Play, Pause, Tv, Signal, Music, ExternalLink, AlertTriangle, Cast,
@@ -958,7 +959,7 @@ export default function EnVivo() {
                   context="live"
                   contextId="main"
                   roomTitle="Transmision en Vivo - Culto"
-                  canManage={user.role === "admin" || user.role === "maestro"}
+                  canManage={isTeacherOrAdminRole(user.role)}
                   userName={user.displayName || user.username}
                   userEmail={user.email}
                   startLabel="Iniciar Transmision en Vivo"

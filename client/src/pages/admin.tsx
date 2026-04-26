@@ -15,6 +15,7 @@ import {
 } from "@/hooks/use-users";
 import { useLocation } from "wouter";
 import { Layout } from "@/components/layout";
+import { isAdminRole } from "@/lib/utils";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
@@ -699,12 +700,12 @@ export default function AdminDashboard() {
   });
 
   useEffect(() => {
-    if (!isLoading && (!user || user.role !== "admin")) {
+    if (!isLoading && (!user || !isAdminRole(user.role))) {
       setLocation("/");
     }
   }, [user, isLoading, setLocation]);
 
-  if (isLoading || user?.role !== "admin") {
+  if (isLoading || !isAdminRole(user?.role)) {
     return (
       <Layout>
         <div className="flex-1 flex items-center justify-center py-20">

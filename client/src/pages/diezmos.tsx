@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/use-auth";
+import { isAdminRole } from "@/lib/utils";
 import { Layout } from "@/components/layout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -65,7 +66,7 @@ export default function DiezmosPage() {
     },
   });
 
-  if (!user || user.role !== "admin") {
+  if (!user || !isAdminRole(user.role)) {
     return <Layout><div className="container mx-auto p-6 text-center"><h1 className="text-2xl font-bold text-red-500">Acceso Denegado</h1></div></Layout>;
   }
 

@@ -1,5 +1,6 @@
 import { useState, useRef } from "react";
 import { useAuth } from "@/hooks/use-auth";
+import { isAdminRole } from "@/lib/utils";
 import { Layout } from "@/components/layout";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
@@ -470,7 +471,7 @@ export default function IglesiasPage() {
   const [postImageUrl, setPostImageUrl] = useState<string | null>(null);
   const [uploadingImage, setUploadingImage] = useState(false);
   const postImageRef = useRef<HTMLInputElement>(null);
-  const isAdmin = user?.role === "admin";
+  const isAdmin = isAdminRole(user?.role);
 
   const { data: churches = [], isLoading: loadingChurches } = useQuery<MinistryChurch[]>({
     queryKey: ["/api/ministry-churches"],

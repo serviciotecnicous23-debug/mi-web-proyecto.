@@ -1,18 +1,9 @@
 /**
- * Reusable logo icon component — uses the transparent PNG logo  
- * instead of the generic Lucide Flame icon.
- * Cache-busting query param ensures browsers always load the latest version.
+ * LogoIcon — delegates to the animated FlameLogoSVG isotipo.
+ * Drop-in replacement: accepts the same `className` prop as before.
  */
-const LOGO_VERSION = "v4";
+import { FlameLogoSVG } from './FlameLogoSVG';
 
-export function LogoIcon({ className = "w-6 h-6" }: { className?: string }) {
-  return (
-    <img
-      src={`/icons/icon-192.png?${LOGO_VERSION}`}
-      alt=""
-      className={className}
-      aria-hidden="true"
-      draggable={false}
-    />
-  );
+export function LogoIcon({ className = 'w-6 h-6' }: { className?: string }) {
+  return <FlameLogoSVG className={className} animate />;
 }
