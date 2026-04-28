@@ -2362,8 +2362,7 @@ ${urls}
     const libraryTracks = listRadioLibraryTracks();
     const firstUploadedTrack = libraryTracks[0]?.url || "";
     const envStream = process.env.RADIO_STREAM_URL || process.env.PUBLIC_RADIO_STREAM_URL || "";
-    const savedRadioStream = liveConfig.radioUrl && !isRadioFallbackStream(liveConfig.radioUrl) ? liveConfig.radioUrl : "";
-    const configuredStream = envStream || savedRadioStream || DEFAULT_ZENO_STREAM_URL;
+    const configuredStream = envStream || DEFAULT_ZENO_STREAM_URL;
     const stationUrl = process.env.RADIO_STATION_URL || DEFAULT_ZENO_STATION_URL;
     const station: RadioStationPayload = {
       name: "Avivando el Fuego Radio",
