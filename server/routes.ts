@@ -23,6 +23,20 @@ import { uploadFile } from "./file-storage";
 import { sendPasswordResetEmail, sendVerificationEmail, sendWelcomeEmail, sendAccountApprovedEmail, sendDirectMessageEmail, sendNewCourseEmail, sendEventReminderEmail, isEmailConfigured } from "./email";
 import { sendPushToMany, getVapidPublicKey, isPushConfigured, type PushPayload } from "./push";
 import { registerAgentRoutes } from "./agent/routes";
+import {
+  DEFAULT_PUBLIC_RADIO_STREAM,
+  DEFAULT_ZENO_STATION_URL,
+  DEFAULT_ZENO_STREAM_URL,
+  LEGACY_PUBLIC_RADIO_STREAM,
+  RADIO_CATEGORIES,
+  RADIO_ROTATION_CLOCK,
+  RADIO_TIMEZONE,
+  RADIO_WEEKLY_SCHEDULE,
+  getRadioNow,
+  type RadioCategoryId,
+  type RadioLibraryTrack,
+  type RadioStationPayload,
+} from "@shared/radio";
 
 const scryptAsync = promisify(scrypt);
 
@@ -157,6 +171,135 @@ const libraryUpload = multer({
   },
 });
 
+const radioUploadRoot = path.join(process.cwd(), "uploads", "radio");
+const radioCategoryIds = new Set(RADIO_CATEGORIES.map((category) => category.id));
+const allowedRadioExtensions = new Set([".mp3", ".m4a", ".aac", ".wav", ".ogg", ".oga", ".flac"]);
+const allowedRadioMimeTypes = new Set([
+  "audio/aac",
+  "audio/flac",
+  "audio/m4a",
+  "audio/mp3",
+  "audio/mpeg",
+  "audio/mp4",
+  "audio/ogg",
+  "audio/wav",
+  "audio/wave",
+  "audio/x-m4a",
+  "audio/x-wav",
+]);
+
+function isRadioCategory(value: string): value is RadioCategoryId {
+  return radioCategoryIds.has(value as RadioCategoryId);
+}
+
+function getRouteParam(value: string | string[] | undefined) {
+  return Array.isArray(value) ? value[0] || "" : value || "";
+}
+
+function ensureRadioCategoryDir(category: RadioCategoryId) {
+  const dir = path.join(radioUploadRoot, category);
+  fs.mkdirSync(dir, { recursive: true });
+  return dir;
+}
+
+function sanitizeAudioFileName(originalName: string) {
+  const ext = path.extname(originalName).toLowerCase();
+  const base = path.basename(originalName, ext)
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 90);
+
+  return `${Date.now()}-${base || "audio"}${ext}`;
+}
+
+function formatTrackTitle(fileName: string) {
+  const withoutExt = path.basename(fileName, path.extname(fileName));
+  return withoutExt
+    .replace(/^\d+-/, "")
+    .replace(/[-_]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .replace(/\b\w/g, (char) => char.toUpperCase());
+}
+
+function listRadioLibraryTracks(): RadioLibraryTrack[] {
+  const tracks: RadioLibraryTrack[] = [];
+
+  for (const category of RADIO_CATEGORIES) {
+    const dir = ensureRadioCategoryDir(category.id);
+    const entries = fs.readdirSync(dir, { withFileTypes: true });
+
+    for (const entry of entries) {
+      if (!entry.isFile()) continue;
+      const ext = path.extname(entry.name).toLowerCase();
+      if (!allowedRadioExtensions.has(ext)) continue;
+
+      const filePath = path.join(dir, entry.name);
+      const stat = fs.statSync(filePath);
+      const encodedCategory = encodeURIComponent(category.id);
+      const encodedName = encodeURIComponent(entry.name);
+
+      tracks.push({
+        id: `${category.id}/${entry.name}`,
+        title: formatTrackTitle(entry.name),
+        fileName: entry.name,
+        category: category.id,
+        url: `/uploads/radio/${encodedCategory}/${encodedName}`,
+        size: stat.size,
+        createdAt: stat.birthtime.toISOString(),
+      });
+    }
+  }
+
+  return tracks.sort((a, b) => {
+    const categoryA = RADIO_CATEGORIES.findIndex((category) => category.id === a.category);
+    const categoryB = RADIO_CATEGORIES.findIndex((category) => category.id === b.category);
+    if (categoryA !== categoryB) return categoryA - categoryB;
+    return a.title.localeCompare(b.title, "es");
+  });
+}
+
+function getRadioTrackPath(category: string, fileName: string) {
+  if (!isRadioCategory(category)) return null;
+  if (!fileName || path.basename(fileName) !== fileName) return null;
+  const fullPath = path.join(ensureRadioCategoryDir(category), fileName);
+  const resolvedRoot = path.resolve(radioUploadRoot);
+  const resolvedPath = path.resolve(fullPath);
+  if (resolvedPath !== resolvedRoot && !resolvedPath.startsWith(`${resolvedRoot}${path.sep}`)) return null;
+  return fullPath;
+}
+
+const radioAudioUpload = multer({
+  storage: multer.diskStorage({
+    destination: (req, _file, cb) => {
+      const category = getRouteParam(req.params.category);
+      if (!isRadioCategory(category)) {
+        cb(new Error("Categoria de radio no valida"), "");
+        return;
+      }
+      cb(null, ensureRadioCategoryDir(category));
+    },
+    filename: (_req, file, cb) => {
+      cb(null, sanitizeAudioFileName(file.originalname));
+    },
+  }),
+  limits: {
+    fileSize: 250 * 1024 * 1024,
+    files: 12,
+  },
+  fileFilter: (_req, file, cb) => {
+    const ext = path.extname(file.originalname).toLowerCase();
+    if (allowedRadioExtensions.has(ext) || allowedRadioMimeTypes.has(file.mimetype)) {
+      cb(null, true);
+      return;
+    }
+    cb(new Error("Solo se permiten archivos de audio para radio."));
+  },
+});
+
 async function hashPassword(password: string) {
   const salt = randomBytes(16).toString("hex");
   const buf = (await scryptAsync(password, salt, 64)) as Buffer;
@@ -188,6 +331,37 @@ function isChurchAdmin(req: Request, churchId: number): boolean {
     isAdmin(req) ||
     (req.user?.role === "admin_iglesia" && req.user?.churchId === churchId)
   );
+}
+
+function defaultLiveStreamConfig() {
+  const uploadedTrack = listRadioLibraryTracks()[0]?.url || "";
+  const radioUrl = process.env.RADIO_STREAM_URL || process.env.PUBLIC_RADIO_STREAM_URL || DEFAULT_ZENO_STREAM_URL || uploadedTrack || DEFAULT_PUBLIC_RADIO_STREAM;
+  return {
+    sourceType: "radio",
+    sourceUrl: "",
+    radioUrl,
+    title: "Avivando el Fuego Radio",
+    isLive: false,
+  };
+}
+
+function isRadioFallbackStream(url: string) {
+  return !url || url === DEFAULT_PUBLIC_RADIO_STREAM || url === LEGACY_PUBLIC_RADIO_STREAM || url.startsWith("/uploads/radio/");
+}
+
+async function readLiveStreamConfig() {
+  const defaults = defaultLiveStreamConfig();
+
+  try {
+    const content = await storage.getSiteContent("live_stream_config");
+    const parsed = content?.content ? JSON.parse(content.content) : {};
+    const config = { ...defaults, ...parsed };
+    return { ...config, radioUrl: config.radioUrl || defaults.radioUrl };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.warn(`[radio] Using default live stream config: ${message}`);
+    return defaults;
+  }
 }
 
 export async function registerRoutes(
@@ -226,6 +400,7 @@ Sitemap: ${SITE_URL}/sitemap.xml`
       { loc: "/historia", priority: "0.8", changefreq: "monthly" },
       { loc: "/equipo", priority: "0.7", changefreq: "monthly" },
       { loc: "/en-vivo", priority: "0.9", changefreq: "daily" },
+      { loc: "/radio", priority: "0.9", changefreq: "daily" },
       { loc: "/eventos", priority: "0.9", changefreq: "weekly" },
       { loc: "/capacitaciones", priority: "0.8", changefreq: "weekly" },
       { loc: "/contacto", priority: "0.7", changefreq: "yearly" },
@@ -2178,15 +2353,97 @@ ${urls}
     res.json({ link: link || "" });
   });
 
-  app.get(api.admin.getLiveStream.path, async (req, res) => {
-    const content = await storage.getSiteContent("live_stream_config");
-    const defaultConfig = { sourceType: "radio", sourceUrl: "", radioUrl: "", title: "", isLive: false };
-    try {
-      const config = content?.content ? JSON.parse(content.content) : defaultConfig;
-      res.json(config);
-    } catch {
-      res.json(defaultConfig);
+  app.get(api.admin.getLiveStream.path, async (_req, res) => {
+    res.json(await readLiveStreamConfig());
+  });
+
+  app.get(api.radio.station.path, async (_req, res) => {
+    const liveConfig = await readLiveStreamConfig();
+    const libraryTracks = listRadioLibraryTracks();
+    const firstUploadedTrack = libraryTracks[0]?.url || "";
+    const envStream = process.env.RADIO_STREAM_URL || process.env.PUBLIC_RADIO_STREAM_URL || "";
+    const savedRadioStream = liveConfig.radioUrl && !isRadioFallbackStream(liveConfig.radioUrl) ? liveConfig.radioUrl : "";
+    const configuredStream = envStream || savedRadioStream || DEFAULT_ZENO_STREAM_URL;
+    const stationUrl = process.env.RADIO_STATION_URL || DEFAULT_ZENO_STATION_URL;
+    const station: RadioStationPayload = {
+      name: "Avivando el Fuego Radio",
+      slogan: "Avivando el fuego del Espiritu Santo 24/7",
+      timezone: process.env.RADIO_TIMEZONE || RADIO_TIMEZONE,
+      streamUrl: configuredStream || firstUploadedTrack || DEFAULT_PUBLIC_RADIO_STREAM,
+      metadataUrl: process.env.RADIO_METADATA_URL || "",
+      isConfigured: Boolean(configuredStream || firstUploadedTrack),
+      updatedAt: new Date().toISOString(),
+      zeno: {
+        stationUrl,
+        streamUrl: DEFAULT_ZENO_STREAM_URL,
+        isPrimary: configuredStream.includes("zeno.fm") || configuredStream.includes("zenomedia.com"),
+      },
+      library: {
+        tracks: libraryTracks,
+        trackCount: libraryTracks.length,
+        hasUploadedAudio: libraryTracks.length > 0,
+      },
+      liveOverride: {
+        isLive: Boolean(liveConfig.isLive && liveConfig.sourceType !== "radio" && liveConfig.sourceUrl),
+        sourceType: liveConfig.sourceType || "radio",
+        sourceUrl: liveConfig.sourceUrl || "",
+        title: liveConfig.title || "",
+      },
+      now: getRadioNow(new Date(), process.env.RADIO_TIMEZONE || RADIO_TIMEZONE),
+      schedule: RADIO_WEEKLY_SCHEDULE,
+      categories: RADIO_CATEGORIES,
+      rotationClock: RADIO_ROTATION_CLOCK,
+    };
+
+    res.json(station);
+  });
+
+  app.get(api.admin.listRadioLibrary.path, async (req, res) => {
+    if (!isAdmin(req)) return res.sendStatus(403);
+    const tracks = listRadioLibraryTracks();
+    res.json({
+      categories: RADIO_CATEGORIES,
+      tracks,
+      trackCount: tracks.length,
+      uploadMaxMb: 250,
+    });
+  });
+
+  app.post(
+    api.admin.uploadRadioTrack.path,
+    ((req, res, next) => {
+      if (!isAdmin(req)) return res.sendStatus(403);
+      if (!isRadioCategory(getRouteParam(req.params.category))) {
+        return res.status(400).json({ message: "Categoria de radio no valida" });
+      }
+      return next();
+    }) as RequestHandler,
+    uploadLimiter as unknown as RequestHandler,
+    radioAudioUpload.array("files", 12) as unknown as RequestHandler,
+    async (req, res) => {
+      const files = (req.files || []) as Express.Multer.File[];
+      if (!files.length) {
+        return res.status(400).json({ message: "Sube al menos un archivo de audio" });
+      }
+
+      const tracks = listRadioLibraryTracks().filter((track) =>
+        files.some((file) => file.filename === track.fileName && track.category === getRouteParam(req.params.category)),
+      );
+
+      res.status(201).json({ uploaded: tracks, tracks: listRadioLibraryTracks() });
+    },
+  );
+
+  app.delete(api.admin.deleteRadioTrack.path, async (req, res) => {
+    if (!isAdmin(req)) return res.sendStatus(403);
+
+    const filePath = getRadioTrackPath(req.params.category, req.params.fileName);
+    if (!filePath || !fs.existsSync(filePath)) {
+      return res.status(404).json({ message: "Audio no encontrado" });
     }
+
+    fs.unlinkSync(filePath);
+    res.json({ ok: true, tracks: listRadioLibraryTracks() });
   });
 
   app.patch(api.admin.updateLiveStream.path, async (req, res) => {

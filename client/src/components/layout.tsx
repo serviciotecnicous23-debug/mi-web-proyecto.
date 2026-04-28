@@ -29,6 +29,7 @@ import {
   Church,
   MapPin,
   FileText,
+  Radio,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -75,6 +76,7 @@ const publicDesktopNavLinks = [
   { href: "/regiones", label: "Regiones" },
   { href: "/iglesias", label: "Iglesias" },
   { href: "/comunidad", label: "Comunidad" },
+  { href: "/radio", label: "Radio" },
   { href: "/en-vivo", label: "En Vivo" },
 ];
 
@@ -86,6 +88,7 @@ const memberDesktopNavLinks = [
   { href: "/comunidad", label: "Comunidad" },
   { href: "/oracion", label: "Oracion" },
   { href: "/eventos", label: "Eventos" },
+  { href: "/radio", label: "Radio" },
   { href: "/en-vivo", label: "En Vivo" },
   { href: "/perfil?tab=amigos", label: "Amigos" },
   { href: "/mensajes", label: "Mensajes" },
@@ -120,8 +123,9 @@ const publicMobileNavGroups = [
   },
   {
     title: "Medios",
-    icon: Video,
+    icon: Radio,
     links: [
+      { href: "/radio", label: "Radio", icon: Radio },
       { href: "/en-vivo", label: "En Vivo", icon: Video },
     ],
     alwaysOpen: true,
@@ -153,6 +157,7 @@ const memberMobileNavGroups = [
       { href: "/capacitaciones", label: "Capacitaciones", icon: GraduationCap },
       { href: "/biblioteca", label: "Biblioteca", icon: Library },
       { href: "/sermones", label: "Sermones", icon: FileText },
+      { href: "/radio", label: "Radio", icon: Radio },
       { href: "/en-vivo", label: "En Vivo", icon: Video },
     ],
   },

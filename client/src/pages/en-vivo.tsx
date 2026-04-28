@@ -190,7 +190,7 @@ function RadioPlayer({ url, title }: { url: string; title?: string }) {
         </div>
 
         <div className="text-center">
-          <p className="font-bold text-lg">{title || "Radio Avivando el Fuego"}</p>
+          <p className="font-bold text-lg">{title || "Avivando el Fuego Radio"}</p>
           <p className="text-xs text-muted-foreground mt-1">
             {isPlaying ? "Reproduciendo..." : url ? "Listo para reproducir" : "Sin senal configurada"}
           </p>
@@ -918,7 +918,7 @@ export default function EnVivo() {
                     <div className="aspect-video flex items-center justify-center bg-muted rounded-md">
                       <div className="flex flex-col items-center gap-2 text-muted-foreground">
                         <Radio className="w-10 h-10 text-primary" />
-                        <p className="font-bold text-lg">Radio Avivando el Fuego</p>
+                        <p className="font-bold text-lg">Avivando el Fuego Radio</p>
                         <p className="text-sm text-center max-w-xs">La senal esta disponible. Vuelve pronto para escuchar nuestra programacion en vivo.</p>
                       </div>
                     </div>
@@ -934,7 +934,7 @@ export default function EnVivo() {
                   ) : (
                     <RadioPlayer
                       url={config?.radioUrl || ""}
-                      title={config?.title || "Radio Avivando el Fuego"}
+                      title={config?.title || "Avivando el Fuego Radio"}
                     />
                   )}
                 </CardContent>
@@ -945,10 +945,10 @@ export default function EnVivo() {
                   <CardContent className="p-4">
                     <div className="flex items-center gap-3 mb-3">
                       <Radio className="w-5 h-5 text-primary" />
-                      <span className="font-medium text-sm">Radio Avivando el Fuego</span>
+                      <span className="font-medium text-sm">Avivando el Fuego Radio</span>
                       <Badge variant="secondary" className="ml-auto">Radio</Badge>
                     </div>
-                    <RadioPlayer url={config.radioUrl} title="Radio Avivando el Fuego" />
+                    <RadioPlayer url={config.radioUrl} title="Avivando el Fuego Radio" />
                   </CardContent>
                 </Card>
               )}

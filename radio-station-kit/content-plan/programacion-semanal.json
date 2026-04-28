@@ -1,0 +1,94 @@
+{
+  "timezone": "America/Chicago",
+  "station": "Radio Avivando el Fuego",
+  "programs": [
+    {
+      "id": "madrugada-adoracion",
+      "title": "Adoracion de Madrugada",
+      "days": ["todos"],
+      "start": "00:00",
+      "end": "05:30",
+      "category": "adoracion"
+    },
+    {
+      "id": "fuego-amanecer",
+      "title": "Fuego al Amanecer",
+      "days": ["todos"],
+      "start": "05:30",
+      "end": "07:00",
+      "category": "devocionales"
+    },
+    {
+      "id": "alabanza-manana",
+      "title": "Alabanza para Comenzar",
+      "days": ["todos"],
+      "start": "07:00",
+      "end": "10:00",
+      "category": "alabanza"
+    },
+    {
+      "id": "palabra-discipulado",
+      "title": "Palabra y Discipulado",
+      "days": ["lunes", "martes", "miercoles", "jueves", "viernes"],
+      "start": "10:00",
+      "end": "12:00",
+      "category": "palabras"
+    },
+    {
+      "id": "culto-dominical",
+      "title": "Culto Dominical",
+      "days": ["domingo"],
+      "start": "10:00",
+      "end": "12:00",
+      "category": "predicas"
+    },
+    {
+      "id": "fuego-mediodia",
+      "title": "Fuego al Mediodia",
+      "days": ["todos"],
+      "start": "12:00",
+      "end": "13:00",
+      "category": "palabras"
+    },
+    {
+      "id": "musica-esperanza",
+      "title": "Musica de Esperanza",
+      "days": ["todos"],
+      "start": "13:00",
+      "end": "16:00",
+      "category": "adoracion"
+    },
+    {
+      "id": "predicas-avivamiento",
+      "title": "Predicas Avivando el Fuego",
+      "days": ["todos"],
+      "start": "16:00",
+      "end": "18:00",
+      "category": "predicas"
+    },
+    {
+      "id": "familia-fe",
+      "title": "Alabanza y Familia",
+      "days": ["todos"],
+      "start": "18:00",
+      "end": "20:00",
+      "category": "alabanza"
+    },
+    {
+      "id": "noche-avivamiento",
+      "title": "Noche de Avivamiento",
+      "days": ["miercoles", "sabado"],
+      "start": "20:00",
+      "end": "22:00",
+      "category": "predicas"
+    },
+    {
+      "id": "adoracion-nocturna",
+      "title": "Adoracion Nocturna",
+      "days": ["todos"],
+      "start": "22:00",
+      "end": "00:00",
+      "category": "adoracion"
+    }
+  ]
+}

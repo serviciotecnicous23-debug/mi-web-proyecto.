@@ -1,0 +1,11 @@
+{
+  "hourClock": [
+    { "minute": "00", "category": "jingles", "purpose": "ID legal y frase del ministerio" },
+    { "minute": "01", "category": "alabanza", "purpose": "Apertura musical con energia" },
+    { "minute": "13", "category": "adoracion", "purpose": "Transicion a ambiente de oracion" },
+    { "minute": "25", "category": "palabras", "purpose": "Capsula biblica de 2 a 5 minutos" },
+    { "minute": "31", "category": "alabanza", "purpose": "Segundo bloque musical" },
+    { "minute": "43", "category": "predicas", "purpose": "Extracto o predica editada" },
+    { "minute": "56", "category": "jingles", "purpose": "Separador, redes y proximo bloque" }
+  ]
+}

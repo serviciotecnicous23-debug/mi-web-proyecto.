@@ -42,6 +42,7 @@ const navLinks = [
   { href: '/iglesias', label: 'Iglesias' },
   { href: '/alianza', label: 'Alianza' },
   { href: '/ficha-ministerial', label: 'Maestros' },
+  { href: '/radio', label: 'Radio' },
   { href: '/en-vivo', label: 'En Vivo' },
   { href: '/contacto', label: 'Contacto' },
 ]

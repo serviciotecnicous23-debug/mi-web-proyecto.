@@ -24,6 +24,7 @@ import {
   MapPin,
   FileText,
   Home,
+  Radio,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -41,6 +42,8 @@ const PUBLIC_NAV_ITEMS = [
   { label: "Equipo", href: "/equipo", icon: Users, category: "Ministerio" },
   { label: "Regiones", href: "/regiones", icon: Globe, category: "Ministerio" },
   { label: "Iglesias", href: "/iglesias", icon: Church, category: "Ministerio" },
+  { label: "Radio", href: "/radio", icon: Radio, category: "Medios" },
+  { label: "En Vivo", href: "/en-vivo", icon: Video, category: "Medios" },
   { label: "Calendario", href: "/calendario", icon: Calendar, category: "Paginas" },
   { label: "Contacto", href: "/contacto", icon: MapPin, category: "Paginas" },
 ];
@@ -49,7 +52,6 @@ const PUBLIC_NAV_ITEMS = [
 const MEMBER_NAV_ITEMS = [
   { label: "Capacitaciones", href: "/capacitaciones", icon: GraduationCap, category: "Formacion" },
   { label: "Biblioteca", href: "/biblioteca", icon: Library, category: "Formacion" },
-  { label: "En Vivo", href: "/en-vivo", icon: Video, category: "Formacion" },
   { label: "Sermones", href: "/sermones", icon: FileText, category: "Formacion" },
   { label: "Comunidad", href: "/comunidad", icon: MessageSquare, category: "Comunidad" },
   { label: "Oracion", href: "/oracion", icon: Heart, category: "Comunidad" },

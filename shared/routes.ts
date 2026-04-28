@@ -209,6 +209,9 @@ export const api = {
     delete: { method: "DELETE" as const, path: "/api/library-resources/:id" as const },
     toggleLike: { method: "POST" as const, path: "/api/library-resources/:id/like" as const },
   },
+  radio: {
+    station: { method: "GET" as const, path: "/api/radio/station" as const },
+  },
   readingClubLikes: {
     toggle: { method: "POST" as const, path: "/api/reading-club/:id/like" as const },
   },
@@ -225,6 +228,9 @@ export const api = {
     updateWhatsappLink: { method: "PATCH" as const, path: "/api/admin/whatsapp-link" as const },
     getLiveStream: { method: "GET" as const, path: "/api/live-stream" as const },
     updateLiveStream: { method: "PATCH" as const, path: "/api/admin/live-stream" as const },
+    listRadioLibrary: { method: "GET" as const, path: "/api/admin/radio-library" as const },
+    uploadRadioTrack: { method: "POST" as const, path: "/api/admin/radio-library/:category/upload" as const },
+    deleteRadioTrack: { method: "DELETE" as const, path: "/api/admin/radio-library/:category/:fileName" as const },
     getUserDetail: { method: "GET" as const, path: "/api/admin/users/:id/detail" as const },
   },
   notifications: {

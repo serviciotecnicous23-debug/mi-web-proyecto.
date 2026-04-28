@@ -1,0 +1,23 @@
+dia,inicio,fin,bloque,categoria,carpeta
+lunes-viernes,00:00,05:30,Adoracion vocal y ministracion de madrugada,adoracion,01-adoracion/ministracion-cultos-abiertos
+lunes-viernes,05:30,07:00,Palabra de inicio del dia,palabras,03-palabras/biblia-rva1909
+lunes-viernes,07:00,10:00,Alabanza vocal e himnos,alabanza,02-alabanza/vocales-grupo-musical-poder-cristiano
+lunes-viernes,10:00,12:00,Palabra y discipulado,palabras,03-palabras/biblia-rva1909
+lunes-viernes,12:00,13:00,Fuego al mediodia,palabras,03-palabras/biblia-rva1909
+lunes-viernes,13:00,16:00,Adoracion vocal continua,adoracion,01-adoracion/a-donde-ire-jorge-astorga
+lunes-viernes,16:00,18:00,Bloque de predica,predicas,04-predicas/vida-cristiana
+lunes-viernes,18:00,20:00,Alabanza y familia,alabanza,02-alabanza/contemporanea-creative-commons
+lunes-viernes,20:00,22:00,Noche de avivamiento,predicas,04-predicas/adoracion
+lunes-viernes,22:00,00:00,Adoracion nocturna vocal,adoracion,01-adoracion/independiente-vocal
+sabado,00:00,07:00,Adoracion y Palabra,adoracion,01-adoracion/a-donde-ire-jorge-astorga
+sabado,07:00,12:00,Alabanza y testimonios,alabanza,02-alabanza/vocales-grupo-musical-poder-cristiano
+sabado,12:00,16:00,Palabra biblica continua,palabras,03-palabras/biblia-rva1909
+sabado,16:00,20:00,Predicas y ensenanzas,predicas,04-predicas/vida-cristiana
+sabado,20:00,22:00,Noche de avivamiento,predicas,04-predicas/adoracion
+sabado,22:00,00:00,Adoracion nocturna vocal,adoracion,01-adoracion/independiente-vocal
+domingo,00:00,07:00,Adoracion devocional,adoracion,01-adoracion/a-donde-ire-jorge-astorga
+domingo,07:00,10:00,Preparacion para culto,alabanza,02-alabanza/vocales-tito-otero
+domingo,10:00,12:00,Culto dominical,predicas,04-predicas/adoracion
+domingo,12:00,16:00,Adoracion y Palabra,adoracion,01-adoracion/a-donde-ire-jorge-astorga
+domingo,16:00,20:00,Repeticion de predicas,predicas,04-predicas/predica-adoracion
+domingo,20:00,00:00,Cierre de adoracion vocal,adoracion,01-adoracion/independiente-vocal

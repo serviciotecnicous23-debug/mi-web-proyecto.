@@ -15,6 +15,7 @@ import {
 } from "@/hooks/use-users";
 import { useLocation } from "wouter";
 import { Layout } from "@/components/layout";
+import { RadioLibraryAdmin } from "@/components/admin/RadioLibraryAdmin";
 import { isAdminRole } from "@/lib/utils";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
@@ -914,6 +915,9 @@ export default function AdminDashboard() {
             <TabsTrigger value="posts" className="gap-2" data-testid="tab-posts">
               <MessageSquare className="h-4 w-4" /> Publicaciones
             </TabsTrigger>
+            <TabsTrigger value="radio-library" className="gap-2" data-testid="tab-radio-library">
+              <Upload className="h-4 w-4" /> Biblioteca Radio
+            </TabsTrigger>
             <TabsTrigger value="live" className="gap-2" data-testid="tab-live">
               <Radio className="h-4 w-4" /> En Vivo
             </TabsTrigger>
@@ -1789,6 +1793,11 @@ export default function AdminDashboard() {
                 )}
               </CardContent>
             </Card>
+          </TabsContent>
+
+          {/* Biblioteca Radio Tab */}
+          <TabsContent value="radio-library">
+            <RadioLibraryAdmin />
           </TabsContent>
 
           {/* En Vivo Tab */}
