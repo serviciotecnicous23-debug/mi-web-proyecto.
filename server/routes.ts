@@ -334,9 +334,26 @@ function isChurchAdmin(req: Request, churchId: number): boolean {
   );
 }
 
+function isLegacyZenoUrl(url: string) {
+  return url.includes("zeno.fm") || url.includes("zenomedia.com");
+}
+
+function normalizeRadioStreamUrl(url: string) {
+  const cleanUrl = url.trim();
+  if (!cleanUrl || isLegacyZenoUrl(cleanUrl)) return "";
+  return cleanUrl;
+}
+
+function normalizeRadioStationUrl(url: string) {
+  const cleanUrl = url.trim();
+  if (!cleanUrl || isLegacyZenoUrl(cleanUrl)) return "";
+  return cleanUrl;
+}
+
 function defaultLiveStreamConfig() {
   const uploadedTrack = listRadioLibraryTracks()[0]?.url || "";
-  const radioUrl = process.env.RADIO_STREAM_URL || process.env.PUBLIC_RADIO_STREAM_URL || DEFAULT_AZURACAST_STREAM_URL || uploadedTrack || DEFAULT_PUBLIC_RADIO_STREAM;
+  const envRadioUrl = normalizeRadioStreamUrl(process.env.RADIO_STREAM_URL || process.env.PUBLIC_RADIO_STREAM_URL || "");
+  const radioUrl = envRadioUrl || DEFAULT_AZURACAST_STREAM_URL || uploadedTrack || DEFAULT_PUBLIC_RADIO_STREAM;
   return {
     sourceType: "radio",
     sourceUrl: "",
@@ -2362,9 +2379,9 @@ ${urls}
     const liveConfig = await readLiveStreamConfig();
     const libraryTracks = listRadioLibraryTracks();
     const firstUploadedTrack = libraryTracks[0]?.url || "";
-    const envStream = process.env.RADIO_STREAM_URL || process.env.PUBLIC_RADIO_STREAM_URL || "";
+    const envStream = normalizeRadioStreamUrl(process.env.RADIO_STREAM_URL || process.env.PUBLIC_RADIO_STREAM_URL || "");
     const configuredStream = envStream || DEFAULT_AZURACAST_STREAM_URL;
-    const stationUrl = process.env.RADIO_STATION_URL || DEFAULT_AZURACAST_STATION_URL;
+    const stationUrl = normalizeRadioStationUrl(process.env.RADIO_STATION_URL || "") || DEFAULT_AZURACAST_STATION_URL;
     const metadataUrl = process.env.RADIO_METADATA_URL || DEFAULT_AZURACAST_METADATA_URL;
     const station: RadioStationPayload = {
       name: "Avivando el Fuego Radio",
