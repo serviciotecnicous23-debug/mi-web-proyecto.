@@ -1,3 +1,4 @@
+import { useEffect, useMemo, useState } from "react";
 import {
   ArrowUpRight,
   Bell,
@@ -20,7 +21,6 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useRadioStation } from "@/hooks/use-radio";
-import type { RadioCategory, RadioLibraryTrack } from "@shared/radio";
 
 const billboardItems = [
   {
@@ -31,7 +31,7 @@ const billboardItems = [
   {
     icon: Megaphone,
     title: "Cartelera ministerial",
-    text: "Este espacio queda listo para avisos, campanas, vigilias, cultos y nuevos bloques de audio.",
+    text: "La radio usa una programacion nueva separada del archivo inicial, lista para avisos, campanas, vigilias y cultos.",
   },
   {
     icon: Headphones,
@@ -42,30 +42,32 @@ const billboardItems = [
 
 const activeBlocks = [
   {
-    title: "Adoracion vocal",
-    description: "Ministracion, momentos de altar y canciones para orar.",
-    category: "adoracion",
+    title: "Nueva adoracion y ministracion",
+    description: "Canciones actuales de adoracion, ministracion y busqueda de la presencia de Dios.",
+    count: "29 audios",
+    status: "Activo",
   },
   {
-    title: "Alabanza y coros",
-    description: "Cantos congregacionales, gozo y apertura de bloques.",
-    category: "alabanza",
+    title: "Nueva alabanza y gozo",
+    description: "Cantos de celebracion, gozo y apertura para levantar la fe.",
+    count: "6 audios",
+    status: "Activo",
   },
   {
-    title: "Palabra biblica",
-    description: "Lectura biblica y pasajes seleccionados para la radio.",
-    category: "palabras",
+    title: "Predicas nuevas",
+    description: "Predicas recientes integradas como bloque de ensenanza en la rotacion.",
+    count: "10 audios",
+    status: "Cada hora",
   },
   {
-    title: "Predicas y cultos",
-    description: "Mensajes, devocionales y cultos abiertos para edificacion.",
-    category: "predicas",
+    title: "Audios del ministerio y especiales",
+    description: "Audios propios, material pastoral y contenido para revision ministerial.",
+    count: "33 audios",
+    status: "Activo",
   },
 ];
 
-function countTracks(tracks: RadioLibraryTrack[] | undefined, category: string) {
-  return tracks?.filter((track) => track.category === category).length ?? 0;
-}
+const archiveSummary = "68 audios del paquete inicial quedan preservados como archivo inactivo.";
 
 function formatTime(value?: string) {
   if (!value) return "";
@@ -76,8 +78,39 @@ function formatTime(value?: string) {
   }).format(new Date(value));
 }
 
-function categoryById(categories: RadioCategory[] | undefined, id: string) {
-  return categories?.find((category) => category.id === id);
+type AzuraSong = {
+  text?: string;
+  artist?: string;
+  title?: string;
+};
+
+type LiveSnapshot = {
+  isOnline: boolean;
+  listeners: number;
+  playlist: string;
+  song: string;
+  nextPlaylist: string;
+  nextSong: string;
+};
+
+function getSongText(song?: AzuraSong) {
+  if (!song) return "";
+  return song.text || [song.artist, song.title].filter(Boolean).join(" - ") || song.title || "";
+}
+
+function getLiveSnapshot(data: unknown): LiveSnapshot | null {
+  const payload = Array.isArray(data) ? data[0] : data;
+  if (!payload || typeof payload !== "object") return null;
+
+  const record = payload as any;
+  return {
+    isOnline: Boolean(record.is_online),
+    listeners: Number(record.listeners?.current ?? record.listeners?.total ?? 0),
+    playlist: String(record.now_playing?.playlist || ""),
+    song: getSongText(record.now_playing?.song),
+    nextPlaylist: String(record.playing_next?.playlist || ""),
+    nextSong: getSongText(record.playing_next?.song),
+  };
 }
 
 export default function RadioPage() {
@@ -87,6 +120,38 @@ export default function RadioPage() {
   const stationUrl = provider?.stationUrl || "https://40.160.2.176.sslip.io/public/avivando_el_fuego";
   const isAzuraCastPrimary = provider?.isPrimary ?? false;
   const lastSync = station?.updatedAt ? formatTime(station.updatedAt) : "";
+  const [liveSnapshot, setLiveSnapshot] = useState<LiveSnapshot | null>(null);
+  const streamHost = useMemo(() => {
+    if (!station?.streamUrl) return "AzuraCast";
+    try {
+      return new URL(station.streamUrl).host;
+    } catch {
+      return "AzuraCast";
+    }
+  }, [station?.streamUrl]);
+
+  useEffect(() => {
+    if (!station?.metadataUrl) return;
+
+    let cancelled = false;
+    const loadLiveSnapshot = async () => {
+      try {
+        const response = await fetch(station.metadataUrl, { cache: "no-store" });
+        if (!response.ok) return;
+        const snapshot = getLiveSnapshot(await response.json());
+        if (!cancelled) setLiveSnapshot(snapshot);
+      } catch {
+        if (!cancelled) setLiveSnapshot(null);
+      }
+    };
+
+    loadLiveSnapshot();
+    const timer = window.setInterval(loadLiveSnapshot, 20000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
+  }, [station?.metadataUrl]);
 
   return (
     <Layout>
@@ -161,8 +226,8 @@ export default function RadioPage() {
                         <p className="mt-1 font-bold">MP3 en vivo</p>
                       </div>
                       <div className="rounded-md border bg-background/60 p-3">
-                        <p className="text-xs text-muted-foreground">Biblioteca local</p>
-                        <p className="mt-1 font-bold">{station?.library.trackCount ?? 0} audios</p>
+                        <p className="text-xs text-muted-foreground">Biblioteca activa</p>
+                        <p className="mt-1 font-bold">79 audios nuevos</p>
                       </div>
                       <div className="rounded-md border bg-background/60 p-3">
                         <p className="text-xs text-muted-foreground">Actualizado</p>
@@ -196,6 +261,39 @@ export default function RadioPage() {
               />
             )}
           </div>
+        </div>
+      </section>
+
+      <section className="border-b bg-card/30 py-8">
+        <div className="mx-auto grid max-w-7xl gap-4 px-4 md:grid-cols-3">
+          <Card>
+            <CardContent className="p-4">
+              <div className="mb-2 flex items-center justify-between gap-3">
+                <p className="text-sm font-semibold">Ahora en vivo</p>
+                <Badge variant={liveSnapshot?.isOnline ? "default" : "secondary"}>
+                  {liveSnapshot?.isOnline ? "Online" : "Sin datos"}
+                </Badge>
+              </div>
+              <p className="text-sm text-muted-foreground">{liveSnapshot?.playlist || "AzuraCast AutoDJ"}</p>
+              <p className="mt-1 line-clamp-2 font-bold">{liveSnapshot?.song || "Cargando informacion del servidor..."}</p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="p-4">
+              <p className="mb-2 text-sm font-semibold">Siguiente bloque</p>
+              <p className="text-sm text-muted-foreground">{liveSnapshot?.nextPlaylist || "Rotacion automatica"}</p>
+              <p className="mt-1 line-clamp-2 font-bold">{liveSnapshot?.nextSong || "AzuraCast selecciona el proximo audio"}</p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="p-4">
+              <p className="mb-2 text-sm font-semibold">Servidor</p>
+              <p className="text-sm text-muted-foreground">{streamHost}</p>
+              <p className="mt-1 font-bold">{liveSnapshot?.listeners ?? 0} oyentes conectados</p>
+            </CardContent>
+          </Card>
         </div>
       </section>
 
@@ -252,27 +350,24 @@ export default function RadioPage() {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <FolderOpen className="h-5 w-5 text-primary" />
-                  Bloques Activos
+                  Programacion Activa
                 </CardTitle>
               </CardHeader>
               <CardContent className="grid gap-3 sm:grid-cols-2">
-                {activeBlocks.map((block) => {
-                  const category = categoryById(station?.categories, block.category);
-                  const trackCount = countTracks(libraryTracks, block.category);
-
-                  return (
-                    <div key={block.title} className="rounded-md border bg-background/60 p-4">
-                      <div className="mb-3 flex items-center justify-between gap-3">
-                        <h3 className="font-bold">{block.title}</h3>
-                        <Badge variant="outline">{trackCount} audios</Badge>
-                      </div>
-                      <p className="text-sm text-muted-foreground">{block.description}</p>
-                      {category && (
-                        <p className="mt-3 text-xs text-muted-foreground">Referencia de rotacion: {category.rotationTarget}</p>
-                      )}
+                {activeBlocks.map((block) => (
+                  <div key={block.title} className="rounded-md border bg-background/60 p-4">
+                    <div className="mb-3 flex items-center justify-between gap-3">
+                      <h3 className="font-bold">{block.title}</h3>
+                      <Badge variant="outline">{block.count}</Badge>
                     </div>
-                  );
-                })}
+                    <p className="text-sm text-muted-foreground">{block.description}</p>
+                    <p className="mt-3 text-xs font-medium text-primary">{block.status}</p>
+                  </div>
+                ))}
+                <div className="rounded-md border bg-background/60 p-4 sm:col-span-2">
+                  <h3 className="font-bold">Archivo base anterior</h3>
+                  <p className="mt-1 text-sm text-muted-foreground">{archiveSummary}</p>
+                </div>
               </CardContent>
             </Card>
 
@@ -287,13 +382,13 @@ export default function RadioPage() {
                 <div className="rounded-md border bg-background/60 p-4">
                   <h3 className="font-bold">AutoDJ propio</h3>
                   <p className="mt-1 text-sm text-muted-foreground">
-                    Liquidsoap e Icecast manejan la lista activa desde el servidor. Esta pagina muestra la senal en vivo y una cartelera del ministerio.
+                    Liquidsoap e Icecast manejan la lista activa desde el servidor. Esta pagina muestra ahora la playlist y la proxima pista que informa AzuraCast.
                   </p>
                 </div>
                 <div className="rounded-md border bg-background/60 p-4">
-                  <h3 className="font-bold">Biblioteca administrable</h3>
+                  <h3 className="font-bold">Nuevo material separado</h3>
                   <p className="mt-1 text-sm text-muted-foreground">
-                    Los audios se suben y organizan desde el panel web de AzuraCast, sin depender de una computadora local.
+                    Lo nuevo se programa aparte del paquete inicial. Los audios anteriores quedan guardados, pero no entran en la rotacion principal.
                   </p>
                 </div>
               </CardContent>
