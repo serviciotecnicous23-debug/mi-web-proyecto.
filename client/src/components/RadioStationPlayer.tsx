@@ -31,6 +31,21 @@ function isHlsUrl(url: string) {
   return /\.m3u8($|\?)/i.test(url) || /\/hls\//i.test(url);
 }
 
+function getNowPlayingText(data: unknown) {
+  const payload = Array.isArray(data) ? data[0] : data;
+  if (!payload || typeof payload !== "object") return "";
+
+  const record = payload as Record<string, any>;
+  const song = record.now_playing?.song;
+  const artist = typeof song?.artist === "string" ? song.artist : "";
+  const title = typeof song?.title === "string" ? song.title : "";
+  const text = typeof song?.text === "string" ? song.text : "";
+  const icecastTitle = record.icestats?.source?.title;
+  const fallbackTitle = record.title;
+
+  return text || [artist, title].filter(Boolean).join(" - ") || icecastTitle || fallbackTitle || "";
+}
+
 function Visualizer({ active }: { active: boolean }) {
   return (
     <div className="flex h-10 items-end gap-1" aria-hidden>
@@ -107,11 +122,7 @@ export function RadioStationPlayer({
         const res = await fetch(metadataUrl, { cache: "no-store" });
         if (!res.ok) return;
         const data = await res.json();
-        const nowPlaying =
-          data?.now_playing?.song?.title ||
-          data?.icestats?.source?.title ||
-          data?.title ||
-          "";
+        const nowPlaying = getNowPlayingText(data);
         if (!cancelled) setMetadata(String(nowPlaying).slice(0, 120));
       } catch {
         if (!cancelled) setMetadata("");

@@ -24,9 +24,10 @@ import { sendPasswordResetEmail, sendVerificationEmail, sendWelcomeEmail, sendAc
 import { sendPushToMany, getVapidPublicKey, isPushConfigured, type PushPayload } from "./push";
 import { registerAgentRoutes } from "./agent/routes";
 import {
+  DEFAULT_AZURACAST_METADATA_URL,
+  DEFAULT_AZURACAST_STATION_URL,
+  DEFAULT_AZURACAST_STREAM_URL,
   DEFAULT_PUBLIC_RADIO_STREAM,
-  DEFAULT_ZENO_STATION_URL,
-  DEFAULT_ZENO_STREAM_URL,
   LEGACY_PUBLIC_RADIO_STREAM,
   RADIO_CATEGORIES,
   RADIO_ROTATION_CLOCK,
@@ -335,7 +336,7 @@ function isChurchAdmin(req: Request, churchId: number): boolean {
 
 function defaultLiveStreamConfig() {
   const uploadedTrack = listRadioLibraryTracks()[0]?.url || "";
-  const radioUrl = process.env.RADIO_STREAM_URL || process.env.PUBLIC_RADIO_STREAM_URL || DEFAULT_ZENO_STREAM_URL || uploadedTrack || DEFAULT_PUBLIC_RADIO_STREAM;
+  const radioUrl = process.env.RADIO_STREAM_URL || process.env.PUBLIC_RADIO_STREAM_URL || DEFAULT_AZURACAST_STREAM_URL || uploadedTrack || DEFAULT_PUBLIC_RADIO_STREAM;
   return {
     sourceType: "radio",
     sourceUrl: "",
@@ -2362,20 +2363,26 @@ ${urls}
     const libraryTracks = listRadioLibraryTracks();
     const firstUploadedTrack = libraryTracks[0]?.url || "";
     const envStream = process.env.RADIO_STREAM_URL || process.env.PUBLIC_RADIO_STREAM_URL || "";
-    const configuredStream = envStream || DEFAULT_ZENO_STREAM_URL;
-    const stationUrl = process.env.RADIO_STATION_URL || DEFAULT_ZENO_STATION_URL;
+    const configuredStream = envStream || DEFAULT_AZURACAST_STREAM_URL;
+    const stationUrl = process.env.RADIO_STATION_URL || DEFAULT_AZURACAST_STATION_URL;
+    const metadataUrl = process.env.RADIO_METADATA_URL || DEFAULT_AZURACAST_METADATA_URL;
     const station: RadioStationPayload = {
       name: "Avivando el Fuego Radio",
       slogan: "Avivando el fuego del Espiritu Santo 24/7",
       timezone: process.env.RADIO_TIMEZONE || RADIO_TIMEZONE,
       streamUrl: configuredStream || firstUploadedTrack || DEFAULT_PUBLIC_RADIO_STREAM,
-      metadataUrl: process.env.RADIO_METADATA_URL || "",
+      metadataUrl,
       isConfigured: Boolean(configuredStream || firstUploadedTrack),
       updatedAt: new Date().toISOString(),
-      zeno: {
+      provider: {
+        name: "AzuraCast",
         stationUrl,
-        streamUrl: DEFAULT_ZENO_STREAM_URL,
-        isPrimary: configuredStream.includes("zeno.fm") || configuredStream.includes("zenomedia.com"),
+        streamUrl: configuredStream,
+        metadataUrl,
+        isPrimary:
+          configuredStream.includes("sslip.io") ||
+          configuredStream.includes("/listen/") ||
+          configuredStream.includes("azuracast"),
       },
       library: {
         tracks: libraryTracks,

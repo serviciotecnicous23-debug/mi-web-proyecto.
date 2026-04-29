@@ -26,7 +26,7 @@ const billboardItems = [
   {
     icon: Radio,
     title: "Senal oficial",
-    text: "La transmision principal sale desde Zeno y se escucha aqui en la pagina del ministerio.",
+    text: "La transmision principal sale desde el servidor propio AzuraCast y se escucha aqui en la pagina del ministerio.",
   },
   {
     icon: Megaphone,
@@ -83,8 +83,9 @@ function categoryById(categories: RadioCategory[] | undefined, id: string) {
 export default function RadioPage() {
   const { data: station, isLoading, isError } = useRadioStation();
   const libraryTracks = station?.library.tracks ?? [];
-  const zenoStationUrl = station?.zeno.stationUrl || "https://zeno.fm/radio/avivando-el-fuego-radio/";
-  const isZenoPrimary = station?.zeno.isPrimary ?? false;
+  const provider = station?.provider;
+  const stationUrl = provider?.stationUrl || "https://40.160.2.176.sslip.io/public/avivando_el_fuego";
+  const isAzuraCastPrimary = provider?.isPrimary ?? false;
   const lastSync = station?.updatedAt ? formatTime(station.updatedAt) : "";
 
   return (
@@ -100,9 +101,9 @@ export default function RadioPage() {
                   <Radio className="h-3 w-3" />
                   Radio online
                 </Badge>
-                <Badge variant={isZenoPrimary ? "default" : "secondary"} className="gap-1">
+                <Badge variant={isAzuraCastPrimary ? "default" : "secondary"} className="gap-1">
                   <Satellite className="h-3 w-3" />
-                  {isZenoPrimary ? "Zeno conectado" : "Senal configurada"}
+                  {isAzuraCastPrimary ? "AzuraCast activo" : "Senal configurada"}
                 </Badge>
               </div>
 
@@ -121,9 +122,9 @@ export default function RadioPage() {
                   </a>
                 </Button>
                 <Button asChild variant="outline">
-                  <a href={zenoStationUrl} target="_blank" rel="noreferrer">
+                  <a href={stationUrl} target="_blank" rel="noreferrer">
                     <ArrowUpRight className="h-4 w-4" />
-                    Abrir en Zeno
+                    Abrir emisora
                   </a>
                 </Button>
               </div>
@@ -149,9 +150,9 @@ export default function RadioPage() {
                 ) : (
                   <div className="space-y-4">
                     <div>
-                      <h2 className="text-2xl font-bold">Transmitiendo desde Zeno</h2>
+                      <h2 className="text-2xl font-bold">Transmitiendo desde AzuraCast</h2>
                       <p className="mt-2 text-sm text-muted-foreground">
-                        La senal y el orden musical se manejan desde el AutoDJ externo de Zeno.
+                        La senal, Icecast y AutoDJ funcionan 24/7 desde el VPS del ministerio.
                       </p>
                     </div>
                     <div className="grid gap-3 sm:grid-cols-3">
@@ -230,14 +231,14 @@ export default function RadioPage() {
               </CardHeader>
               <CardContent className="space-y-4">
                 <p className="text-sm text-muted-foreground">
-                  La pagina reproduce el stream directo de Zeno. El enlace publico queda disponible para compartirlo con la congregacion.
+                  La pagina reproduce el stream directo de AzuraCast. El enlace publico queda disponible para compartirlo con la congregacion.
                 </p>
                 <div className="rounded-md border bg-background/60 p-3 text-sm">
-                  <p className="font-medium">Zeno</p>
-                  <p className="mt-1 break-all text-muted-foreground">{zenoStationUrl}</p>
+                  <p className="font-medium">{provider?.name || "AzuraCast"}</p>
+                  <p className="mt-1 break-all text-muted-foreground">{stationUrl}</p>
                 </div>
                 <Button asChild variant="outline" className="w-full sm:w-auto">
-                  <a href={zenoStationUrl} target="_blank" rel="noreferrer">
+                  <a href={stationUrl} target="_blank" rel="noreferrer">
                     <ArrowUpRight className="h-4 w-4" />
                     Visitar estacion
                   </a>
@@ -284,15 +285,15 @@ export default function RadioPage() {
               </CardHeader>
               <CardContent className="grid gap-3">
                 <div className="rounded-md border bg-background/60 p-4">
-                  <h3 className="font-bold">Programacion externa</h3>
+                  <h3 className="font-bold">AutoDJ propio</h3>
                   <p className="mt-1 text-sm text-muted-foreground">
-                    Zeno maneja la lista activa de la emisora. Esta pagina muestra la senal en vivo y una cartelera del ministerio.
+                    Liquidsoap e Icecast manejan la lista activa desde el servidor. Esta pagina muestra la senal en vivo y una cartelera del ministerio.
                   </p>
                 </div>
                 <div className="rounded-md border bg-background/60 p-4">
-                  <h3 className="font-bold">Respaldo local</h3>
+                  <h3 className="font-bold">Biblioteca administrable</h3>
                   <p className="mt-1 text-sm text-muted-foreground">
-                    La biblioteca interna queda disponible para administrar audios y reemplazar la senal si el servidor externo cambia.
+                    Los audios se suben y organizan desde el panel web de AzuraCast, sin depender de una computadora local.
                   </p>
                 </div>
               </CardContent>

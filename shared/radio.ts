@@ -51,9 +51,11 @@ export type RadioStationPayload = {
   metadataUrl: string;
   isConfigured: boolean;
   updatedAt: string;
-  zeno: {
+  provider: {
+    name: string;
     stationUrl: string;
     streamUrl: string;
+    metadataUrl: string;
     isPrimary: boolean;
   };
   library: {
@@ -78,15 +80,19 @@ export type RadioStationPayload = {
 
 export const RADIO_TIMEZONE = "America/Chicago";
 
-export const DEFAULT_ZENO_STATION_URL = "https://zeno.fm/radio/avivando-el-fuego-radio/";
+export const DEFAULT_AZURACAST_BASE_URL = "https://40.160.2.176.sslip.io";
 
-export const DEFAULT_ZENO_STREAM_URL = "https://stream.zeno.fm/kcq8uq8vnogtv";
+export const DEFAULT_AZURACAST_STATION_URL = `${DEFAULT_AZURACAST_BASE_URL}/public/avivando_el_fuego`;
+
+export const DEFAULT_AZURACAST_STREAM_URL = `${DEFAULT_AZURACAST_BASE_URL}/listen/avivando_el_fuego/radio.mp3`;
+
+export const DEFAULT_AZURACAST_METADATA_URL = `${DEFAULT_AZURACAST_BASE_URL}/api/nowplaying`;
 
 export const LEGACY_PUBLIC_RADIO_STREAM =
   "https://upload.wikimedia.org/wikipedia/commons/8/82/God_of_Our_Fathers_-_Concert_Band_-_United_States_Air_Force_Heritage_of_America_Band.mp3";
 
 export const DEFAULT_PUBLIC_RADIO_STREAM =
-  DEFAULT_ZENO_STREAM_URL;
+  DEFAULT_AZURACAST_STREAM_URL;
 
 export const RADIO_CATEGORIES: RadioCategory[] = [
   {
