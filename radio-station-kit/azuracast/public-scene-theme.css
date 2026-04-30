@@ -1,0 +1,665 @@
+/* AEF_PUBLIC_SCENE_THEME_V2_20260430 */
+[data-bs-theme] {
+  min-height: 100%;
+  background: #050202 !important;
+}
+
+@keyframes aefBarPulse {
+  0%, 100% { transform: scaleY(.36); opacity: .52; }
+  45% { transform: scaleY(1); opacity: 1; }
+}
+
+@keyframes aefFloat {
+  0%, 100% { transform: translate3d(0, 0, 0) rotate(0deg); }
+  50% { transform: translate3d(0, -10px, 0) rotate(1deg); }
+}
+
+@keyframes aefGlowPulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(251,146,60,.18), 0 0 70px rgba(249,115,22,.28); }
+  50% { box-shadow: 0 0 0 14px rgba(251,146,60,.06), 0 0 105px rgba(249,115,22,.42); }
+}
+
+[data-bs-theme] body.station-avivando_el_fuego.page-minimal {
+  min-height: 100vh;
+  background-color: #050202 !important;
+  color: #fff7ed;
+  background:
+    radial-gradient(circle at 50% 8%, rgba(249, 115, 22, .34), transparent 34%),
+    radial-gradient(circle at 88% 76%, rgba(220, 38, 38, .24), transparent 36%),
+    radial-gradient(circle at 14% 84%, rgba(245, 158, 11, .18), transparent 32%),
+    linear-gradient(135deg, #08070a 0%, #130704 48%, #050202 100%) !important;
+  background-attachment: fixed !important;
+}
+
+[data-bs-theme] body.station-avivando_el_fuego.page-minimal::before,
+[data-bs-theme] body.station-avivando_el_fuego.page-minimal::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+}
+
+[data-bs-theme] body.station-avivando_el_fuego.page-minimal::before {
+  background-image:
+    linear-gradient(rgba(255,255,255,.045) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,.045) 1px, transparent 1px);
+  background-size: 56px 56px;
+  mask-image: linear-gradient(to bottom, rgba(0,0,0,.9), rgba(0,0,0,.16));
+}
+
+[data-bs-theme] body.station-avivando_el_fuego.page-minimal::after {
+  background: linear-gradient(180deg, transparent 0%, rgba(0,0,0,.34) 100%);
+}
+
+[data-bs-theme] body.station-avivando_el_fuego #page-wrapper {
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  padding: clamp(14px, 3vw, 38px);
+  background: transparent !important;
+}
+
+[data-bs-theme] body.station-avivando_el_fuego #main {
+  position: relative;
+  z-index: 1;
+  width: min(1160px, 100%);
+  margin: 0 auto;
+}
+
+[data-bs-theme] body.station-avivando_el_fuego .public-page {
+  width: 100%;
+  max-width: none !important;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+[data-bs-theme] body.station-avivando_el_fuego .aef-public-shell {
+  position: relative;
+  overflow: hidden;
+  min-height: min(760px, calc(100dvh - 92px));
+  border: 1px solid rgba(251,146,60,.26);
+  border-radius: 30px;
+  background:
+    linear-gradient(145deg, rgba(255,255,255,.09), rgba(255,255,255,.025)),
+    radial-gradient(circle at 72% 24%, rgba(251,146,60,.22), transparent 34%),
+    rgba(8,7,10,.82);
+  box-shadow: 0 32px 110px rgba(0,0,0,.48), inset 0 1px 0 rgba(255,255,255,.10);
+  backdrop-filter: blur(18px) saturate(142%);
+  -webkit-backdrop-filter: blur(18px) saturate(142%);
+}
+
+[data-bs-theme] body.station-avivando_el_fuego .aef-public-shell::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(90deg, rgba(251,146,60,.12) 0 1px, transparent 1px 100%),
+    linear-gradient(rgba(251,146,60,.10) 0 1px, transparent 1px 100%);
+  background-size: 46px 46px;
+  opacity: .38;
+  mask-image: radial-gradient(circle at 58% 42%, black, transparent 74%);
+}
+
+[data-bs-theme] body.station-avivando_el_fuego .aef-public-shell::after {
+  content: "";
+  position: absolute;
+  right: -160px;
+  top: -170px;
+  width: 520px;
+  height: 520px;
+  border-radius: 999px;
+  background: radial-gradient(circle, rgba(251,146,60,.32), rgba(220,38,38,.14) 44%, transparent 70%);
+  filter: blur(1px);
+}
+
+[data-bs-theme] body.station-avivando_el_fuego .aef-scene-grid {
+  position: relative;
+  z-index: 1;
+  min-height: inherit;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(330px, .92fr);
+  gap: clamp(18px, 4vw, 44px);
+  align-items: center;
+  padding: clamp(18px, 4vw, 44px);
+}
+
+[data-bs-theme] body.station-avivando_el_fuego .aef-copy-panel {
+  min-width: 0;
+}
+
+[data-bs-theme] body.station-avivando_el_fuego .aef-brand-row {
+  display: flex;
+  align-items: center;
+  gap: clamp(14px, 2.6vw, 24px);
+}
+
+[data-bs-theme] body.station-avivando_el_fuego .aef-logo-mark,
+[data-bs-theme] body.station-avivando_el_fuego .aef-orbit-logo {
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(251,146,60,.34);
+  background: radial-gradient(circle at 50% 35%, rgba(255,247,237,.16), rgba(251,146,60,.17) 43%, rgba(0,0,0,.32) 74%);
+  box-shadow: 0 0 46px rgba(249,115,22,.28), inset 0 1px 0 rgba(255,255,255,.14);
+}
+
+[data-bs-theme] body.station-avivando_el_fuego .aef-logo-mark {
+  flex: 0 0 auto;
+  width: clamp(76px, 11vw, 118px);
+  height: clamp(76px, 11vw, 118px);
+  border-radius: 30px;
+}
+
+[data-bs-theme] body.station-avivando_el_fuego .aef-logo-mark svg,
+[data-bs-theme] body.station-avivando_el_fuego .aef-orbit-logo svg {
+  width: 74%;
+  height: 74%;
+  filter: drop-shadow(0 0 20px rgba(251,146,60,.62));
+}
+
+[data-bs-theme] body.station-avivando_el_fuego .aef-kicker {
+  margin: 0 0 8px;
+  color: #fed7aa;
+  font-size: clamp(.72rem, 1.6vw, .95rem);
+  font-weight: 900;
+  letter-spacing: .26em;
+  text-transform: uppercase;
+}
+
+[data-bs-theme] body.station-avivando_el_fuego .aef-title {
+  max-width: 640px;
+  margin: 0;
+  color: #fff;
+  font-size: clamp(2.85rem, 8.2vw, 5.65rem);
+  line-height: .88;
+  font-weight: 950;
+  letter-spacing: .01em;
+  text-transform: uppercase;
+  text-wrap: balance;
+  text-shadow: 0 18px 60px rgba(0,0,0,.36);
+}
+
+[data-bs-theme] body.station-avivando_el_fuego .aef-subtitle {
+  max-width: 680px;
+  margin: 18px 0 0;
+  color: rgba(255,247,237,.78);
+  font-size: clamp(1rem, 2vw, 1.24rem);
+  line-height: 1.45;
+}
+
+[data-bs-theme] body.station-avivando_el_fuego .aef-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 26px;
+}
+
+[data-bs-theme] body.station-avivando_el_fuego .aef-action {
+  display: inline-flex;
+  min-height: 46px;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border-radius: 12px;
+  padding: 11px 16px;
+  color: #fff7ed !important;
+  text-decoration: none !important;
+  font-weight: 900;
+  border: 1px solid rgba(255,255,255,.13);
+  background: rgba(255,255,255,.08);
+}
+
+[data-bs-theme] body.station-avivando_el_fuego .aef-action-primary {
+  color: #1c0a02 !important;
+  background: linear-gradient(135deg, #fff7ed, #fde68a 24%, #fb923c 58%, #dc2626);
+  border-color: rgba(254,215,170,.78);
+  box-shadow: 0 16px 42px rgba(251,146,60,.28);
+}
+
+[data-bs-theme] body.station-avivando_el_fuego .aef-live-panel {
+  min-width: 0;
+  align-self: stretch;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 15px;
+  border: 1px solid rgba(255,255,255,.11);
+  border-radius: 26px;
+  padding: clamp(16px, 2.8vw, 28px);
+  background: linear-gradient(180deg, rgba(255,255,255,.11), rgba(255,255,255,.045));
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.10), 0 24px 70px rgba(0,0,0,.34);
+}
+
+[data-bs-theme] body.station-avivando_el_fuego .aef-status-line {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  color: #fed7aa;
+  font-size: .76rem;
+  font-weight: 900;
+  letter-spacing: .2em;
+  text-transform: uppercase;
+}
+
+[data-bs-theme] body.station-avivando_el_fuego .aef-live-dot {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+}
+
+[data-bs-theme] body.station-avivando_el_fuego .aef-live-dot::before {
+  content: "";
+  width: 9px;
+  height: 9px;
+  border-radius: 999px;
+  background: #22c55e;
+  box-shadow: 0 0 18px rgba(34,197,94,.86);
+}
+
+[data-bs-theme] body.station-avivando_el_fuego .aef-orbit {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: min(290px, 74vw);
+  aspect-ratio: 1;
+  margin: 0 auto;
+  border-radius: 999px;
+  background:
+    radial-gradient(circle at 50% 50%, rgba(251,146,60,.22), rgba(251,146,60,.08) 44%, transparent 67%),
+    conic-gradient(from 90deg, rgba(251,146,60,.12), rgba(220,38,38,.48), rgba(253,224,71,.28), rgba(251,146,60,.12));
+  animation: aefFloat 6s ease-in-out infinite, aefGlowPulse 3.4s ease-in-out infinite;
+}
+
+[data-bs-theme] body.station-avivando_el_fuego .aef-orbit::before {
+  content: "";
+  position: absolute;
+  inset: 22px;
+  border: 1px dashed rgba(254,215,170,.26);
+  border-radius: inherit;
+}
+
+[data-bs-theme] body.station-avivando_el_fuego .aef-orbit-logo {
+  position: relative;
+  width: 58%;
+  height: 58%;
+  border-radius: 50%;
+}
+
+[data-bs-theme] body.station-avivando_el_fuego .aef-live-playlist {
+  margin: 0;
+  color: #fed7aa;
+  font-size: .78rem;
+  font-weight: 900;
+  letter-spacing: .20em;
+  text-align: center;
+  text-transform: uppercase;
+}
+
+[data-bs-theme] body.station-avivando_el_fuego .aef-live-song {
+  margin: 0 auto;
+  max-width: 620px;
+  color: #fff;
+  font-size: clamp(1.55rem, 4.7vw, 3.35rem);
+  line-height: .98;
+  font-weight: 950;
+  text-align: center;
+  text-wrap: balance;
+  overflow-wrap: anywhere;
+}
+
+[data-bs-theme] body.station-avivando_el_fuego .aef-bars {
+  display: flex;
+  align-items: end;
+  justify-content: center;
+  gap: 5px;
+  height: 76px;
+  margin: 4px auto 0;
+}
+
+[data-bs-theme] body.station-avivando_el_fuego .aef-bar {
+  width: 8px;
+  min-height: 16px;
+  border-radius: 999px;
+  transform-origin: bottom;
+  background: linear-gradient(to top, #dc2626, #fb923c 54%, #fde68a);
+  box-shadow: 0 0 16px rgba(249,115,22,.42);
+  animation: aefBarPulse 940ms ease-in-out infinite;
+}
+
+[data-bs-theme] body.station-avivando_el_fuego .aef-meta-grid {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 10px;
+}
+
+[data-bs-theme] body.station-avivando_el_fuego .aef-meta-card {
+  min-width: 0;
+  border: 1px solid rgba(255,255,255,.10);
+  border-radius: 16px;
+  padding: 12px 14px;
+  background: rgba(0,0,0,.22);
+}
+
+[data-bs-theme] body.station-avivando_el_fuego .aef-meta-card strong {
+  display: block;
+  margin-bottom: 5px;
+  color: #fed7aa;
+  font-size: .68rem;
+  font-weight: 900;
+  letter-spacing: .19em;
+  text-transform: uppercase;
+}
+
+[data-bs-theme] body.station-avivando_el_fuego .aef-meta-card span {
+  display: block;
+  color: rgba(255,247,237,.86);
+  font-size: .95rem;
+  line-height: 1.32;
+  overflow-wrap: anywhere;
+}
+
+[data-bs-theme] body.station-avivando_el_fuego .aef-player-dock {
+  border: 1px solid rgba(251,146,60,.18);
+  border-radius: 22px;
+  padding: 10px;
+  background: rgba(0,0,0,.22);
+}
+
+[data-bs-theme] body.station-avivando_el_fuego .aef-player-dock .card,
+[data-bs-theme] body.station-avivando_el_fuego .public-page > .card {
+  width: 100% !important;
+  margin: 0 !important;
+  border: 1px solid rgba(251,146,60,.22) !important;
+  border-radius: 18px !important;
+  background: rgba(12,8,9,.82) !important;
+  box-shadow: none !important;
+  overflow: hidden;
+}
+
+[data-bs-theme] body.station-avivando_el_fuego .public-page .card .card-body {
+  padding: clamp(14px, 2.4vw, 22px) !important;
+}
+
+[data-bs-theme] body.station-avivando_el_fuego .public-page .card .card-title {
+  display: none !important;
+}
+
+[data-bs-theme] body.station-avivando_el_fuego .radio-player-widget {
+  gap: clamp(12px, 2vw, 22px) !important;
+}
+
+[data-bs-theme] body.station-avivando_el_fuego .now-playing-art .album-art {
+  overflow: hidden;
+  border-radius: 18px !important;
+  border: 1px solid rgba(251,146,60,.30);
+  box-shadow: 0 18px 44px rgba(0,0,0,.45), 0 0 34px rgba(251,146,60,.18);
+}
+
+[data-bs-theme] body.station-avivando_el_fuego .now-playing-title {
+  color: #fff !important;
+  font-size: clamp(1.08rem, 3.2vw, 1.85rem) !important;
+  line-height: 1.05 !important;
+  font-weight: 950 !important;
+  text-transform: uppercase;
+}
+
+[data-bs-theme] body.station-avivando_el_fuego .now-playing-artist,
+[data-bs-theme] body.station-avivando_el_fuego .now-playing-main .text-secondary {
+  color: rgba(255,247,237,.72) !important;
+}
+
+[data-bs-theme] body.station-avivando_el_fuego .radio-controls {
+  display: flex !important;
+  align-items: center !important;
+  gap: 12px !important;
+  flex-wrap: wrap;
+  color: #fff7ed !important;
+}
+
+[data-bs-theme] body.station-avivando_el_fuego .radio-control-play-button,
+[data-bs-theme] body.station-avivando_el_fuego .radio-control-play-button.btn {
+  width: 74px !important;
+  height: 74px !important;
+  min-width: 74px !important;
+  border-radius: 999px !important;
+  display: inline-grid !important;
+  place-items: center !important;
+  color: #1c0a02 !important;
+  background: radial-gradient(circle at 35% 25%, #fff7ed, #fed7aa 28%, #fb923c 62%, #dc2626 100%) !important;
+  border: 2px solid rgba(254,215,170,.92) !important;
+  box-shadow: 0 0 0 10px rgba(251,146,60,.11), 0 20px 56px rgba(251,146,60,.42) !important;
+  filter: none !important;
+  transition: transform 160ms ease, box-shadow 160ms ease;
+}
+
+[data-bs-theme] body.station-avivando_el_fuego .radio-control-play-button:hover,
+[data-bs-theme] body.station-avivando_el_fuego .radio-control-play-button:focus-visible {
+  transform: translateY(-1px) scale(1.03);
+  box-shadow: 0 0 0 12px rgba(251,146,60,.15), 0 24px 62px rgba(251,146,60,.50) !important;
+}
+
+[data-bs-theme] body.station-avivando_el_fuego .radio-control-play-button svg,
+[data-bs-theme] body.station-avivando_el_fuego .radio-control-play-button .material-icons,
+[data-bs-theme] body.station-avivando_el_fuego .radio-control-play-button i {
+  font-size: 40px !important;
+  width: 40px !important;
+  height: 40px !important;
+}
+
+[data-bs-theme] body.station-avivando_el_fuego .aef-player-cta-label {
+  display: inline-flex;
+  align-items: center;
+  min-height: 42px;
+  padding: 10px 14px;
+  border-radius: 999px;
+  color: #fed7aa;
+  font-size: .76rem;
+  font-weight: 900;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  background: rgba(251,146,60,.10);
+  border: 1px solid rgba(251,146,60,.24);
+}
+
+[data-bs-theme] body.station-avivando_el_fuego .public-page .card .card-actions .btn,
+[data-bs-theme] body.station-avivando_el_fuego .public-page .card .card-actions a.btn {
+  border-radius: 12px !important;
+  color: #fff7ed !important;
+  border: 1px solid rgba(255,255,255,.12) !important;
+  background: rgba(255,255,255,.08) !important;
+  text-decoration: none !important;
+}
+
+[data-bs-theme] body.station-avivando_el_fuego .aef-guide-panel {
+  position: relative;
+  z-index: 1;
+  border: 1px solid rgba(251,146,60,.20);
+  border-radius: 24px;
+  padding: clamp(16px, 2.6vw, 26px);
+  background: rgba(8,7,10,.78);
+  box-shadow: 0 24px 70px rgba(0,0,0,.36);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+}
+
+[data-bs-theme] body.station-avivando_el_fuego .aef-guide-heading {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 18px;
+  margin-bottom: 14px;
+}
+
+[data-bs-theme] body.station-avivando_el_fuego .aef-guide-heading strong {
+  color: #fff7ed;
+  font-size: clamp(1.05rem, 2.4vw, 1.42rem);
+  font-weight: 950;
+  text-transform: uppercase;
+}
+
+[data-bs-theme] body.station-avivando_el_fuego .aef-guide-heading span {
+  max-width: 560px;
+  color: rgba(255,247,237,.70);
+  font-size: .95rem;
+  line-height: 1.4;
+}
+
+[data-bs-theme] body.station-avivando_el_fuego .aef-listen-guide {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+[data-bs-theme] body.station-avivando_el_fuego .aef-guide-card {
+  border: 1px solid rgba(255,255,255,.10);
+  border-radius: 16px;
+  padding: 15px;
+  background: rgba(255,255,255,.06);
+}
+
+[data-bs-theme] body.station-avivando_el_fuego .aef-guide-card strong {
+  display: block;
+  margin-bottom: 8px;
+  color: #fed7aa;
+  font-size: .80rem;
+  font-weight: 900;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+}
+
+[data-bs-theme] body.station-avivando_el_fuego .aef-guide-card span {
+  display: block;
+  color: rgba(255,247,237,.78);
+  font-size: .92rem;
+  line-height: 1.45;
+}
+
+[data-bs-theme] body.station-avivando_el_fuego .aef-guide-card b {
+  color: #fff7ed;
+  font-weight: 850;
+}
+
+[data-bs-theme] body.station-avivando_el_fuego .modal .modal-content {
+  background: #120b08 !important;
+  border: 1px solid rgba(251,146,60,.24) !important;
+  color: #fff7ed !important;
+}
+
+[data-bs-theme] body.station-avivando_el_fuego #footer {
+  position: relative;
+  z-index: 1;
+  color: rgba(255,247,237,.58) !important;
+  font-size: .78rem;
+  margin-top: 14px;
+}
+
+[data-bs-theme] body.station-avivando_el_fuego #footer a {
+  color: rgba(254,215,170,.86) !important;
+}
+
+@media (max-width: 920px) {
+  [data-bs-theme] body.station-avivando_el_fuego .aef-scene-grid {
+    grid-template-columns: 1fr;
+  }
+
+  [data-bs-theme] body.station-avivando_el_fuego .aef-public-shell {
+    min-height: auto;
+  }
+}
+
+@media (max-width: 640px) {
+  [data-bs-theme] body.station-avivando_el_fuego #page-wrapper {
+    padding: 12px;
+  }
+
+  [data-bs-theme] body.station-avivando_el_fuego .aef-public-shell {
+    border-radius: 22px;
+  }
+
+  [data-bs-theme] body.station-avivando_el_fuego .aef-scene-grid {
+    padding: 16px;
+    gap: 16px;
+  }
+
+  [data-bs-theme] body.station-avivando_el_fuego .aef-brand-row {
+    display: block;
+  }
+
+  [data-bs-theme] body.station-avivando_el_fuego .aef-logo-mark {
+    width: 66px;
+    height: 66px;
+    border-radius: 20px;
+    margin-bottom: 14px;
+  }
+
+  [data-bs-theme] body.station-avivando_el_fuego .aef-kicker {
+    font-size: .66rem;
+    letter-spacing: .18em;
+  }
+
+  [data-bs-theme] body.station-avivando_el_fuego .aef-title {
+    max-width: 100%;
+    font-size: clamp(2.25rem, 12vw, 3.15rem);
+    overflow-wrap: normal;
+  }
+
+  [data-bs-theme] body.station-avivando_el_fuego .aef-actions .aef-action {
+    flex: 1 1 100%;
+  }
+
+  [data-bs-theme] body.station-avivando_el_fuego .aef-orbit {
+    width: min(250px, 72vw);
+  }
+
+  [data-bs-theme] body.station-avivando_el_fuego .aef-bars {
+    height: 56px;
+    gap: 4px;
+  }
+
+  [data-bs-theme] body.station-avivando_el_fuego .aef-bar {
+    width: 6px;
+  }
+
+  [data-bs-theme] body.station-avivando_el_fuego .aef-meta-grid {
+    grid-template-columns: 1fr;
+  }
+
+  [data-bs-theme] body.station-avivando_el_fuego .radio-player-widget {
+    flex-direction: column !important;
+    align-items: stretch !important;
+  }
+
+  [data-bs-theme] body.station-avivando_el_fuego .radio-control-play-button,
+  [data-bs-theme] body.station-avivando_el_fuego .radio-control-play-button.btn {
+    width: 66px !important;
+    height: 66px !important;
+    min-width: 66px !important;
+  }
+
+  [data-bs-theme] body.station-avivando_el_fuego .aef-player-cta-label {
+    flex: 1 1 180px;
+    justify-content: center;
+  }
+
+  [data-bs-theme] body.station-avivando_el_fuego .aef-guide-heading {
+    display: block;
+  }
+
+  [data-bs-theme] body.station-avivando_el_fuego .aef-guide-heading span {
+    display: block;
+    margin-top: 8px;
+  }
+
+  [data-bs-theme] body.station-avivando_el_fuego .aef-listen-guide {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-bs-theme] body.station-avivando_el_fuego .aef-orbit,
+  [data-bs-theme] body.station-avivando_el_fuego .aef-bar {
+    animation: none !important;
+  }
+}
