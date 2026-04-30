@@ -15,6 +15,7 @@ import {
   Signal,
 } from "lucide-react";
 import { Layout } from "@/components/layout";
+import { RadioInstallActions } from "@/components/RadioInstallActions";
 import { RadioStationPlayer } from "@/components/RadioStationPlayer";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -192,6 +193,15 @@ export default function RadioPage() {
                     Abrir emisora
                   </a>
                 </Button>
+                <Button asChild variant="outline">
+                  <a href="/radio-live-scene" target="_blank" rel="noreferrer">
+                    <Mic2 className="h-4 w-4" />
+                    Escena TikTok
+                  </a>
+                </Button>
+              </div>
+              <div className="mt-4">
+                <RadioInstallActions url="https://ministerioavivandoelfuego.com/radio" compact />
               </div>
             </div>
 
@@ -335,12 +345,20 @@ export default function RadioPage() {
                   <p className="font-medium">{provider?.name || "AzuraCast"}</p>
                   <p className="mt-1 break-all text-muted-foreground">{stationUrl}</p>
                 </div>
-                <Button asChild variant="outline" className="w-full sm:w-auto">
-                  <a href={stationUrl} target="_blank" rel="noreferrer">
-                    <ArrowUpRight className="h-4 w-4" />
-                    Visitar estacion
-                  </a>
-                </Button>
+                <div className="flex flex-col gap-2 sm:flex-row">
+                  <Button asChild variant="outline" className="w-full sm:w-auto">
+                    <a href={stationUrl} target="_blank" rel="noreferrer">
+                      <ArrowUpRight className="h-4 w-4" />
+                      Visitar estacion
+                    </a>
+                  </Button>
+                  <Button asChild variant="outline" className="w-full sm:w-auto">
+                    <a href="/radio-live-scene" target="_blank" rel="noreferrer">
+                      <Mic2 className="h-4 w-4" />
+                      Abrir escena vertical
+                    </a>
+                  </Button>
+                </div>
               </CardContent>
             </Card>
           </div>

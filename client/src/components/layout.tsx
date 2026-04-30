@@ -467,6 +467,17 @@ export function Navbar() {
 
         {/* Right side: Search + Theme + Auth */}
         <div className="flex items-center gap-2">
+          <Link href="/radio">
+            <Button size="sm" className="hidden sm:inline-flex fire-btn-primary" data-testid="link-radio-quick">
+              <Radio className="w-4 h-4" />
+              Radio
+            </Button>
+          </Link>
+          <Link href="/radio">
+            <Button size="icon" className="sm:hidden fire-btn-primary" data-testid="link-radio-quick-mobile" aria-label="Escuchar radio">
+              <Radio className="w-4 h-4" />
+            </Button>
+          </Link>
           <GlobalSearch />
           <ThemeToggle />
 
@@ -746,6 +757,11 @@ export function Navbar() {
 
           {/* Bottom action bar */}
           <div className="border-t p-3 space-y-2">
+            <Link href="/radio" onClick={closeMenu}>
+              <Button className="w-full justify-start gap-3 fire-btn-primary" size="sm" data-testid="link-mobile-radio-primary">
+                <Radio className="w-4 h-4" aria-hidden="true" /> Escuchar Radio
+              </Button>
+            </Link>
             {user ? (
               <Button
                 variant="ghost"

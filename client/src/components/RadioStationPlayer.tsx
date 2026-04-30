@@ -185,6 +185,10 @@ export function RadioStationPlayer({
         title: metadata || playlistTrack?.title || title,
         artist: "Ministerio Avivando el Fuego",
         album: "Avivando el Fuego Radio",
+        artwork: [
+          { src: "/icons/icon-192.png", sizes: "192x192", type: "image/png" },
+          { src: "/icons/icon-512.png", sizes: "512x512", type: "image/png" },
+        ],
       });
       navigator.mediaSession.playbackState = status === "playing" ? "playing" : status === "paused" ? "paused" : "none";
       navigator.mediaSession.setActionHandler("play", () => void play());

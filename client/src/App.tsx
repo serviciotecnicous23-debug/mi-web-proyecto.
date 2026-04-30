@@ -14,6 +14,7 @@ import Historia from "@/pages/historia";
 import Equipo from "@/pages/equipo";
 import EnVivo from "@/pages/en-vivo";
 import RadioPage from "@/pages/radio";
+import RadioLiveScene from "@/pages/radio-live-scene";
 import Contacto from "@/pages/contacto";
 import Eventos from "@/pages/eventos";
 import { LoginPage, RegisterPage } from "@/pages/auth";
@@ -52,6 +53,7 @@ function Router() {
       <Route path="/equipo" component={Equipo} />
       <Route path="/en-vivo" component={EnVivo} />
       <Route path="/radio" component={RadioPage} />
+      <Route path="/radio-live-scene" component={RadioLiveScene} />
       <Route path="/eventos" component={Eventos} />
       <Route path="/capacitaciones" component={Capacitaciones} />
       <Route path="/capacitaciones/:id" component={CursoDetalle} />

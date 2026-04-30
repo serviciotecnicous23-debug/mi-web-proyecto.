@@ -6,10 +6,11 @@ import { useAuth } from "@/hooks/use-auth";
 import { motion } from "framer-motion";
 import { useEffect, useRef } from "react";
 import gsap from "gsap";
-import { Flame, Radio, Users, BookOpen, Heart, Globe, HandCoins, Video, Signal, Church, Shield, Award } from "lucide-react";
+import { Flame, Radio, Users, BookOpen, Heart, Globe, HandCoins, Video, Signal, Church, Shield, Award, LogIn, UserPlus, Headphones, Smartphone } from "lucide-react";
 import { PublicDonationSection } from "@/pages/finanzas";
 import { LogoIcon } from "@/components/LogoIcon";
 import { FlameLogoSVG } from "@/components/FlameLogoSVG";
+import { RadioInstallActions } from "@/components/RadioInstallActions";
 import AnimatedSection from "@/components/AnimatedSection";
 import FireParticles from "@/components/FireParticles";
 
@@ -116,24 +117,22 @@ export default function Home() {
 
             {/* CTAs — GSAP hover physics applied via ctaRef */}
             <div ref={ctaRef} className="flex flex-wrap justify-center gap-4">
-              {user ? (
-                <Link href="/perfil">
-                  <Button size="lg" className="btn-fire-glow" data-testid="button-hero-profile" data-magnetic>
-                    <LogoIcon className="w-4 h-4 mr-2" />
-                    Mi Perfil
-                  </Button>
-                </Link>
-              ) : (
-                <Link href="/registro">
-                  <Button size="lg" className="fire-btn-primary" data-testid="button-hero-join" data-magnetic>
-                    <LogoIcon className="w-4 h-4 mr-2" />
-                    Unirse al Ministerio
-                  </Button>
-                </Link>
-              )}
-              <Link href="/historia">
-                <Button variant="outline" size="lg" className="btn-fire-glow" data-testid="button-hero-vision" data-magnetic>
-                  Conocer la Vision
+              <Link href="/radio">
+                <Button size="lg" className="fire-btn-primary" data-testid="button-hero-radio" data-magnetic>
+                  <Radio className="w-4 h-4 mr-2" />
+                  Escuchar Radio
+                </Button>
+              </Link>
+              <Link href="/login">
+                <Button variant="outline" size="lg" className="btn-fire-glow" data-testid="button-hero-login" data-magnetic>
+                  <LogIn className="w-4 h-4 mr-2" />
+                  Iniciar Sesion
+                </Button>
+              </Link>
+              <Link href="/registro">
+                <Button variant="outline" size="lg" className="btn-fire-glow" data-testid="button-hero-register" data-magnetic>
+                  <UserPlus className="w-4 h-4 mr-2" />
+                  Registrarse
                 </Button>
               </Link>
             </div>
@@ -158,6 +157,71 @@ export default function Home() {
               <p className="text-xs text-muted-foreground mt-2 tracking-wide uppercase">{s.label}</p>
             </motion.div>
           ))}
+        </div>
+      </section>
+
+      {/* Radio App Section */}
+      <section className="py-20 border-t border-border/40">
+        <div className="max-w-6xl mx-auto px-4">
+          <div className="glass-card neon-border-fire overflow-hidden">
+            <div className="grid gap-8 p-6 md:grid-cols-[1fr_0.72fr] md:p-9 lg:p-12">
+              <div className="flex flex-col justify-center">
+                <div className="mb-5 flex items-center gap-3">
+                  <span className="flex h-12 w-12 items-center justify-center rounded-lg border border-primary/30 bg-primary/10">
+                    <Headphones className="h-6 w-6 text-primary" />
+                  </span>
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-[0.28em] text-primary">Radio oficial</p>
+                    <h2 className="heading-display font-display text-4xl md:text-5xl">Avivando el Fuego Radio</h2>
+                  </div>
+                </div>
+                <p className="max-w-2xl text-base text-muted-foreground md:text-lg">
+                  La emisora ya transmite desde el servidor propio de AzuraCast con adoracion, alabanza, predicas y contenido ministerial nuevo.
+                </p>
+                <div className="mt-7 flex flex-col gap-3 sm:flex-row">
+                  <Link href="/radio">
+                    <Button size="lg" className="fire-btn-primary w-full sm:w-auto" data-testid="button-home-radio">
+                      <Radio className="h-4 w-4" />
+                      Abrir Radio
+                    </Button>
+                  </Link>
+                  <Link href="/radio-live-scene">
+                    <Button size="lg" variant="outline" className="w-full sm:w-auto" data-testid="button-home-radio-scene">
+                      <Video className="h-4 w-4" />
+                      Escena TikTok
+                    </Button>
+                  </Link>
+                </div>
+                <div className="mt-4">
+                  <RadioInstallActions url="https://ministerioavivandoelfuego.com/radio" compact />
+                </div>
+              </div>
+              <div className="rounded-md border bg-background/70 p-5">
+                <div className="mb-5 flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-2">
+                    <Signal className="h-5 w-5 text-primary" />
+                    <span className="font-semibold">24/7 online</span>
+                  </div>
+                  <span className="rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold text-primary">AzuraCast</span>
+                </div>
+                <div className="space-y-4">
+                  {[
+                    ["Nueva adoracion", "Ministracion y busqueda de la presencia de Dios."],
+                    ["Predicas nuevas", "Mensajes y ensenanzas programadas en la rotacion."],
+                    ["App instalable", "Acceso directo desde la pantalla de inicio del telefono."],
+                  ].map(([title, text]) => (
+                    <div key={title} className="flex gap-3 rounded-md border bg-card/70 p-4">
+                      <Smartphone className="mt-1 h-5 w-5 shrink-0 text-primary" />
+                      <div>
+                        <h3 className="font-bold">{title}</h3>
+                        <p className="mt-1 text-sm text-muted-foreground">{text}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       </section>
 

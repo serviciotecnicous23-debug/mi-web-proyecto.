@@ -1,9 +1,11 @@
 /// <reference lib="webworker" />
 
 // IMPORTANT: Bump this version on every deploy to force cache invalidation
-const CACHE_NAME = "avivando-v4";
+const CACHE_NAME = "avivando-radio-v5";
 const STATIC_ASSETS = [
   "/manifest.json",
+  "/icons/icon-192.png",
+  "/icons/icon-512.png",
 ];
 
 // Install: cache critical assets and activate immediately
@@ -42,9 +44,12 @@ self.addEventListener("fetch", (event) => {
     event.respondWith(
       fetch(event.request)
         .then((response) => {
-          // Cache the latest index.html for offline fallback
+          // Cache the latest shell for offline fallback and installed PWA launches.
           const clone = response.clone();
-          caches.open(CACHE_NAME).then((cache) => cache.put("/", clone));
+          caches.open(CACHE_NAME).then((cache) => {
+            cache.put("/", clone.clone());
+            cache.put(event.request, clone);
+          });
           return response;
         })
         .catch(() => caches.match("/"))
@@ -92,8 +97,8 @@ self.addEventListener("push", (event) => {
     const data = event.data.json();
     const options = {
       body: data.body || "",
-      icon: data.icon || "/icons/icon-192x192.png",
-      badge: data.badge || "/icons/icon-72x72.png",
+      icon: data.icon || "/icons/icon-192.png",
+      badge: data.badge || "/icons/favicon-16.png",
       tag: data.tag || "default",
       data: { url: data.url || "/" },
       vibrate: [200, 100, 200],

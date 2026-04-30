@@ -1,10 +1,13 @@
 {
-  "name": "Ministerio Avivando el Fuego",
-  "short_name": "Avivando",
-  "description": "Ministerio Internacional Avivando el Fuego - Plataforma de comunidad, capacitacion y recursos",
-  "start_url": "/",
+  "id": "/radio",
+  "name": "Avivando el Fuego Radio",
+  "short_name": "Radio Avivando",
+  "description": "Radio cristiana online 24/7 del Ministerio Avivando el Fuego.",
+  "start_url": "/radio?source=pwa",
+  "scope": "/",
   "display": "standalone",
-  "background_color": "#0f011a",
+  "display_override": ["standalone", "minimal-ui"],
+  "background_color": "#08070a",
   "theme_color": "#fb923c",
   "orientation": "portrait-primary",
   "icons": [
@@ -21,7 +24,28 @@
       "purpose": "any maskable"
     }
   ],
-  "categories": ["education", "social"],
+  "shortcuts": [
+    {
+      "name": "Escuchar Radio",
+      "short_name": "Radio",
+      "description": "Abrir Avivando el Fuego Radio",
+      "url": "/radio?source=shortcut",
+      "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png" }]
+    },
+    {
+      "name": "Iniciar Sesion",
+      "short_name": "Sesion",
+      "url": "/login?source=shortcut",
+      "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png" }]
+    },
+    {
+      "name": "Registrarse",
+      "short_name": "Registro",
+      "url": "/registro?source=shortcut",
+      "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png" }]
+    }
+  ],
+  "categories": ["music", "social", "education"],
   "lang": "es",
   "dir": "ltr"
 }
