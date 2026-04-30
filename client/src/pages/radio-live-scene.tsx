@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
-import { Flame, Headphones, Radio, Signal } from "lucide-react";
-import { FlameLogoSVG } from "@/components/FlameLogoSVG";
+import { Flame, Radio, Signal } from "lucide-react";
+import { RadioEmblemSVG } from "@/components/RadioEmblemSVG";
 import { DEFAULT_AZURACAST_METADATA_URL } from "@shared/radio";
 
 type SceneSnapshot = {
@@ -8,7 +8,8 @@ type SceneSnapshot = {
   playlist: string;
   song: string;
   nextSong: string;
-  listeners: number;
+  elapsed: number;
+  duration: number;
 };
 
 function getSongText(song: any) {
@@ -19,13 +20,22 @@ function getSongText(song: any) {
 function parseSnapshot(data: unknown): SceneSnapshot {
   const payload = Array.isArray(data) ? data[0] : data;
   const record = payload && typeof payload === "object" ? (payload as any) : {};
+  const nowPlaying = record.now_playing || {};
   return {
     online: Boolean(record.is_online),
-    playlist: String(record.now_playing?.playlist || "AzuraCast AutoDJ"),
-    song: getSongText(record.now_playing?.song) || "Avivando el Fuego Radio",
+    playlist: String(nowPlaying.playlist || "AzuraCast AutoDJ"),
+    song: getSongText(nowPlaying.song) || "Avivando el Fuego Radio",
     nextSong: getSongText(record.playing_next?.song) || "Programacion continua",
-    listeners: Number(record.listeners?.current ?? 0),
+    elapsed: Math.max(0, Number(nowPlaying.elapsed ?? 0)),
+    duration: Math.max(0, Number(nowPlaying.duration ?? 0)),
   };
+}
+
+function formatDuration(totalSeconds: number) {
+  if (!Number.isFinite(totalSeconds) || totalSeconds <= 0) return "--:--";
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = Math.floor(totalSeconds % 60);
+  return `${minutes}:${seconds.toString().padStart(2, "0")}`;
 }
 
 function SceneBars() {
@@ -51,7 +61,8 @@ export default function RadioLiveScene() {
     playlist: "AzuraCast AutoDJ",
     song: "Avivando el Fuego Radio",
     nextSong: "Programacion continua",
-    listeners: 0,
+    elapsed: 0,
+    duration: 0,
   });
   const [clock, setClock] = useState(() => new Date());
   const qrUrl = useMemo(() => {
@@ -90,6 +101,7 @@ export default function RadioLiveScene() {
     minute: "2-digit",
     timeZone: "America/Chicago",
   }).format(clock);
+  const progress = snapshot.duration > 0 ? Math.min(100, Math.max(0, (snapshot.elapsed / snapshot.duration) * 100)) : 0;
 
   return (
     <main className="min-h-screen overflow-hidden bg-[#08070a] text-white">
@@ -100,8 +112,8 @@ export default function RadioLiveScene() {
 
         <header className="relative z-10 flex items-center justify-between gap-6">
           <div className="flex items-center gap-4">
-            <span className="flame-logo-wrap flex h-16 w-16 items-center justify-center rounded-full border border-orange-400/30 bg-black/35 backdrop-blur md:h-24 md:w-24">
-              <FlameLogoSVG className="h-14 w-14 md:h-20 md:w-20" animate />
+            <span className="flex h-20 w-20 items-center justify-center rounded-[1.35rem] border border-orange-300/25 bg-[linear-gradient(145deg,rgba(255,247,237,0.10),rgba(0,0,0,0.40))] shadow-[0_0_60px_rgba(249,115,22,0.24)] backdrop-blur md:h-28 md:w-28">
+              <RadioEmblemSVG className="h-[4.6rem] w-[4.6rem] md:h-24 md:w-24" animate />
             </span>
             <div>
               <p className="font-display text-sm uppercase tracking-[0.32em] text-orange-200 md:text-xl">Avivando</p>
@@ -120,8 +132,8 @@ export default function RadioLiveScene() {
             {snapshot.online ? "Transmitiendo en vivo" : "Conectando senal"}
           </div>
 
-          <div className="mb-6 flex h-44 w-44 items-center justify-center rounded-full border border-orange-300/30 bg-black/45 shadow-[0_0_100px_rgba(249,115,22,0.25)] backdrop-blur md:h-64 md:w-64">
-            <Radio className="h-20 w-20 text-orange-300 drop-shadow-[0_0_26px_rgba(251,146,60,0.65)] md:h-32 md:w-32" />
+          <div className="mb-6 flex h-48 w-48 items-center justify-center rounded-[2rem] border border-orange-300/25 bg-[linear-gradient(145deg,rgba(255,247,237,0.12),rgba(249,115,22,0.10)_44%,rgba(0,0,0,0.46))] shadow-[0_0_100px_rgba(249,115,22,0.24),inset_0_1px_0_rgba(255,255,255,0.14)] backdrop-blur md:h-72 md:w-72 md:rounded-[2.8rem]">
+            <RadioEmblemSVG className="h-44 w-44 md:h-[17rem] md:w-[17rem]" animate />
           </div>
 
           <p className="mb-3 text-sm uppercase tracking-[0.3em] text-orange-200 md:text-lg">{snapshot.playlist}</p>
@@ -133,15 +145,26 @@ export default function RadioLiveScene() {
             <SceneBars />
           </div>
 
-          <div className="mt-6 grid w-full max-w-4xl grid-cols-[1fr_7.5rem] gap-4 text-left md:mt-10 md:grid-cols-[1fr_auto] md:gap-5">
+          <div className="mt-6 grid w-full max-w-4xl gap-4 text-left md:mt-10 md:grid-cols-[1fr_minmax(16rem,0.72fr)] md:gap-5">
             <div className="rounded-md border border-white/10 bg-white/10 p-4 backdrop-blur md:p-6">
               <p className="mb-2 text-xs uppercase tracking-[0.28em] text-orange-200">Siguiente</p>
               <p className="line-clamp-2 text-lg font-semibold md:text-2xl">{snapshot.nextSong}</p>
             </div>
-            <div className="rounded-md border border-white/10 bg-white/10 p-4 text-center backdrop-blur md:p-6">
-              <Headphones className="mx-auto mb-2 h-6 w-6 text-orange-300 md:h-8 md:w-8" />
-              <p className="font-display text-3xl leading-none md:text-4xl">{snapshot.listeners}</p>
-              <p className="mt-1 text-xs uppercase tracking-[0.24em] text-orange-200">Oyentes</p>
+            <div className="rounded-md border border-white/10 bg-white/10 p-4 backdrop-blur md:p-6">
+              <div className="mb-3 flex items-center justify-between gap-4 text-xs uppercase tracking-[0.24em] text-orange-200">
+                <span>En reproduccion</span>
+                <Radio className="h-5 w-5 text-orange-300" />
+              </div>
+              <div className="h-2 overflow-hidden rounded-full bg-white/12">
+                <div
+                  className="h-full rounded-full bg-gradient-to-r from-red-600 via-orange-400 to-amber-200 shadow-[0_0_20px_rgba(249,115,22,0.6)]"
+                  style={{ width: `${progress}%` }}
+                />
+              </div>
+              <p className="mt-3 font-display text-2xl leading-none md:text-3xl">
+                {formatDuration(snapshot.elapsed)}
+                <span className="text-orange-200/70"> / {formatDuration(snapshot.duration)}</span>
+              </p>
             </div>
           </div>
         </div>

@@ -19,6 +19,26 @@
   50% { box-shadow: 0 0 0 14px rgba(251,146,60,.06), 0 0 105px rgba(249,115,22,.42); }
 }
 
+@keyframes aefSignalPulse {
+  0%, 100% { transform: scale(.985); opacity: .54; }
+  50% { transform: scale(1.045); opacity: .96; }
+}
+
+@keyframes aefWavePulse {
+  0%, 100% { transform: scale(.96); opacity: .52; }
+  50% { transform: scale(1.06); opacity: .95; }
+}
+
+@keyframes aefFlameBreathe {
+  0%, 100% { transform: translateY(0) scale(1); }
+  50% { transform: translateY(-2px) scale(.985, 1.055); }
+}
+
+@keyframes aefEmberPulse {
+  0%, 100% { transform: scale(.86); opacity: .62; }
+  50% { transform: scale(1.18); opacity: .96; }
+}
+
 [data-bs-theme] body.station-avivando_el_fuego.page-minimal {
   min-height: 100vh;
   background-color: #050202 !important;
@@ -140,8 +160,10 @@
   display: grid;
   place-items: center;
   border: 1px solid rgba(251,146,60,.34);
-  background: radial-gradient(circle at 50% 35%, rgba(255,247,237,.16), rgba(251,146,60,.17) 43%, rgba(0,0,0,.32) 74%);
-  box-shadow: 0 0 46px rgba(249,115,22,.28), inset 0 1px 0 rgba(255,255,255,.14);
+  background:
+    linear-gradient(145deg, rgba(255,247,237,.12), rgba(251,146,60,.10) 48%, rgba(0,0,0,.36)),
+    repeating-linear-gradient(135deg, rgba(255,255,255,.035) 0 1px, transparent 1px 10px);
+  box-shadow: 0 0 42px rgba(249,115,22,.24), inset 0 1px 0 rgba(255,255,255,.14);
 }
 
 [data-bs-theme] body.station-avivando_el_fuego .aef-logo-mark {
@@ -156,6 +178,35 @@
   width: 74%;
   height: 74%;
   filter: drop-shadow(0 0 20px rgba(251,146,60,.62));
+}
+
+[data-bs-theme] body.station-avivando_el_fuego .aef-svg-signal {
+  animation: aefSignalPulse 2.2s ease-in-out infinite;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+[data-bs-theme] body.station-avivando_el_fuego .aef-svg-wave-left,
+[data-bs-theme] body.station-avivando_el_fuego .aef-svg-wave-right {
+  animation: aefWavePulse 1.7s ease-in-out infinite;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+[data-bs-theme] body.station-avivando_el_fuego .aef-svg-wave-right {
+  animation-delay: .18s;
+}
+
+[data-bs-theme] body.station-avivando_el_fuego .aef-svg-flame {
+  animation: aefFlameBreathe 1.85s ease-in-out infinite;
+  transform-box: fill-box;
+  transform-origin: 50% 90%;
+}
+
+[data-bs-theme] body.station-avivando_el_fuego .aef-svg-ember {
+  animation: aefEmberPulse .92s ease-in-out infinite;
+  transform-box: fill-box;
+  transform-origin: center;
 }
 
 [data-bs-theme] body.station-avivando_el_fuego .aef-kicker {
@@ -265,10 +316,13 @@
   width: min(290px, 74vw);
   aspect-ratio: 1;
   margin: 0 auto;
-  border-radius: 999px;
+  border-radius: 44px;
+  border: 1px solid rgba(254,215,170,.20);
   background:
-    radial-gradient(circle at 50% 50%, rgba(251,146,60,.22), rgba(251,146,60,.08) 44%, transparent 67%),
-    conic-gradient(from 90deg, rgba(251,146,60,.12), rgba(220,38,38,.48), rgba(253,224,71,.28), rgba(251,146,60,.12));
+    radial-gradient(circle at 50% 42%, rgba(255,247,237,.11), transparent 31%),
+    linear-gradient(145deg, rgba(251,146,60,.16), rgba(220,38,38,.14) 46%, rgba(0,0,0,.26)),
+    repeating-linear-gradient(135deg, rgba(255,255,255,.035) 0 1px, transparent 1px 11px);
+  box-shadow: 0 22px 80px rgba(0,0,0,.34), 0 0 72px rgba(249,115,22,.18);
   animation: aefFloat 6s ease-in-out infinite, aefGlowPulse 3.4s ease-in-out infinite;
 }
 
@@ -277,14 +331,14 @@
   position: absolute;
   inset: 22px;
   border: 1px dashed rgba(254,215,170,.26);
-  border-radius: inherit;
+  border-radius: 32px;
 }
 
 [data-bs-theme] body.station-avivando_el_fuego .aef-orbit-logo {
   position: relative;
   width: 58%;
   height: 58%;
-  border-radius: 50%;
+  border-radius: 34px;
 }
 
 [data-bs-theme] body.station-avivando_el_fuego .aef-live-playlist {
@@ -330,7 +384,7 @@
 
 [data-bs-theme] body.station-avivando_el_fuego .aef-meta-grid {
   display: grid;
-  grid-template-columns: 1fr auto;
+  grid-template-columns: minmax(0, 1fr) minmax(15rem, .7fr);
   gap: 10px;
 }
 
@@ -358,6 +412,29 @@
   font-size: .95rem;
   line-height: 1.32;
   overflow-wrap: anywhere;
+}
+
+[data-bs-theme] body.station-avivando_el_fuego .aef-progress-card span {
+  margin-top: 8px;
+  color: rgba(255,247,237,.82);
+  font-weight: 850;
+}
+
+[data-bs-theme] body.station-avivando_el_fuego .aef-progress-track {
+  overflow: hidden;
+  width: 100%;
+  height: 8px;
+  border-radius: 999px;
+  background: rgba(255,255,255,.12);
+}
+
+[data-bs-theme] body.station-avivando_el_fuego .aef-progress-track span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #dc2626, #fb923c 55%, #fde68a);
+  box-shadow: 0 0 18px rgba(249,115,22,.56);
+  transition: width .55s ease;
 }
 
 [data-bs-theme] body.station-avivando_el_fuego .aef-player-dock {
@@ -659,7 +736,12 @@
 
 @media (prefers-reduced-motion: reduce) {
   [data-bs-theme] body.station-avivando_el_fuego .aef-orbit,
-  [data-bs-theme] body.station-avivando_el_fuego .aef-bar {
+  [data-bs-theme] body.station-avivando_el_fuego .aef-bar,
+  [data-bs-theme] body.station-avivando_el_fuego .aef-svg-signal,
+  [data-bs-theme] body.station-avivando_el_fuego .aef-svg-wave-left,
+  [data-bs-theme] body.station-avivando_el_fuego .aef-svg-wave-right,
+  [data-bs-theme] body.station-avivando_el_fuego .aef-svg-flame,
+  [data-bs-theme] body.station-avivando_el_fuego .aef-svg-ember {
     animation: none !important;
   }
 }
