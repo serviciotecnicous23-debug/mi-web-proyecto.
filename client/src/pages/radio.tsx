@@ -2,18 +2,22 @@ import { useEffect, useMemo, useState } from "react";
 import {
   ArrowUpRight,
   Bell,
+  CalendarClock,
   Clock3,
   Flame,
   FolderOpen,
   Headphones,
   Megaphone,
   Mic2,
+  MonitorUp,
   Music2,
   Radio,
-  Satellite,
-  ShieldCheck,
-  Signal,
+  Smartphone,
+  Sparkles,
+  Tv2,
+  Volume2,
 } from "lucide-react";
+import { FlameLogoSVG } from "@/components/FlameLogoSVG";
 import { Layout } from "@/components/layout";
 import { RadioInstallActions } from "@/components/RadioInstallActions";
 import { RadioStationPlayer } from "@/components/RadioStationPlayer";
@@ -22,49 +26,96 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useRadioStation } from "@/hooks/use-radio";
+import {
+  DEFAULT_AZURACAST_METADATA_URL,
+  DEFAULT_AZURACAST_STATION_URL,
+  DEFAULT_AZURACAST_STREAM_URL,
+} from "@shared/radio";
 
 const billboardItems = [
   {
     icon: Radio,
     title: "Senal oficial",
-    text: "La transmision principal sale desde el servidor propio AzuraCast y se escucha aqui en la pagina del ministerio.",
+    text: "La transmision sale desde AzuraCast y se escucha aqui sin depender de plataformas externas.",
   },
   {
     icon: Megaphone,
     title: "Cartelera ministerial",
-    text: "La radio usa una programacion nueva separada del archivo inicial, lista para avisos, campanas, vigilias y cultos.",
+    text: "Este espacio queda listo para anuncios, vigilias, cultos, campanas y avisos de la radio.",
   },
   {
     icon: Headphones,
     title: "Audio continuo",
-    text: "Al presionar reproducir, el telefono o navegador maneja el audio como una emisora en vivo.",
+    text: "El reproductor usa controles nativos del telefono para escuchar mientras navegas o bloqueas la pantalla.",
   },
 ];
 
 const activeBlocks = [
   {
-    title: "Nueva adoracion y ministracion",
-    description: "Canciones actuales de adoracion, ministracion y busqueda de la presencia de Dios.",
-    count: "29 audios",
-    status: "Activo",
+    title: "Adoracion y ministracion continua",
+    description: "Base principal para oracion, altar y busqueda de la presencia de Dios.",
+    count: "107 audios",
+    status: "Rotacion principal",
   },
   {
-    title: "Nueva alabanza y gozo",
-    description: "Cantos de celebracion, gozo y apertura para levantar la fe.",
-    count: "6 audios",
-    status: "Activo",
+    title: "Alabanza nueva, coros y gozo",
+    description: "Cantos con energia, coros y celebracion para levantar la fe.",
+    count: "26 audios",
+    status: "Bloques de manana y tarde",
   },
   {
-    title: "Predicas nuevas",
-    description: "Predicas recientes integradas como bloque de ensenanza en la rotacion.",
-    count: "10 audios",
-    status: "Cada hora",
+    title: "Predicas programadas separadas",
+    description: "Mensajes y ensenanzas sin pegar una predica inmediatamente despues de otra.",
+    count: "15 audios",
+    status: "5:00, 13:00 y 21:00",
+  },
+  {
+    title: "Separadores IA, proverbios e IDs",
+    description: "Identidad sonora, proverbios, frases cortas y avisos entre canciones.",
+    count: "37 audios",
+    status: "Cada 4 canciones",
   },
   {
     title: "Audios del ministerio y especiales",
-    description: "Audios propios, material pastoral y contenido para revision ministerial.",
+    description: "Material propio, notas pastorales y contenido especial de la comunidad.",
     count: "33 audios",
-    status: "Activo",
+    status: "Cada 9 canciones",
+  },
+];
+
+const installGuides = [
+  {
+    icon: Smartphone,
+    title: "Android o Chrome",
+    text: "Toca Instalar app gratis o abre el menu del navegador y elige Instalar app.",
+  },
+  {
+    icon: MonitorUp,
+    title: "iPhone o Safari",
+    text: "Toca Compartir, luego Agregar a pantalla de inicio para abrirla como app.",
+  },
+  {
+    icon: Volume2,
+    title: "Segundo plano",
+    text: "Despues de tocar play, usa los controles del telefono. Algunos navegadores pueden limitarlo.",
+  },
+];
+
+const tiktokNotes = [
+  {
+    icon: Tv2,
+    title: "Usar como escena",
+    text: "Abre la escena vertical y capturala en TikTok Live Studio como ventana o fuente de navegador.",
+  },
+  {
+    icon: Mic2,
+    title: "Mejor uso recomendado",
+    text: "Combinala con tu voz, camara, oracion, saludos y avisos; AzuraCast sigue siendo la radio 24/7.",
+  },
+  {
+    icon: Sparkles,
+    title: "Cuidado con derechos",
+    text: "Para directos publicos, usa musica propia, autorizada o habla encima con volumen controlado.",
   },
 ];
 
@@ -77,6 +128,14 @@ function formatTime(value?: string) {
     minute: "2-digit",
     timeZoneName: "short",
   }).format(new Date(value));
+}
+
+function formatChicagoClock(date: Date) {
+  return new Intl.DateTimeFormat("es", {
+    hour: "2-digit",
+    minute: "2-digit",
+    timeZone: "America/Chicago",
+  }).format(date);
 }
 
 type AzuraSong = {
@@ -99,6 +158,12 @@ function getSongText(song?: AzuraSong) {
   return song.text || [song.artist, song.title].filter(Boolean).join(" - ") || song.title || "";
 }
 
+function isLegacyRadioUrl(url?: string) {
+  if (!url) return false;
+  const lowerUrl = url.toLowerCase();
+  return lowerUrl.includes("zeno.fm") || lowerUrl.includes("zenomedia.com");
+}
+
 function getLiveSnapshot(data: unknown): LiveSnapshot | null {
   const payload = Array.isArray(data) ? data[0] : data;
   if (!payload || typeof payload !== "object") return null;
@@ -107,37 +172,63 @@ function getLiveSnapshot(data: unknown): LiveSnapshot | null {
   return {
     isOnline: Boolean(record.is_online),
     listeners: Number(record.listeners?.current ?? record.listeners?.total ?? 0),
-    playlist: String(record.now_playing?.playlist || ""),
-    song: getSongText(record.now_playing?.song),
-    nextPlaylist: String(record.playing_next?.playlist || ""),
-    nextSong: getSongText(record.playing_next?.song),
+    playlist: String(record.now_playing?.playlist || "AzuraCast AutoDJ"),
+    song: getSongText(record.now_playing?.song) || "Avivando el Fuego Radio",
+    nextPlaylist: String(record.playing_next?.playlist || "Rotacion automatica"),
+    nextSong: getSongText(record.playing_next?.song) || "Programacion continua",
   };
+}
+
+function SceneBars() {
+  return (
+    <div className="flex h-16 items-end justify-center gap-1.5 md:h-24 md:gap-2" aria-hidden>
+      {Array.from({ length: 28 }).map((_, index) => (
+        <span
+          key={index}
+          className="w-2 rounded-full bg-gradient-to-t from-red-600 via-orange-400 to-amber-200 shadow-[0_0_18px_rgba(249,115,22,0.45)] animate-radio-bar"
+          style={{
+            height: `${28 + ((index * 23) % 68)}%`,
+            animationDelay: `${index * 48}ms`,
+          }}
+        />
+      ))}
+    </div>
+  );
 }
 
 export default function RadioPage() {
   const { data: station, isLoading, isError } = useRadioStation();
   const libraryTracks = station?.library.tracks ?? [];
   const provider = station?.provider;
-  const stationUrl = provider?.stationUrl || "https://40.160.2.176.sslip.io/public/avivando_el_fuego";
-  const isAzuraCastPrimary = provider?.isPrimary ?? false;
+  const effectiveStreamUrl =
+    !station?.streamUrl || isLegacyRadioUrl(station.streamUrl) ? DEFAULT_AZURACAST_STREAM_URL : station.streamUrl;
+  const effectiveMetadataUrl = station?.metadataUrl || DEFAULT_AZURACAST_METADATA_URL;
+  const stationUrl =
+    !provider?.stationUrl || isLegacyRadioUrl(provider.stationUrl) ? DEFAULT_AZURACAST_STATION_URL : provider.stationUrl;
+  const isAzuraCastPrimary = provider?.isPrimary ?? effectiveStreamUrl.includes("sslip.io");
   const lastSync = station?.updatedAt ? formatTime(station.updatedAt) : "";
+  const [clock, setClock] = useState(() => new Date());
   const [liveSnapshot, setLiveSnapshot] = useState<LiveSnapshot | null>(null);
   const streamHost = useMemo(() => {
-    if (!station?.streamUrl) return "AzuraCast";
     try {
-      return new URL(station.streamUrl).host;
+      return new URL(effectiveStreamUrl).host;
     } catch {
       return "AzuraCast";
     }
-  }, [station?.streamUrl]);
+  }, [effectiveStreamUrl]);
 
   useEffect(() => {
-    if (!station?.metadataUrl) return;
+    const timer = window.setInterval(() => setClock(new Date()), 1000);
+    return () => window.clearInterval(timer);
+  }, []);
+
+  useEffect(() => {
+    if (!effectiveMetadataUrl) return;
 
     let cancelled = false;
     const loadLiveSnapshot = async () => {
       try {
-        const response = await fetch(station.metadataUrl, { cache: "no-store" });
+        const response = await fetch(effectiveMetadataUrl, { cache: "no-store" });
         if (!response.ok) return;
         const snapshot = getLiveSnapshot(await response.json());
         if (!cancelled) setLiveSnapshot(snapshot);
@@ -147,129 +238,141 @@ export default function RadioPage() {
     };
 
     loadLiveSnapshot();
-    const timer = window.setInterval(loadLiveSnapshot, 20000);
+    const timer = window.setInterval(loadLiveSnapshot, 15000);
     return () => {
       cancelled = true;
       window.clearInterval(timer);
     };
-  }, [station?.metadataUrl]);
+  }, [effectiveMetadataUrl]);
+
+  const clockText = formatChicagoClock(clock);
 
   return (
     <Layout>
-      <section className="relative overflow-hidden border-b py-10 md:py-14">
-        <div className="hero-grid-bg absolute inset-0 opacity-70" aria-hidden />
-        <div className="absolute inset-x-0 top-0 h-1 fire-gradient" aria-hidden />
-        <div className="relative mx-auto max-w-7xl px-4">
-          <div className="grid gap-7 lg:grid-cols-[0.95fr_1.05fr] lg:items-end">
-            <div>
-              <div className="mb-4 flex flex-wrap items-center gap-2">
-                <Badge variant="outline" className="gap-1">
-                  <Radio className="h-3 w-3" />
-                  Radio online
-                </Badge>
-                <Badge variant={isAzuraCastPrimary ? "default" : "secondary"} className="gap-1">
-                  <Satellite className="h-3 w-3" />
-                  {isAzuraCastPrimary ? "AzuraCast activo" : "Senal configurada"}
-                </Badge>
+      <section className="relative overflow-hidden bg-[#08070a] text-white">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_18%_12%,rgba(249,115,22,0.32),transparent_34%),radial-gradient(circle_at_78%_14%,rgba(220,38,38,0.2),transparent_32%),radial-gradient(circle_at_50%_92%,rgba(251,191,36,0.16),transparent_42%)]" />
+        <div className="absolute inset-0 hero-grid-bg opacity-30" aria-hidden />
+        <div className="absolute inset-x-0 top-0 h-2 fire-gradient" aria-hidden />
+
+        <div className="relative mx-auto max-w-7xl px-4 py-8 md:py-12">
+          <div className="mb-8 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+            <div className="flex items-center gap-4">
+              <span className="flame-logo-wrap flex h-16 w-16 shrink-0 items-center justify-center rounded-full border border-orange-400/30 bg-black/35 backdrop-blur md:h-20 md:w-20">
+                <FlameLogoSVG className="h-14 w-14 md:h-16 md:w-16" animate />
+              </span>
+              <div>
+                <p className="font-display text-xs uppercase tracking-[0.28em] text-orange-200 md:text-sm">Avivando el Fuego</p>
+                <h1 className="heading-display text-[clamp(3.1rem,8vw,7.25rem)] leading-none">Radio</h1>
+              </div>
+            </div>
+            <div className="flex flex-wrap items-center gap-3">
+              <div className="rounded-md border border-white/10 bg-white/10 px-4 py-3 text-right backdrop-blur">
+                <p className="font-display text-3xl leading-none md:text-4xl">{clockText}</p>
+                <p className="mt-1 text-xs uppercase tracking-[0.26em] text-orange-200">Hora central</p>
+              </div>
+              <Button asChild variant="outline" className="border-orange-300/30 bg-white/10 text-white hover:bg-white/20">
+                <a href="/radio-live-scene" target="_blank" rel="noreferrer">
+                  <Mic2 className="h-4 w-4" />
+                  Escena TikTok
+                </a>
+              </Button>
+            </div>
+          </div>
+
+          <div className="grid gap-8 lg:grid-cols-[minmax(0,1.08fr)_minmax(360px,0.92fr)] lg:items-center">
+            <div className="min-w-0 space-y-6">
+              <div className="inline-flex items-center gap-3 rounded-full border border-orange-300/25 bg-orange-500/15 px-5 py-3 text-xs font-semibold uppercase tracking-[0.2em] text-orange-100 md:text-sm">
+                <Radio className="h-5 w-5" />
+                {liveSnapshot?.isOnline || isAzuraCastPrimary ? "Transmitiendo en vivo" : "Conectando senal"}
               </div>
 
-              <h1 className="heading-display max-w-3xl text-5xl leading-none md:text-7xl">
-                Avivando el Fuego Radio
-              </h1>
-              <p className="mt-5 max-w-2xl text-base text-muted-foreground md:text-lg">
-                Adoracion, alabanza, Palabra y predicacion en una emisora cristiana 24/7 conectada al ministerio.
-              </p>
+              <div>
+                <p className="mb-3 text-sm uppercase tracking-[0.28em] text-orange-200 md:text-base">
+                  {liveSnapshot?.playlist || "AzuraCast AutoDJ"}
+                </p>
+                <h2 className="heading-display max-w-full break-words text-[clamp(1.55rem,5.8vw,5.6rem)] leading-[1.02] [overflow-wrap:anywhere] md:max-w-4xl md:text-[clamp(2.4rem,5.8vw,5.6rem)] md:leading-[0.96]">
+                  {liveSnapshot?.song || "Avivando el Fuego Radio"}
+                </h2>
+                <p className="mt-5 max-w-2xl text-base leading-relaxed text-orange-50/82 md:text-xl">
+                  Adoracion, alabanza, Palabra, separadores y predicacion desde el servidor propio del ministerio.
+                </p>
+              </div>
 
-              <div className="mt-6 flex flex-wrap gap-3">
-                <Button asChild>
+              <SceneBars />
+
+              <div className="grid gap-4 sm:grid-cols-[1fr_9rem]">
+                <div className="rounded-md border border-white/10 bg-white/10 p-4 backdrop-blur md:p-5">
+                  <p className="mb-2 text-xs uppercase tracking-[0.28em] text-orange-200">Siguiente</p>
+                  <p className="line-clamp-2 text-lg font-semibold md:text-2xl">
+                    {liveSnapshot?.nextSong || "AzuraCast selecciona el proximo audio"}
+                  </p>
+                </div>
+                <div className="rounded-md border border-white/10 bg-white/10 p-4 text-center backdrop-blur md:p-5">
+                  <Headphones className="mx-auto mb-2 h-7 w-7 text-orange-300" />
+                  <p className="font-display text-4xl leading-none">{liveSnapshot?.listeners ?? 0}</p>
+                  <p className="mt-1 text-xs uppercase tracking-[0.22em] text-orange-200">Oyentes</p>
+                </div>
+              </div>
+            </div>
+
+            <div id="radio-player" className="min-w-0 scroll-mt-24">
+              {isLoading ? (
+                <Skeleton className="h-72 w-full rounded-[2rem] bg-white/10" />
+              ) : isError || !station ? (
+                <Card className="border-orange-300/25 bg-black/45 text-white">
+                  <CardContent className="flex items-center gap-3 p-6">
+                    <Radio className="h-5 w-5 text-orange-300" />
+                    <p className="text-sm text-orange-50/80">No se pudo cargar la configuracion de la radio.</p>
+                  </CardContent>
+                </Card>
+              ) : (
+                <RadioStationPlayer
+                  streamUrl={effectiveStreamUrl}
+                  title={station.name}
+                  subtitle={station.slogan}
+                  isConfigured={station.isConfigured}
+                  metadataUrl={effectiveMetadataUrl}
+                  playlist={effectiveStreamUrl.startsWith("/uploads/radio/") ? libraryTracks : []}
+                  variant="scene"
+                />
+              )}
+
+              <div className="mt-5 rounded-md border border-white/10 bg-white/10 p-4 backdrop-blur md:p-5">
+                <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <h3 className="font-display text-2xl leading-none text-white">Instalala como app</h3>
+                    <p className="mt-2 text-sm text-orange-50/76">
+                      Gratis desde cualquier navegador compatible. No necesitas descargar nada de una tienda.
+                    </p>
+                  </div>
+                  <RadioInstallActions url="https://ministerioavivandoelfuego.com/radio" compact />
+                </div>
+                <div className="grid gap-3 md:grid-cols-3">
+                  {installGuides.map((item) => (
+                    <div key={item.title} className="rounded-md border border-orange-200/10 bg-black/20 p-3">
+                      <item.icon className="mb-2 h-5 w-5 text-orange-300" />
+                      <p className="text-sm font-bold text-white">{item.title}</p>
+                      <p className="mt-1 text-xs leading-relaxed text-orange-50/72">{item.text}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="mt-4 flex flex-col gap-2 sm:flex-row">
+                <Button asChild className="fire-btn-primary w-full sm:w-auto">
                   <a href="#radio-player">
                     <Headphones className="h-4 w-4" />
                     Escuchar ahora
                   </a>
                 </Button>
-                <Button asChild variant="outline">
+                <Button asChild variant="outline" className="w-full border-orange-300/30 bg-white/10 text-white hover:bg-white/20 sm:w-auto">
                   <a href={stationUrl} target="_blank" rel="noreferrer">
                     <ArrowUpRight className="h-4 w-4" />
-                    Abrir emisora
+                    Abrir AzuraCast
                   </a>
                 </Button>
-                <Button asChild variant="outline">
-                  <a href="/radio-live-scene" target="_blank" rel="noreferrer">
-                    <Mic2 className="h-4 w-4" />
-                    Escena TikTok
-                  </a>
-                </Button>
-              </div>
-              <div className="mt-4">
-                <RadioInstallActions url="https://ministerioavivandoelfuego.com/radio" compact />
               </div>
             </div>
-
-            <Card className="bg-card/85 backdrop-blur">
-              <CardContent className="p-5">
-                <div className="mb-4 flex items-center justify-between gap-3">
-                  <div className="flex items-center gap-2">
-                    <Signal className="h-5 w-5 text-primary" />
-                    <span className="font-semibold">Estado de la emisora</span>
-                  </div>
-                  <Badge variant={station?.isConfigured ? "default" : "secondary"}>
-                    {station?.isConfigured ? "Operativa" : "Configurando"}
-                  </Badge>
-                </div>
-
-                {isLoading ? (
-                  <div className="space-y-3">
-                    <Skeleton className="h-6 w-44" />
-                    <Skeleton className="h-16 w-full" />
-                  </div>
-                ) : (
-                  <div className="space-y-4">
-                    <div>
-                      <h2 className="text-2xl font-bold">Transmitiendo desde AzuraCast</h2>
-                      <p className="mt-2 text-sm text-muted-foreground">
-                        La senal, Icecast y AutoDJ funcionan 24/7 desde el VPS del ministerio.
-                      </p>
-                    </div>
-                    <div className="grid gap-3 sm:grid-cols-3">
-                      <div className="rounded-md border bg-background/60 p-3">
-                        <p className="text-xs text-muted-foreground">Audio activo</p>
-                        <p className="mt-1 font-bold">MP3 en vivo</p>
-                      </div>
-                      <div className="rounded-md border bg-background/60 p-3">
-                        <p className="text-xs text-muted-foreground">Biblioteca activa</p>
-                        <p className="mt-1 font-bold">79 audios nuevos</p>
-                      </div>
-                      <div className="rounded-md border bg-background/60 p-3">
-                        <p className="text-xs text-muted-foreground">Actualizado</p>
-                        <p className="mt-1 font-bold">{lastSync || "Ahora"}</p>
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </div>
-
-          <div id="radio-player" className="mt-8 scroll-mt-24">
-            {isLoading ? (
-              <Skeleton className="h-44 w-full rounded-lg" />
-            ) : isError || !station ? (
-              <Card>
-                <CardContent className="flex items-center gap-3 p-6">
-                  <Signal className="h-5 w-5 text-destructive" />
-                  <p className="text-sm text-muted-foreground">No se pudo cargar la configuracion de la radio.</p>
-                </CardContent>
-              </Card>
-            ) : (
-              <RadioStationPlayer
-                streamUrl={station.streamUrl}
-                title={station.name}
-                subtitle={station.slogan}
-                isConfigured={station.isConfigured}
-                metadataUrl={station.metadataUrl}
-                playlist={station.streamUrl.startsWith("/uploads/radio/") ? libraryTracks : []}
-              />
-            )}
           </div>
         </div>
       </section>
@@ -333,32 +436,31 @@ export default function RadioPage() {
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <ShieldCheck className="h-5 w-5 text-primary" />
-                  Enlace Oficial
+                  <Tv2 className="h-5 w-5 text-primary" />
+                  Escena TikTok Live
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
                 <p className="text-sm text-muted-foreground">
-                  La pagina reproduce el stream directo de AzuraCast. El enlace publico queda disponible para compartirlo con la congregacion.
+                  La escena vertical puede usarse como fondo o captura visual en un directo. El servidor de radio debe seguir siendo AzuraCast.
                 </p>
-                <div className="rounded-md border bg-background/60 p-3 text-sm">
-                  <p className="font-medium">{provider?.name || "AzuraCast"}</p>
-                  <p className="mt-1 break-all text-muted-foreground">{stationUrl}</p>
+                <div className="grid gap-3">
+                  {tiktokNotes.map((item) => (
+                    <div key={item.title} className="flex gap-3 rounded-md border bg-background/60 p-4">
+                      <item.icon className="mt-1 h-5 w-5 shrink-0 text-primary" />
+                      <div>
+                        <h3 className="font-bold">{item.title}</h3>
+                        <p className="mt-1 text-sm text-muted-foreground">{item.text}</p>
+                      </div>
+                    </div>
+                  ))}
                 </div>
-                <div className="flex flex-col gap-2 sm:flex-row">
-                  <Button asChild variant="outline" className="w-full sm:w-auto">
-                    <a href={stationUrl} target="_blank" rel="noreferrer">
-                      <ArrowUpRight className="h-4 w-4" />
-                      Visitar estacion
-                    </a>
-                  </Button>
-                  <Button asChild variant="outline" className="w-full sm:w-auto">
-                    <a href="/radio-live-scene" target="_blank" rel="noreferrer">
-                      <Mic2 className="h-4 w-4" />
-                      Abrir escena vertical
-                    </a>
-                  </Button>
-                </div>
+                <Button asChild variant="outline" className="w-full sm:w-auto">
+                  <a href="/radio-live-scene" target="_blank" rel="noreferrer">
+                    <Mic2 className="h-4 w-4" />
+                    Abrir escena vertical
+                  </a>
+                </Button>
               </CardContent>
             </Card>
           </div>
@@ -400,13 +502,19 @@ export default function RadioPage() {
                 <div className="rounded-md border bg-background/60 p-4">
                   <h3 className="font-bold">AutoDJ propio</h3>
                   <p className="mt-1 text-sm text-muted-foreground">
-                    Liquidsoap e Icecast manejan la lista activa desde el servidor. Esta pagina muestra ahora la playlist y la proxima pista que informa AzuraCast.
+                    Liquidsoap e Icecast manejan la lista activa desde el servidor. La pagina lee la playlist actual y la proxima pista desde AzuraCast.
                   </p>
                 </div>
                 <div className="rounded-md border bg-background/60 p-4">
-                  <h3 className="font-bold">Nuevo material separado</h3>
+                  <h3 className="font-bold">Predicas separadas</h3>
                   <p className="mt-1 text-sm text-muted-foreground">
-                    Lo nuevo se programa aparte del paquete inicial. Los audios anteriores quedan guardados, pero no entran en la rotacion principal.
+                    Las predicas se programan en horarios concretos para evitar que una predica termine y empiece otra de inmediato.
+                  </p>
+                </div>
+                <div className="rounded-md border bg-background/60 p-4">
+                  <h3 className="font-bold">Ultima sincronizacion</h3>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    {lastSync || "La pagina consulta el servidor en vivo cada pocos segundos."}
                   </p>
                 </div>
               </CardContent>
@@ -428,11 +536,11 @@ export default function RadioPage() {
             <Music2 className="mt-1 h-5 w-5 text-primary" />
             <div>
               <h3 className="font-bold">Contenido vocal</h3>
-              <p className="mt-1 text-sm text-muted-foreground">Adoracion, coros, Palabra y mensajes, sin depender de una parrilla ficticia.</p>
+              <p className="mt-1 text-sm text-muted-foreground">Adoracion, coros, Palabra, separadores y mensajes del ministerio.</p>
             </div>
           </div>
           <div className="flex items-start gap-3">
-            <Mic2 className="mt-1 h-5 w-5 text-primary" />
+            <CalendarClock className="mt-1 h-5 w-5 text-primary" />
             <div>
               <h3 className="font-bold">Lista para crecer</h3>
               <p className="mt-1 text-sm text-muted-foreground">La cartelera puede recibir anuncios, campanas y predicas nuevas del ministerio.</p>

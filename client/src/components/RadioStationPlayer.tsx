@@ -25,6 +25,7 @@ type RadioStationPlayerProps = {
   isConfigured: boolean;
   metadataUrl?: string;
   playlist?: RadioLibraryTrack[];
+  variant?: "default" | "scene";
 };
 
 function isHlsUrl(url: string) {
@@ -70,6 +71,7 @@ export function RadioStationPlayer({
   isConfigured,
   metadataUrl,
   playlist = [],
+  variant = "default",
 }: RadioStationPlayerProps) {
   const audioRef = useRef<HTMLAudioElement>(null);
   const hlsRef = useRef<Hls | null>(null);
@@ -257,9 +259,16 @@ export function RadioStationPlayer({
 
   const isPlaying = status === "playing" || status === "loading";
   const statusLabel = isConfigured ? (playlist.length ? "BIBLIOTECA ACTIVA" : "SENAL OFICIAL") : "MODO PRUEBA";
+  const isScene = variant === "scene";
 
   return (
-    <div className="overflow-hidden rounded-lg border bg-card shadow-xl">
+    <div
+      className={
+        isScene
+          ? "overflow-hidden rounded-[2rem] border border-orange-400/25 bg-black/45 shadow-[0_36px_120px_rgba(0,0,0,0.48),0_0_70px_rgba(249,115,22,0.16)] backdrop-blur"
+          : "overflow-hidden rounded-lg border bg-card shadow-xl"
+      }
+    >
       <audio
         ref={audioRef}
         crossOrigin="anonymous"
@@ -272,11 +281,17 @@ export function RadioStationPlayer({
         onError={() => setStatus("error")}
       />
 
-      <div className="fire-gradient p-[1px]">
-        <div className="bg-card px-5 py-5 md:px-7 md:py-6">
-          <div className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
+      <div className={isScene ? "bg-gradient-to-br from-orange-300 via-orange-600 to-red-700 p-[1px]" : "fire-gradient p-[1px]"}>
+        <div className={isScene ? "bg-[#090608]/92 px-5 py-6 md:px-8 md:py-8" : "bg-card px-5 py-5 md:px-7 md:py-6"}>
+          <div className={isScene ? "flex flex-col gap-7 2xl:flex-row 2xl:items-center 2xl:justify-between" : "flex flex-col gap-6 md:flex-row md:items-center md:justify-between"}>
             <div className="flex items-center gap-4">
-              <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-lg border bg-background">
+              <div
+                className={
+                  isScene
+                    ? "flex h-24 w-24 shrink-0 items-center justify-center rounded-2xl border border-orange-300/25 bg-white/5 shadow-[0_0_42px_rgba(249,115,22,0.24)]"
+                    : "flex h-20 w-20 shrink-0 items-center justify-center rounded-lg border bg-background"
+                }
+              >
                 {isPlaying ? <Visualizer active={isPlaying} /> : <Radio className="h-9 w-9 text-primary" />}
               </div>
               <div className="min-w-0">
@@ -292,24 +307,33 @@ export function RadioStationPlayer({
                     </Badge>
                   )}
                 </div>
-                <h2 className="heading-display text-3xl leading-none md:text-4xl">{title}</h2>
-                <p className="mt-2 max-w-xl text-sm text-muted-foreground">
+                <h2 className={isScene ? "heading-display text-4xl leading-none text-white md:text-6xl" : "heading-display text-3xl leading-none md:text-4xl"}>{title}</h2>
+                <p className={isScene ? "mt-3 max-w-xl text-sm text-orange-50/78 md:text-base" : "mt-2 max-w-xl text-sm text-muted-foreground"}>
                   {metadata || playlistTrack?.title || subtitle}
                 </p>
               </div>
             </div>
 
-            <div className="flex flex-col gap-3 md:items-end">
+            <div className={isScene ? "flex flex-col items-start gap-3 2xl:items-end" : "flex flex-col gap-3 md:items-end"}>
               <div className="flex items-center gap-3">
                 <Button
                   size="icon"
-                  className="h-12 w-12 rounded-lg"
+                  className={
+                    isScene
+                      ? "h-16 w-16 rounded-full bg-gradient-to-br from-amber-200 via-orange-500 to-red-600 text-black shadow-[0_0_0_9px_rgba(251,146,60,0.12),0_18px_50px_rgba(249,115,22,0.38)] hover:scale-[1.03] hover:brightness-110"
+                      : "h-12 w-12 rounded-lg"
+                  }
                   onClick={togglePlayback}
                   disabled={!currentSource}
                   data-testid="button-radio-station-play"
                 >
                   {isPlaying ? <Pause className="h-5 w-5" /> : <Play className="h-5 w-5" />}
                 </Button>
+                {isScene && (
+                  <div className="hidden rounded-full border border-orange-300/25 bg-orange-500/10 px-4 py-2 text-xs font-black uppercase tracking-[0.16em] text-orange-100 2xl:block">
+                    Toca para escuchar en vivo
+                  </div>
+                )}
                 {playlist.length > 1 && (
                   <Button size="icon" variant="outline" className="h-10 w-10" onClick={() => void playNext()}>
                     <SkipForward className="h-4 w-4" />
@@ -326,7 +350,7 @@ export function RadioStationPlayer({
                 </Button>
                 <input
                   aria-label="Volumen de la radio"
-                  className="w-28 accent-primary"
+                  className={isScene ? "w-28 accent-orange-400" : "w-28 accent-primary"}
                   type="range"
                   min={0}
                   max={100}
